@@ -127,7 +127,8 @@ can be given up at the named milestone, once something else checks what it used 
    `linux-x64-gcc` / `linux-x64-clang` for whatever already builds there: no warnings.
 2. Until M6 (issue #94): `oracle-x86`: `difftest` passes and **its check counts are unchanged**; `lines.py check`
    (until M5); `compare_imports.py` and `compare_resources.py` against Tibia.exe. Since M6 the golden corpus
-   (gate 5) has the oracle's counts: 15,803,218 replayed + 1,512,822 retired = 17,316,040, 0 failures.
+   (gate 5) has the oracle's counts: 15,739,165 replayed + 1,576,875 retired = 17,316,040, 0 failures (until the
+   original frame's checks were retired after #127: 15,803,218 + 1,512,822).
 3. Tier A on Windows x64: `compare_traffic.py`, `compare_files.py`: 0 differences. `compare_rendering.py`
    (or, from M2, the reference frames) on every pull request that touches drawing, GUI or surfaces; the full
    matrix before a milestone closes.
@@ -753,7 +754,7 @@ One platform layer for both operating systems, with **SDL3** (D3) for the things
   Visual Studio MFC component, so hosted CI can build everything.
   Done in #127 (notes/decisions.md, "#127"): no source includes MFC; `src/compat/mfc_shim.h`, `PATELLA_WINDOW=mfc` and the
   Win32 window system are gone; CPlayerApp derives from nothing and WinMain is `src/platform/EntryWin32.cpp`; the golden
-  corpus's MainFrm test runs on the original's frame kept as test code in `tests/golden/mfc`. Hosted CI builds and tests
+  corpus's MainFrm checks are retired (the owner's decision after #127). Hosted CI builds and tests
   the full Patella.exe and PatellaTest.exe with neutral placeholder pictures (`PATELLA_PLACEHOLDER_RESOURCES`, refused
   where a Tibia.exe exists).
 - **Crypto:** XTEA and raw RSA are protocol requirements and stay. `vlong` stays as a portable, tested

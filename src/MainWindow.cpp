@@ -804,8 +804,7 @@ void patella::TGUI::InitMainWindow(int Width, int Height, void (*ExitProgram)(),
 	OpenURLCallback = OpenURL;
 }
 
-// The free function of the original's name (issue #118): MainFrm.cpp's OnCreate and the golden MainWindow test call
-// it, the golden MainFrm test fakes it.
+// The free function of the original's name (issue #118): src/SdlFrame.cpp and the golden MainWindow test call it.
 void InitMainWindow(int Width, int Height, void (*ExitProgram)(), void (*SetDisplayMode)(int Mode),
 	void (*OpenURL)(const char *URL))
 {

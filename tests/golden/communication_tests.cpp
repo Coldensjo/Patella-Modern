@@ -48,8 +48,7 @@
 #include <string.h>
 
 // --- What difftest.exe's other test files provide -------------------------
-// (The runner has them: status_tests.cpp's PatchImage, network_tests.cpp's CAsyncSocket and AfxSocketInit,
-// mainfrm_tests.cpp's MainFrm.cpp.)
+// (The runner has them: status_tests.cpp's PatchImage, network_tests.cpp's CAsyncSocket and AfxSocketInit.)
 
 
 // --- Control.cpp's functions that ReceivePackets calls -----------------------

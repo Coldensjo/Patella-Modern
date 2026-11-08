@@ -20,7 +20,7 @@
 // ported tests and checks that each makes exactly the checks the oracle made and passes them (a test's
 // retired parts, golden::RetiredBegin, are skipped: their checks are counted apart, and the replayed and the
 // retired ones together must be the oracle's); it lists the tests retired with the oracle as a whole
-// (RetiredTests: issue #29's engine tests), counted with the retired checks, and the oracle's tests that are
+// (RetiredTests: issue #29's engine tests, the original's frame after issue #127), counted with the retired checks, and the oracle's tests that are
 // not ported yet, with their checks. Exit code: 0 when every replayed test
 // passed with the oracle's check count, 1 on a failure or a stale corpus, 77 without a corpus.
 //
@@ -87,7 +87,7 @@ const TExecutable Executables[] = {
 			{"FormatNumber", TestFormatNumber}, {"Buffers", TestBuffers}, {"Skins", TestSkins},
 			{"Regexp", TestRegexp}, {"Status", TestStatus},
 			{"Preferences", TestPreferences}, {"Script", TestScript}, {"PreferencesFile", TestPreferencesFile},
-			{"Player", TestPlayer}, {"Help", TestHelp}, {"Inventory", TestInventory},
+			{"Player", TestPlayer, "#127"}, {"Help", TestHelp}, {"Inventory", TestInventory},
 			{"Talk", TestTalk}, {"Container", TestContainer},
 			{"Objects", [] { TestObjects(nullptr); }}, {"Map", [] { TestMap(nullptr); }},
 			{"Creatures", [] { TestCreatures(nullptr); }},
@@ -97,7 +97,7 @@ const TExecutable Executables[] = {
 			{"ContentWindows", TestContentWindows},
 			{"DialogElements", TestDialogElements}, {"Dialogs", TestDialogs, "#28/#31"},
 			{"Errors", [] { TestErrors(nullptr); }, "#26"},
-			{"Network", TestNetwork}, {"MainFrm", TestMainFrm},
+			{"Network", TestNetwork},
 			{"MapWindow", [] { TestMapWindow(nullptr); }}, {"MainWindow", TestMainWindow},
 			{"Divisions", [] { TestDivisions(nullptr); }, nullptr, "#67"}}},
 	{"sysinctest", {{"Sysinc", TestSysinc}}},
@@ -108,7 +108,9 @@ const TExecutable Executables[] = {
 // The oracle's tests that are retired with it as a whole, by the user's decision (issue #29, closed "not
 // planned"; plan M6): the engine tests of the DirectDraw, Direct3D 9 and OpenGL engines, which the x64 client
 // does not have (its only engine is the Vulkan engine, issue #20). They are never replayed; their checks are
-// counted as retired, with the other retired checks, not as "not ported yet".
+// counted as retired, with the other retired checks, not as "not ported yet". MainFrm (the owner's decision after
+// issue #127): it compared the original's MFC frame, which only the test still compiled; the client's frame is
+// src/SdlFrame.cpp, whose calls are not the ones the corpus records.
 struct TRetired {
 	const char *Executable;
 	const char *Name;
@@ -118,6 +120,7 @@ const TRetired RetiredTests[] = {
 	{"difftest", "SurfaceDX", "#29"},
 	{"difftest", "SurfaceDX9", "#29"},
 	{"difftest", "SurfaceGL", "#29"},
+	{"difftest", "MainFrm", "#127"},
 };
 
 const TRetired *FindRetired(const TExecutable &Executable, const std::string &Name)

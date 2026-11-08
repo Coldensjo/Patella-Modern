@@ -564,6 +564,14 @@ void RetiredEnd(int Checks)
 
 long long RetiredChecks() { return TotalRetired; }
 
+void RetireChecks(long long Count)
+{
+	if (CurrentMode != TMode::Replay)
+		return;
+	Replay->Retired += Count;
+	TotalRetired += Count;
+}
+
 namespace {
 std::vector<TDeliberate> DeliberateList;
 TDeliberate *Deliberate = nullptr; // the open part's issue (no entry is added while one is open)

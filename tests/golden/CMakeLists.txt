@@ -54,8 +54,8 @@ set(golden_linux_dir "${CMAKE_CURRENT_SOURCE_DIR}/linux")
 # Linux (issue #91)".
 # - -fno-strict-aliasing: the tests read our objects, vtables and member pointers through other types (as the oracle's
 #   tests did); MSVC never optimises on the aliasing rules.
-# - -fno-delete-null-pointer-checks: the MFC stand-in's GetSafeHwnd compares this with nullptr, as MFC's does, and MSVC
-#   keeps the comparison; GCC and Clang warn about it (-Wno-nonnull-compare, -Wno-tautological-undefined-compare).
+# - -fno-delete-null-pointer-checks: the Network test's fakes number a null socket apart from another (network_tests.cpp:
+#   the log's Connect-1) from a this that may be null; MSVC keeps that comparison and GCC would remove it.
 # - -fwrapv: the error rounds give the code extreme sizes and positions (INT_MAX), whose sums the original and MSVC's
 #   code wrap around (TWindow::FitToChild, GUI.cpp); GCC and Clang assume a signed int never overflows, and UBSan
 #   reports it (signed-integer-overflow, which -fwrapv makes defined).
@@ -81,14 +81,12 @@ set(golden_linux_options -fno-strict-aliasing -fno-delete-null-pointer-checks -f
 set(golden_linux_warnings -Wno-invalid-offsetof -Wno-overloaded-virtual -Wno-delete-non-virtual-dtor)
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	list(APPEND golden_linux_options -fno-lifetime-dse)
-	list(APPEND golden_linux_warnings -Wno-class-memaccess -Wno-stringop-truncation -Wno-mismatched-new-delete
-		-Wno-nonnull-compare)
+	list(APPEND golden_linux_warnings -Wno-class-memaccess -Wno-stringop-truncation -Wno-mismatched-new-delete)
 else()
 	if(PATELLA_SANITIZE MATCHES "undefined")
 		list(APPEND golden_linux_options -fno-sanitize=vptr,object-size)
 	endif()
-	list(APPEND golden_linux_warnings -Wno-tautological-undefined-compare -Wno-delete-non-abstract-non-virtual-dtor
-		-Wno-non-pod-varargs)
+	list(APPEND golden_linux_warnings -Wno-delete-non-abstract-non-virtual-dtor -Wno-non-pod-varargs)
 endif()
 # GCC and Clang compile the client's code and the ported tests for the first time here (issue #91): at the warning
 # baseline's level (cmake/Warnings.cmake: -Wall, warnings as errors), as MSVC compiles most of them (its baseline,
@@ -138,9 +136,8 @@ target_compile_definitions(golden_sysinc PRIVATE GetMilliseconds=SysincGetMillis
 # client_stubs.cpp has the functions of the other files, which the tests never call. Since issue #28
 # graphics.cpp, GUI.cpp and every window file (the classes the window tests build and the files Errors,
 # MapWindow, MainWindow, Communication and Control reach) are here too, as in the oracle; the stubs are the
-# files below them (Communication.cpp's Send functions, Control.cpp, the Vulkan engine). mfc/MainFrm.cpp (the original's
-# frame, kept for the corpus: issue #127) and Network.cpp are compiled into their tests (mainfrm_tests.cpp,
-# network_tests.cpp, as in the oracle: the tests read their statics). Client.cpp (issue #104): the one TClient that Preferences.cpp's free functions reach.
+# files below them (Communication.cpp's Send functions, Control.cpp, the Vulkan engine). Network.cpp is compiled into its test
+# (network_tests.cpp, as in the oracle: the test reads its statics). Client.cpp (issue #104): the one TClient that Preferences.cpp's free functions reach.
 add_library(golden_client OBJECT
 	"${PROJECT_SOURCE_DIR}/src/Status.cpp"
 	"${PROJECT_SOURCE_DIR}/src/Client.cpp"
@@ -188,7 +185,6 @@ add_library(golden_client_tests OBJECT
 	map_tests.cpp
 	creatures_tests.cpp
 	golden_eh.cpp
-	mainfrm_tests.cpp
 	graphics_tests.cpp
 	gui_tests.cpp
 	elementfakes.cpp
