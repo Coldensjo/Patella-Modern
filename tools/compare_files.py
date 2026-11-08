@@ -72,6 +72,7 @@ import time
 import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import client_state as cs  # noqa: E402
 import desktop  # noqa: E402
 import sandbox  # noqa: E402
 import compare_traffic as ct  # noqa: E402
@@ -315,22 +316,53 @@ def game_login(driver, wait, proxy):
 	sc.login(driver, wait, sc.CHARACTER, proxy)
 
 
-def nodes(driver, cls):
-	return [n for n in driver.mem.gui() if n["class"] == cls]
+READ_AGAIN = 2.0  # seconds a failed window tree reading is read again (issue #149)
+READ_POLL = 0.05  # seconds between two such readings
+
+
+def gui(driver, deadline=None):
+	"""The client's window tree (client_state's gui(), the test client's probe). Patella-Modern issue #149:
+	Tibia.exe's tree is read from outside while the client changes it, and a walk that meets a dialog being built
+	or freed (the options dialogs, polled right after the click or Return that opens or closes one since #144's
+	waits) follows a stale pointer: ReadProcessMemory fails at 0x9, 0xa, 0xf5f5ff or the text "edit". Such a
+	reading is no answer, so it is read again, every READ_POLL s until deadline (default READ_AGAIN s from now);
+	the last failure (client_state.ReadError, not a RunError: click_open must not take it for a click that opened
+	nothing) is raised after it. Only a failed reading is repeated: what a reading that succeeds shows is used as
+	before (wait_node still wants the same place twice)."""
+	deadline = time.time() + READ_AGAIN if deadline is None else deadline
+	failed = 0
+	while True:
+		try:
+			tree = driver.mem.gui()
+		except cs.ReadError as e:
+			if time.time() >= deadline:
+				raise
+			if not failed:
+				log("the window tree changed during its reading (%s): read again" % e)
+			failed += 1
+			time.sleep(READ_POLL)
+			continue
+		if failed > 1:
+			log("the window tree read after %d failed readings" % failed)
+		return tree
+
+
+def nodes(driver, cls, deadline=None):
+	return [n for n in gui(driver, deadline) if n["class"] == cls]
 
 
 def wait_node(driver, cls, timeout=10):
 	"""The first window of class cls, once it is there and its place has stopped changing (a dialog
 	appears in the tree before it is moved to its place: a click on one of its buttons at the first
-	place read can miss)."""
+	place read can miss). A failed reading is read again within the timeout (gui(), issue #149)."""
 	deadline = time.time() + timeout
 	while time.time() < deadline:
-		found = nodes(driver, cls)
+		found = nodes(driver, cls, deadline)
 		if found:
 			node = found[0]
 			while time.time() < deadline:
 				time.sleep(0.2)
-				again = [n for n in nodes(driver, cls) if n["ptr"] == node["ptr"]]
+				again = [n for n in nodes(driver, cls, deadline) if n["ptr"] == node["ptr"]]
 				if not again:
 					break
 				if (again[0]["x"], again[0]["y"], again[0]["w"], again[0]["h"]) == (node["x"], node["y"], node["w"], node["h"]):
@@ -357,9 +389,11 @@ def click_open(driver, find, cls, wait=4, attempts=3):
 
 
 def wait_gone(driver, cls, timeout=10):
+	"""Until no window of class cls is open; a failed reading is read again within the timeout (gui(), issue
+	#149)."""
 	deadline = time.time() + timeout
 	while time.time() < deadline:
-		if not nodes(driver, cls):
+		if not nodes(driver, cls, deadline):
 			return
 		time.sleep(0.2)
 	raise RunError("the window of class %s is still open after %d s" % (cls, timeout))
@@ -375,7 +409,7 @@ def click_ptr(driver, ptr, dx=None):
 
 
 def button(driver, text):
-	for n in driver.mem.gui():
+	for n in gui(driver):
 		if n["class"] == "TTextButton" and n.get("text") == text:
 			return n
 	raise RunError("no button %r" % text)
@@ -1379,16 +1413,64 @@ def main():
 
 
 def self_test(out=print):
-	"""place_window on a window of this process's own (a STATIC control as a top-level window, no client, no
-	server) and cfg_window on Tibia.cfg lines. Returns the number of failed expectations."""
+	"""The window tree's readings with a reader that fails (issue #149, no client), place_window on a window of
+	this process's own (a STATIC control as a top-level window, no client, no server) and cfg_window on Tibia.cfg
+	lines. Returns the number of failed expectations."""
 	failures = 0
-	out("window placement (issue #68)")
 
 	def check(title, ok):
 		nonlocal failures
 		failures += not ok
 		out("  %-60s %s" % (title, "ok" if ok else "FAILED"))
 
+	out("window tree readings (issue #149)")
+
+	class Reader:
+		"""A window tree whose first `fail` readings fail as a torn walk of Tibia.exe's does."""
+		def __init__(self, fail, tree):
+			self.fail, self.tree, self.reads = fail, tree, 0
+
+		def gui(self):
+			self.reads += 1
+			if self.reads <= self.fail:
+				raise cs.ReadError("ReadProcessMemory 0x9 (4 bytes) failed")
+			return self.tree
+
+	class FakeDriver:
+		def __init__(self, fail, tree):
+			self.mem = Reader(fail, tree)
+			self.clicks = 0
+
+		def click(self, x, y, right=False):
+			self.clicks += 1
+
+	dialog = {"class": "THotkeyDialog", "ptr": 0x1000, "x": 1, "y": 2, "w": 3, "h": 4}
+	ok_button = {"class": "TTextButton", "text": "Ok", "ptr": 0x2000, "x": 0, "y": 0, "w": 1, "h": 1}
+	fake = FakeDriver(3, [dialog])
+	check("three failed readings, then the dialog: found", wait_node(fake, "THotkeyDialog", 5) == dialog
+		and fake.mem.reads == 5)
+	fake = FakeDriver(2, [])
+	wait_gone(fake, "THotkeyDialog", 5)
+	check("two failed readings, then no dialog: gone", fake.mem.reads == 3)
+	fake = FakeDriver(1, [ok_button])
+	check("a failed reading, then the button: found", button(fake, "Ok") == ok_button)
+	fake = FakeDriver(10 ** 6, [dialog])
+	started = time.time()
+	try:
+		wait_node(fake, "THotkeyDialog", 0.5)
+		check("readings that always fail: the ReadError after the timeout", False)
+	except cs.ReadError:
+		check("readings that always fail: the ReadError after the timeout", 0.5 <= time.time() - started < 2)
+	fake = FakeDriver(10 ** 6, [ok_button])
+	try:
+		click_open(fake, lambda: ok_button, "THotkeyDialog", wait=0.3)
+		check("click_open: a failed reading is no click that opened nothing", False)
+	except cs.ReadError:
+		check("click_open: a failed reading is no click that opened nothing", fake.clicks == 1)
+	except Exception:  # noqa: BLE001
+		check("click_open: a failed reading is no click that opened nothing", False)
+
+	out("window placement (issue #68)")
 	check("compare_traffic's Tibia.cfg: (10,10,800,600)", cfg_window() == (10, 10, 800, 600))
 	check("a negative position", cfg_window("WindowedMode = (-4,6,800,600,no)\r\n") == (-4, 6, 800, 600))
 	try:

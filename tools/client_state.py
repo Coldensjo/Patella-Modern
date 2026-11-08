@@ -948,6 +948,11 @@ class Client:
 		return self.read(function, len(self.window_getfirstchild)) == self.window_getfirstchild
 
 	def gui(self):
+		"""The window tree: MainWindow's, then ModalWindow's, walked through TComponent.Next and TWindow.FirstChild.
+		The client changes the tree while it is read: a walk that meets a window being built or freed follows a stale
+		pointer and fails with a ReadError (Patella-Modern issue #149: 0x9, 0xa, 0xf5f5ff, the text "edit" in the
+		options scenario of tools/compare_files.py). Such a reading is no answer; a caller that polls reads again
+		(compare_files.gui, session_client's Driver.wait_until)."""
 		L = self.layout
 		nodes = []
 		# OffsetX to Height in one read, as before

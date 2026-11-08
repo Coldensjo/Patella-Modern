@@ -764,6 +764,14 @@ WSAAsyncGetHostByName and afxsock.h are gone from the client; the golden runner 
 connection or a lookup is open (platform/NetworkWin32.cpp). The SDL3 frame's WM_USER + 1 went (SdlFrame.cpp's HostResolved).
 notes/decisions.md, "#125".
 
+compare_files' options scenario (Patella-Modern issue #149, branch issue-149, November 8, 2026; M7): Tibia.exe's
+window tree is read from outside while the client builds or frees an options dialog, and since #144's waits the first
+poll comes during that change: 4 of 25 runs of Tibia.exe's side failed with a ReadError through a stale pointer.
+compare_files.gui reads a failed reading again within the wait's timeout (2 s for a single reading) and then raises
+it; what a successful reading shows is used as before. compare_files --self-test covers it without a client. In Windows Sandbox
+(#147) five options runs in a row and a full compare_files run found no differences; the first options run met one
+such torn reading and read it again. notes/decisions.md, "#149".
+
 Fuzzing (Patella-Modern issue #132, branch issue-132, November 7, 2026; M9): tests/fuzz has eight libFuzzer targets,
 fuzz_settings (Patella.ini, patella_core only), fuzz_network (TNetwork's frames, #72's short packets among the seeds),
 fuzz_packets (ReceivePackets and Communication.cpp's handlers in the golden Communication world), fuzz_tibia_cfg,
