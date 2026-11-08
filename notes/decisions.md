@@ -17102,3 +17102,60 @@ tools and #123's input over SDL3; `<name>-final.log`; the runs on 29ab392, with 
   issue's runs, each passing alone).
 - The MFC path's lookup reply (WM_USER + 1 by SendMessage) and IPv6 servers are not exercised live: every recording and
   comparison patches the client to 127.0.0.1. tests_platform covers the lookup and an IPv6 connection.
+
+## #149: compare_files' options scenario reads the window tree again after a torn reading (Patella-Modern issue #149, M7)
+
+Done by Claude Opus 5.5, November 8, 2026 (branch issue-149, from main 437e7f0). Tools only: tools/compare_files.py and
+a note in tools/client_state.py; no change in src/.
+
+### The failure (high)
+
+Reproduced on November 8 with Tibia.exe's side of the options scenario alone, 25 times in a row (run_options("orig")
+in a loop; build\logs\issue-149\repro-loop1.log): 4 runs failed, each with a ReadError in client_state's
+Client.gui() inside compare_files' wait_node or wait_gone, while walking ModalWindow's tree:
+
+| Run | Where | The pointer read |
+| :--- | :--- | :--- |
+| 4 | wait_node("THotkeyDialog") after the Hotkeys click, is_window's code read | 0xf5f5ff |
+| 7 | the same wait, the vtable of a component reached through a stale Next or FirstChild | 0x9 |
+| 11 | wait_gone("THotkeyDialog") after its Return, the vtable's GetFirstChild slot | 0x74696465 ("edit") |
+| 17 | wait_node("TGraphicsOptionsDialog") after the Graphics click, is_window's code read | 0xa |
+
+gui() reads Tibia.exe's window tree from outside, one pointer at a time, while the client builds the dialog that the
+click opens or frees the one the Return closes; a walk that passes such a window follows a TComponent.Next,
+TWindow.FirstChild or vtable pointer that is half written or already freed (text and small numbers in the freed
+block). Before #144 the input itself slept 0.1 s to 0.45 s (char, click) before the first poll, so the first reading
+came after the client had finished; since #144 the poll starts right after the posted messages, during the change.
+The polls of compare_files' own waits (wait_node, wait_gone, button) let a ReadError through as the run's failure,
+where session_client's Driver.wait_until (#144) counts a failed reading as "not yet". Patella's side reads the
+tree through the test client's probe, in the client's own loop, and cannot tear.
+
+### The fix: a failed reading is read again (high)
+
+compare_files.gui(driver, deadline) is the one place compare_files reads the tree (nodes, wait_node, wait_gone,
+button, and so the walk scenario's menu entries): a client_state.ReadError is read again every 0.05 s, within the
+wait's own timeout (wait_node and wait_gone pass their deadline), else within 2 s (READ_AGAIN: button's single
+reading); after that the last ReadError is raised. It stays a ReadError, not a RunError, so click_open does not take
+an unreadable tree for a click that opened nothing and click again. The first failure of each reading is logged
+("the window tree changed during its reading"), and the count when more than one failed.
+
+Nothing that a reading which succeeds shows is changed: wait_node still wants the dialog at the same place in two
+readings 0.2 s apart, wait_gone still wants a reading without it, the check boxes, the hotkey selection and the
+Tibia.cfg contents are read and compared as before. A tree that stays unreadable (a client that broke its tree)
+still fails the run after the timeout, with the ReadError. No settle time was added: the condition already is the
+dialog's state, and only the reading that met the change is repeated.
+
+A torn walk that does not fault (stale pointers that happen to point at readable memory) gives a tree with junk
+nodes of unknown classes; the waits look for one class by name, and wait_node's two equal readings guard a found
+window, as before #149.
+
+compare_files --self-test checks it without a client: a fake reader that fails 3, 2 or 1 times and then shows the
+dialog, no dialog or the button (found, gone, found), one that always fails (the ReadError after the timeout) and
+click_open with it (one click, then the ReadError).
+
+### The checks (medium)
+
+On November 8 the owner stopped live runs on the desktop (no Tibia.exe, no windowed PatellaTest.exe) after the
+reproduction above. The issue's proof (five passing options runs in a row) and the live compare_files run are to run
+in Windows Sandbox (#147) and are recorded here when they have run. Run so far: compare_files and client_state
+--self-test, py_compile, the headless reference compare.
