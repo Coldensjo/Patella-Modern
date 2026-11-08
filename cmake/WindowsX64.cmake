@@ -141,6 +141,7 @@ get_target_property(patella_testmode_sources patella_testmode SOURCES)
 set(patella_test_build_sources "${PROJECT_SOURCE_DIR}/src/testmode/TestModeWin32.cpp"
 	"${PROJECT_SOURCE_DIR}/src/testmode/ClientStateWin32.cpp" "${PROJECT_SOURCE_DIR}/src/testmode/PipeSocketWin32.cpp"
 	"${PROJECT_SOURCE_DIR}/src/testmode/SdlInputWin32.cpp"
+	"${PROJECT_SOURCE_DIR}/src/testmode/ProfileWin32.cpp"
 	${patella_testmode_sources})
 
 if(PATELLA_CLIENT_COMPILE_ONLY)

@@ -741,6 +741,45 @@ TEST_CASE("frames, large uploads and a resized image")
 	}
 }
 
+TEST_CASE("frame timestamps: none by default, each frame's device time when asked for (issue #134)")
+{
+	for (TDevice &Device : Devices) {
+		CAPTURE(Device.Label);
+		pv::TRenderer Renderer;
+		Renderer.Create(Device.Request);
+		const int Id = Renderer.CreateImage(64, 64);
+		const auto Frames = [&](int Count) {
+			for (int Frame = 0; Frame < Count; Frame++) {
+				Renderer.Fill(Id, 0, 0, 64, 64, 0x102030u + static_cast<uint32_t>(Frame));
+				CHECK_FALSE(Renderer.Present(Id, 0, 0, 64, 64, 64, 64));
+			}
+		};
+		std::vector<uint64_t> Times;
+		Frames(4);
+		Renderer.TakeFrameTimes(Times);
+		CHECK(Times.empty());
+		if (!Renderer.SetFrameTimestamps(true)) {
+			MESSAGE(Device.Label << ": no timestamps");
+			continue;
+		}
+		Frames(8);
+		Renderer.Finish();
+		Renderer.TakeFrameTimes(Times);
+		// The first frame began before they were on and the last ones may still be in flight.
+		CHECK(Times.size() >= 5u);
+		for (const uint64_t Nanoseconds : Times)
+			CHECK(Nanoseconds < 10'000'000'000u);
+		CHECK(Renderer.SetFrameTimestamps(false));
+		Frames(4); // what was in flight
+		Times.clear();
+		Renderer.TakeFrameTimes(Times);
+		Times.clear();
+		Frames(3);
+		Renderer.TakeFrameTimes(Times);
+		CHECK(Times.empty());
+	}
+}
+
 namespace {
 
 int ChildWindows(HWND Parent)

@@ -125,6 +125,13 @@ public:
 	// The present mode of the swapchain (0 before the first Present).
 	[[nodiscard]] VkPresentModeKHR PresentMode() const;
 
+	// Issue #134, the profiling tool (tools/profiling.py; the test build's only caller): with On every command
+	// buffer of a frame gets two timestamp queries (from the next frame on), and TakeFrameTimes hands out the
+	// device time of each finished frame, the sum over its submissions, in nanoseconds, a frame or two after
+	// it was submitted. False: the device has no timestamps. Off by default: no query pool, no timing commands.
+	bool SetFrameTimestamps(bool On);
+	void TakeFrameTimes(std::vector<uint64_t> &Nanoseconds);
+
 private:
 	struct TState;
 	std::unique_ptr<TState> State;

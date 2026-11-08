@@ -505,9 +505,11 @@ void TSurfaceVulkan::FinishFrame()
 				// issue #52; once it shows a frame, the window of the device before it goes.
 				PresentWindows.Fit();
 				PATELLA_TEST_PRESENT_FAILURE(throw TVulkanError("vkQueuePresentKHR failed (VkResult -5)"))
+				PATELLA_TEST_PROFILE_PRESENT_BEGIN(Renderer.get())
 				if (Renderer->Present(Image[SCREEN_SURFACE], x, y, ShownWidth, ShownHeight,
 						(uint32_t)(WindowRect.right - WindowRect.left), (uint32_t)(WindowRect.bottom - WindowRect.top)))
 					PresentWindows.Presented();
+				PATELLA_TEST_PROFILE_PRESENT_END(Renderer.get())
 			} catch (const TVulkanError &) {
 				Fail();
 			}

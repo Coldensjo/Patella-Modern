@@ -699,6 +699,7 @@ A command is taken only once the one before it is done. The commands:
 | Command | Without a script | With a script |
 | :--- | :--- | :--- |
 | `probe` | probe.json (below) | the same, between other commands |
+| `profile start <kind> <file>`, `profile stop` (issue #134) | a profile window ("Profile windows", below) | the same |
 | script lines (src/testmode/InputScript.h) | refused | appended after the script's last event at the clock's time (with `clock manual` parsed after it: no wait or at; pace, clock and cursor refused); done once every one was handed out, the idle calls after them passed and their frames were written |
 
 probe.json (src/testmode/StateDump.h, "The probe"), one line of JSON: "format" (`patella-probe 1`), "step", "time"
@@ -729,3 +730,21 @@ How the tools use it (tools/session_client.py `Driver(test=True)`, compare_traff
 
 `python -I tools/testmode_client.py --self-test` checks TestClient on made-up probes; the channel's lines are
 unit-tested (tests_testmode: TScheduler::Append, the probe's JSON).
+
+### Profile windows (issue #134, tools/profiling.py)
+
+PatellaTest.exe's control channel opens and closes a profile window between two frames, with or without a script
+(src/testmode/ProfileWin32.cpp; the hooks PATELLA_TEST_PROFILE_PRESENT_BEGIN/_END of src/TestHooks.h around
+TRenderer::Present; nothing of it is in Patella.exe):
+
+`profile start <kind> <file>`, `profile stop` (the answer `ok` or `error: ...`). Kinds: `time` (per frame the
+performance counter at Present's entry and Present's duration), `allocs` (the same and the frame's heap calls:
+the executable's own imports of HeapAlloc, HeapReAlloc and HeapFree patched once and counted, what system DLLs and
+drivers allocate not), `gpu` (the same and the Vulkan engine's timestamp queries, `TRenderer::SetFrameTimestamps`:
+off by default, no query pool and no timing commands unless a `gpu` window is open). The file is written at `profile
+stop` (`# patella-profile 1`; `F` lines per frame, `G` lines the frames' device time in nanoseconds, a frame or two
+later than the frame); tools/capture/patcap.c writes the same form for Tibia.exe (CMD_PROFILE_START, CMD_PROFILE_STOP,
+version 5 of the shared memory). A window has room for 400,000 frames; the rest count as dropped. A profiled client's
+clock stays what it was (unscripted: the system clock, so a real frame time; scripted: the virtual clock, whose wait
+for a tick is real time; the samples are always the performance counter's). tools/profiling.py drives both clients:
+notes/decisions.md, "#134", and the numbers in notes/progress.md, "Profiling".

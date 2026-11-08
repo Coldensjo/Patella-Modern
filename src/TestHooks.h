@@ -55,6 +55,13 @@
 //	                                   initialize Windows Sockets.") there, as a failing step does, so its
 //	                                   catch runs ExitControl with the steps before it done
 //
+// Issue #134 (statements without a semicolon, nothing at all outside the test build):
+//
+//	PATELLA_TEST_PROFILE_PRESENT_BEGIN(Renderer), PATELLA_TEST_PROFILE_PRESENT_END(Renderer)
+//	                                   vulkan/SurfaceVulkan.cpp, around TRenderer::Present: with a profile
+//	                                   window open (the control channel's "profile start", testmode/ProfileWin32.h)
+//	                                   the frame's times and heap calls are recorded; nothing otherwise
+//
 // The state dump reads the client's data through the View functions at the end of Creatures.cpp,
 // Inventory.cpp, Map.cpp and Status.cpp (src/testmode/ClientView.h; test build only).
 //
@@ -74,7 +81,14 @@
 #include "compat/span.h"
 #include "testmode/ClientView.h" // IWYU pragma: export
 
+namespace patella::vulkan {
+class TRenderer;
+}
+
 namespace patella::testmode {
+// Issue #134: the profile window's two points of a frame (testmode/ProfileWin32.cpp).
+void ProfilePresentBegin(patella::vulkan::TRenderer *Renderer);
+void ProfilePresentEnd(patella::vulkan::TRenderer *Renderer);
 // True: the message is input from Windows that the driver's script replaces (dropped).
 bool DropInput(const MSG *Message);
 // The buffers as spans (issue #60): the RSA block, and the whole of SendData and ReceiveData.
@@ -96,6 +110,8 @@ bool InitFails(int Step);
 	patella::testmode::FrameObservers(&(Frame), &(Pixels), &(Mask), &(Device));
 #define PATELLA_TEST_PRESENT_FAILURE(Failure) \
 	if (patella::testmode::PresentFails()) { Failure; }
+#define PATELLA_TEST_PROFILE_PRESENT_BEGIN(Renderer) patella::testmode::ProfilePresentBegin(Renderer);
+#define PATELLA_TEST_PROFILE_PRESENT_END(Renderer) patella::testmode::ProfilePresentEnd(Renderer);
 #define PATELLA_TEST_INIT_FAILURE(Step) \
 	if (patella::testmode::InitFails(Step)) { throw TProgramError{PROGRAM_ERROR::SOCKET_INIT}; }
 
@@ -108,6 +124,8 @@ bool InitFails(int Step);
 #define PATELLA_TEST_PACKET_RECEIVED(Data, PacketSize)
 #define PATELLA_TEST_FRAME_OBSERVERS(Frame, Pixels, Mask, Device)
 #define PATELLA_TEST_PRESENT_FAILURE(Failure)
+#define PATELLA_TEST_PROFILE_PRESENT_BEGIN(Renderer)
+#define PATELLA_TEST_PROFILE_PRESENT_END(Renderer)
 #define PATELLA_TEST_INIT_FAILURE(Step)
 
 #endif
