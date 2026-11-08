@@ -220,6 +220,14 @@ the same library that makes the window, through one small interface that also an
 looks different: the same pictures, the same choice of graphics card or the built-in software renderer. *Why it
 matters:* the graphics no longer depend directly on Windows, so the same code can draw into a Linux window later.
 
+**The network connection no longer uses MFC (#125).**
+The client's connection to the game servers and its look-up of the login servers' names went through MFC's socket
+class and a Windows-only, IPv4-only look-up call. Both are replaced by one small piece of code that works on Windows and
+Linux alike: the game loop checks the connection on each turn, and the name look-up runs on a helper thread whose answer
+the game loop picks up, so the game itself stays single-threaded. Server addresses can now also be IPv6. Every
+recorded session and live comparison still matches the original byte for byte. *Why it matters:* the network was one
+of the last Windows-only parts between the client and Linux.
+
 ## M8 and M9, started early
 
 **Big-number maths fully unit-tested (#128).**

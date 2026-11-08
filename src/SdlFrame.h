@@ -40,6 +40,11 @@ void Hide();
 // (0 after a message, then counting up). Returns the exit code.
 int Run(void (*Idle)(long Count));
 
+// CMainFrame::OnHostResolved for this window (issue #125): the name lookup is done, Error 0 or WinSock's number. The
+// portable socket's Poll calls it on the SDL3 path (platform/NetworkWin32.cpp), where WSAAsyncGetHostByName posted
+// WM_USER + 1.
+void HostResolved(int Error);
+
 // MainFrm.cpp's callbacks of Control.cpp and its UpdateMouseCursor, for this window.
 void ExitProgram();
 void SetDisplayMode(int ViewMode);

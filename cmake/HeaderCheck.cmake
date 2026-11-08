@@ -50,6 +50,7 @@ set(PATELLA_HEADERS_CORE
 	platform/Clock.h
 	platform/FileSystem.h
 	platform/Platform.h
+	platform/PortableSocket.h
 	platform/Socket.h
 	settings/PreferenceKeys.h
 	settings/Settings.h

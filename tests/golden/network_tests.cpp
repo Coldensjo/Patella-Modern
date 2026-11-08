@@ -80,8 +80,9 @@
 #include "../../src/Network.cpp"
 // Status.cpp's functions the test fakes (Network.cpp reaches them through TNetworkSession since issue #105).
 #include "../../src/Status.h"
-// The socket class (issue #109: the platform's TSocket, whose vtable FireEvent calls; Win32Platform.cpp is linked).
-#include "../../src/platform/Win32Platform.h"
+// The socket class (issue #109: the platform's TSocket, whose vtable FireEvent calls; since issue #125 the runner's,
+// network/MfcSocket.cpp, which is linked).
+#include "network/MfcSocket.h"
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif

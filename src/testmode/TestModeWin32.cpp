@@ -1388,15 +1388,16 @@ constinit TTestWindow TestWindow;
 // The test build's platform (issue #109; platform/Platform.h): the clock is the test mode's (the virtual clock with a
 // script, the system's without one, as Initialize chose it), the files Win32's (the comparisons read the files the
 // client writes in its folder), the network the server replay's inside the process with --test-replay (issue #120:
-// TPipeSocketWin32, no port), else Win32's (a live run against the test server). Issue #119: the clipboard the
-// process's own with a script (TMemoryClipboard: the desktop's clipboard neither reaches a scripted run nor is
-// changed by it), else Win32's; the input and the windows the test mode's (above).
+// TPipeSocketWin32, no port), else the portable socket's (TPortableSocket, issue #125: a live run against the test
+// server). Issue #119: the clipboard the process's own with a script (TMemoryClipboard: the desktop's clipboard
+// neither reaches a scripted run nor is changed by it), else Win32's; the input and the windows the test mode's
+// (above).
 patella::platform::TPlatform &patella::platform::Platform()
 {
 	const patella::testmode::TState &Current = patella::testmode::State();
 	static TMemoryClipboard ScriptClipboard;
 	static TPlatform Instance{*Current.Clock, SystemFileSystem(),
-		Current.Replay.Active ? static_cast<ISocket &>(*Current.Replay.Pipes) : static_cast<ISocket &>(Win32Socket()),
+		Current.Replay.Active ? static_cast<ISocket &>(*Current.Replay.Pipes) : static_cast<ISocket &>(NetworkSocket()),
 		Current.Scripted ? static_cast<IClipboard &>(ScriptClipboard) : static_cast<IClipboard &>(Win32Clipboard()),
 		patella::testmode::TestInput, patella::testmode::TestWindow};
 	return Instance;

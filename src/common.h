@@ -16,7 +16,9 @@
 #include "compat/mfc_shim.h"
 #else
 #include <afxwin.h>
-#include <afxsock.h>
+// WinSock 2 (MFC's headers leave winsock.h out): its names that MainFrm.cpp uses (WSAGETASYNCERROR). MFC's sockets
+// (afxsock.h, CAsyncSocket) left the client with issue #125 (platform/PortableSocket.h).
+#include <winsock2.h>
 #endif
 // <string>, <cstring>, <cstdio> and <cstdlib>: nothing of them is used here, and every file that uses them
 // includes them itself (issue #40), but here they come before compat/msvc.h's C headers and TestHooks.h. Without

@@ -173,6 +173,15 @@ patella_target_warnings(tests_core)
 patella_target_hardening(tests_core)
 add_test(NAME tests_core COMMAND tests_core)
 
+# Issue #125 (plan M8): tests_platform, the platform layer's portable part (patella_platform, cmake/Core.cmake):
+# TPortableSocket on the loopback interface (platform_socket_test.cpp).
+add_executable(tests_platform platform_socket_test.cpp)
+target_link_libraries(tests_platform PRIVATE patella_platform doctest::doctest)
+patella_target_language(tests_platform)
+patella_target_warnings(tests_platform)
+patella_target_hardening(tests_platform)
+add_test(NAME tests_platform COMMAND tests_platform)
+
 # Issue #111 (plan M7's exit): tests_core_link links the library's TClient, the whole client but the platform layer,
 # with stand-ins of the platform layer's entry points only (core_link_test.cpp) and the device choice's words
 # (src/vulkan/DeviceChoice.cpp, which the platform's Vulkan engine compiles too). Its link is the check (every preset's

@@ -10,9 +10,9 @@
 // them for posted messages and keys Windows does not hold), the loss of the mouse capture (WM_CAPTURECHANGED: SDL has
 // no event for it), the
 // cursor's screen position (GetCursorPos, TSdlLoopInput: it keeps the last position where SDL would report (0, 0)), the
-// host lookup's message WM_USER + 1 (the socket, #125), ShellExecute (#124), and on Windows the message pump itself
-// (SDL's own is off: the loop dispatches the thread's messages as MFC's did, so the MFC sockets' and the test mode's
-// messages are dispatched in the same order).
+// ShellExecute (#124), and on Windows the message pump itself (SDL's own is off: the loop dispatches the thread's
+// messages as MFC's did, so the socket's polling timer's and the test mode's messages are dispatched in the same
+// order). The host lookup's reply is no message since #125 (HostResolved, below).
 //
 // Events: the size, move and activation changes come through an event watch (SDL_AddEventWatch), which SDL calls as it
 // sends the event, inside the window procedure, so the client sees a size change within the call that made it, as
@@ -785,10 +785,11 @@ void OnCaptureChanged()
 	FreeCapture();
 }
 
-// CMainFrame::OnHostResolved (the socket's message until issue #125): WSAAsyncGetHostByName finished.
-void OnHostResolved(LPARAM LParam)
+// CMainFrame::OnHostResolved: the name lookup is done (Error 0: the address is there). Since issue #125 the portable
+// socket's Poll calls it (HostResolved, below), where WSAAsyncGetHostByName posted WM_USER + 1 to the window.
+void OnHostResolved(int Error)
 {
-	if (WSAGETASYNCERROR(LParam) == 0) {
+	if (Error == 0) {
 		if (GetConnectionState() != 1) {
 			SetConnectionTimeout(0);
 			SetConnectionState(0);
@@ -804,15 +805,15 @@ void OnHostResolved(LPARAM LParam)
 	} else {
 		SetConnectionTimeout(0);
 		SetConnectionState(0);
-		SetServerError(WSAGETASYNCERROR(LParam));
+		SetServerError(Error);
 	}
 	ConnectToLoginServer();
 }
 
 // The SDL window's subclass, for what SDL3 has no event for or gives otherwise: the loss of the mouse capture
 // (WM_CAPTURECHANGED, then SDL's own handling of it), the typed characters (WM_CHAR, OnWindowChar), the mouse buttons
-// (OnButtonMessage), the keys (OnKeyMessage), the test mode's main timer ticks (WM_TIMER 1: with a script the driver dispatches them), the host
-// lookup's message (WM_USER + 1, the socket until issue #125) and the fullscreen window's hit test. The wheel, the
+// (OnButtonMessage), the keys (OnKeyMessage), the test mode's main timer ticks (WM_TIMER 1: with a script the driver dispatches them)
+// and the fullscreen window's hit test (the host lookup's WM_USER + 1 until issue #125). The wheel, the
 // cursors, the capture, the window's coordinates and the IME's text are SDL's (issue #123).
 LRESULT CALLBACK InputProc(HWND Hwnd, UINT Message, WPARAM WParam, LPARAM LParam, [[maybe_unused]] UINT_PTR Id,
 	[[maybe_unused]] DWORD_PTR Data)
@@ -848,9 +849,6 @@ LRESULT CALLBACK InputProc(HWND Hwnd, UINT Message, WPARAM WParam, LPARAM LParam
 		// timer does not use WM_TIMER.
 		::DefWindowProcA(Hwnd, Message, WParam, LParam);
 		TimerEvent();
-		return 0;
-	case WM_USER + 1:
-		OnHostResolved(LParam);
 		return 0;
 	case WM_NCHITTEST:
 		if (GetViewMode() == 2)
@@ -1085,6 +1083,11 @@ int Run(void (*Idle)(long Count))
 	}
 	SDL_Quit();
 	return 0;
+}
+
+void HostResolved(int Error)
+{
+	OnHostResolved(Error);
 }
 
 // MainFrm.cpp's ExitProgram: closes the client without asking. Win32 until issue #127: a posted WM_CLOSE (SDL's

@@ -569,7 +569,7 @@ No port is opened (issue #120; until then the replay listened on the loopback po
 time, or a replay and a live run, collided on them). With --test-replay the test build's ISocket is
 TPipeSocketWin32 (src/testmode/PipeSocketWin32.h), whose connections are TPipeNetwork's (src/testmode/PipeNetwork.h):
 the listen lines are listeners on 127.0.0.1 inside the process, a connection is two byte queues with TCP's ends, and
-the client's TSocket (still Win32's CAsyncSocket, never given a handle) gets its events as WinSock and MFC give them:
+the client's TSocket (Win32's CAsyncSocket until issue #125, the portable one since, never given a handle) gets its events as WinSock and MFC give them:
 a connect never completes in the call (OnConnect, then OnSend, are window messages; a port nothing listens on is
 OnConnect with WSAECONNREFUSED), one read message until a receive and another after a receive that leaves bytes
 (OnReceive only when the socket is readable at dispatch, as MFC's select), one close message at the server's

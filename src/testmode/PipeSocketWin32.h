@@ -2,23 +2,23 @@
 // "The server replay"). Not part of the original source. Only PatellaTest.exe compiles it (cmake/WindowsX64.cmake).
 //
 // With --test-replay the test build's Platform() (TestModeWin32.cpp) gives TNetwork this socket instead of
-// TWin32Socket: its connections are TPipeNetwork's (testmode/PipeNetwork.h), whose server side the replay's
-// driver plays, so a replay opens no port and two replays run side by side. The connection is still a TSocket (the
-// Win32 one, platform/Win32Platform.h: a CAsyncSocket that never gets a socket handle), so its events reach TNetwork
-// as they did: TPipeNetwork's events are posted to a message-only window of the client's thread, as WinSock posts
+// the live runs' socket: its connections are TPipeNetwork's (testmode/PipeNetwork.h), whose server side the replay's
+// driver plays, so a replay opens no port and two replays run side by side. The connection is still a TSocket (since
+// issue #125 the portable one, platform/PortableSocket.h, which never gets a socket handle here), so its events reach
+// TNetwork as they did: TPipeNetwork's events are posted to a message-only window of the client's thread, as WinSock posts
 // WSAAsyncSelect's messages to MFC's socket window, and its window procedure calls the TSocket's OnConnect, OnSend,
 // OnReceive (when Readable says so, as MFC's select) or OnClose, from the message loop or a modal loop's, as MFC's.
 // An event of a connection closed since it was posted is dropped (MFC's handle map has it no more).
 //
-// The calls the replay does not change go to TWin32Socket: Startup (AfxSocketInit) and the name resolution (no
-// recording resolves a name: the client is patched to 127.0.0.1). Without --test-replay (a live run against the test
-// server) the test build's socket is TWin32Socket itself.
+// The calls the replay does not change go to the live runs' socket (NetworkSocket(), TPortableSocket since issue #125):
+// Startup and the name resolution (no recording resolves a name: the client is patched to 127.0.0.1), and Poll, for
+// its lookups. Without --test-replay (a live run against the test server) the test build's socket is that one itself.
 
 #pragma once
 
 #include "common.h"
 #include "platform/Platform.h"
-#include "platform/Win32Platform.h"
+#include "platform/PortableSocket.h" // IWYU pragma: keep (TSocket, whose events Deliver calls)
 #include "testmode/PipeNetwork.h"
 
 #include <unordered_map>
@@ -53,6 +53,7 @@ public:
 		int Length) override;
 	void CancelResolve(void *Request) override;
 	[[nodiscard]] const char *ResolvedAddress(const char *Buffer) override;
+	void Poll() override;
 
 private:
 	static LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam);

@@ -111,3 +111,27 @@ if(PATELLA_STATIC_ANALYSIS)
 		target_compile_options(patella_core PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:-fanalyzer>)
 	endif()
 endif()
+
+# patella_platform (issue #125, plan M8): the platform layer's portable part, built by every product preset and tested by
+# tests_platform (tests/unit). TPortableSocket (src/platform/PortableSocket.cpp): the network over Winsock (ws2_32) or
+# POSIX sockets, non-blocking and polled from the loop, the name lookup on a std::jthread. The client compiles the source
+# itself (cmake/WindowsX64.cmake, with its Windows glue platform/NetworkWin32.cpp), as it does patella_core's. The same
+# static analysis as patella_core's.
+add_library(patella_platform STATIC "${PROJECT_SOURCE_DIR}/src/platform/PortableSocket.cpp")
+target_include_directories(patella_platform PUBLIC "${PROJECT_SOURCE_DIR}/src")
+patella_target_language(patella_platform)
+patella_target_warnings(patella_platform)
+patella_target_hardening(patella_platform)
+if(WIN32)
+	target_link_libraries(patella_platform PUBLIC ws2_32)
+else()
+	find_package(Threads REQUIRED)
+	target_link_libraries(patella_platform PUBLIC Threads::Threads)
+endif()
+if(PATELLA_STATIC_ANALYSIS)
+	if(MSVC)
+		target_compile_options(patella_platform PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:/analyze /analyze:external->)
+	elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+		target_compile_options(patella_platform PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:-fanalyzer>)
+	endif()
+endif()
