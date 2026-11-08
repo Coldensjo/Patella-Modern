@@ -17644,4 +17644,34 @@ display's mode checked after it): TSdlWindow's off Windows, for the Linux client
 
 ### Checks
 
-Filled in below with the results.
+Logs in build\logs\issue-124\ (local). No live run on the owner's desktop: the comparisons in Windows Sandbox (#147),
+the reference compare headless (#145).
+
+- windows-x64, windows-x64-debug, windows-x64-asan: exit 0, golden 15,803,218 + 1,512,822 = 17,316,040 with 0
+  failures, every test passed, no compiler warning. windows-x64-gcc, linux-x64-gcc, linux-x64-clang: exit 0, every test
+  passed, golden 0 failures on both Linux presets. tidy_ci: 3 findings, the baseline's, 0 new, 0 bugprone; banned_calls
+  and clang-format: exit 0.
+- `reference.py compare` (SDL3 path, and PATELLA_WINDOW=mfc): every session matches, the message boxes and the display
+  modes without a difference. Those runs are scripted, so they read messages.txt and the --test-display-modes file; the
+  real boxes and modes are the next two points.
+- **Real message boxes**, in the Sandbox: compare_files' error scenario and compare_network's error scenarios
+  (`--only login-bad-size,login-wrong-key,login-inner,game-bad-size,game-wrong-key,game-inner,login-error,game-error`,
+  PatellaTest.exe without a script, so SDL's box). compare_files.dialog_windows read SDL's box as class #32770 with the
+  caption and the text (
+ kept; the icon adds no text), its button closed it, the client exited with 1. compare_files:
+  no differences. compare_network: 0 of 10 scenarios differ or failed, 2 variable, 4 deliberate. Not exercised on our
+  client: client_start.message_boxes (the refused start's box: the test build never refuses, #96).
+- **Display modes**: compare_rendering (GPU and CPU driver, windowed and fullscreen at 1024x768x32): all scenes
+  identical, no "the display mode changed" problem. It ran before the merge of #146, which changed no client code and
+  none of its own file. The probe above for the list.
+- compare_traffic: no differences before the merge of #146 and after it. **One run after the merge failed**: PatellaTest.exe
+  showed no window within 30 s, twice in a row, in the cross-replay step after both clients' live sessions (client
+  logs: none; gate3-compare_traffic-run1.log). Not diagnosed; the rerun on the same binary passed, as did every other
+  PatellaTest.exe start here.
+- **SDL's clipboard**: no comparison reaches it (a script has TMemoryClipboard), so a probe of the same SDL calls and
+  conversions in the Sandbox (its clipboard is its own; gate3-clipboard-probe.log, build\proof-124\clip.log):
+  "Jörg
+a
+b" reached CF_UNICODETEXT as J U+00F6 r g CR LF a CR LF b and came back with those bytes; another
+  program's U+0141 U+00E4 x read as `?`, 0xE4, x; an empty text left no text. Not run: SDL_OpenURL (it would open a
+  browser); its Windows code was read (SDL_sysurl.c).
