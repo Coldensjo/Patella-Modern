@@ -52,6 +52,7 @@ import zlib
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import client_start  # noqa: E402
+import testserver  # noqa: E402
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 gdi32 = ctypes.WinDLL("gdi32", use_last_error=True)
@@ -329,12 +330,13 @@ def main():
 			screenshot(hwnd, shot)
 			log("Return (dialog %d)" % dialog)
 			key_char(hwnd, 13)
-			if wait_connection(proc.pid, 7172, True, args.game_wait):
+			if wait_connection(proc.pid, testserver.GAME_PORT, True, args.game_wait):
 				break
 		else:
-			raise Failure("no game connection (port 7172) after three Returns")
+			raise Failure("no game connection (port %d) after three Returns" % testserver.GAME_PORT)
 		os.replace(shot, os.path.join(run_dir, "3-charlist.png"))
-		log("connected to the game server (port 7172); the last dialog, the character list, is 3-charlist.png")
+		log("connected to the game server (port %d); the last dialog, the character list, is 3-charlist.png"
+			% testserver.GAME_PORT)
 		# a new character gets the client's "First Login" hint dialog, which would take the
 		# Ctrl+L; Return closes it (without a dialog it goes to the empty console line)
 		time.sleep(2)
@@ -345,7 +347,7 @@ def main():
 		for attempt in (1, 2):
 			log("Ctrl+L: logout")
 			ctrl_char(hwnd, "l")
-			if wait_connection(proc.pid, 7172, False, 10):
+			if wait_connection(proc.pid, testserver.GAME_PORT, False, 10):
 				break
 			log("still connected: Return, then Ctrl+L again")
 			key_char(hwnd, 13)

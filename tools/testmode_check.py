@@ -559,6 +559,8 @@ def cold_start_self_test(out=print):
 
 
 if __name__ == "__main__":
+	# issue #146: the online runs get a private test server of their own (a copy of the master, its own ports)
+	testserver.isolate(skip=("--self-test", "--compare-only", "-h", "--help"))
 	desktop.hide(skip=("--self-test", "--compare-only", "-h", "--help"))  # issue #56: only with --hidden
 	try:
 		sys.exit(main())

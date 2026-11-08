@@ -762,6 +762,16 @@ second failure instead of piling "A Tibia client is already running!" boxes. Sho
 Tibia.exe kept open beside each of the four comparisons: refused and named, or the box logged and the client closed,
 nothing left. notes/decisions.md, "#148".
 
+A private test server per run (Patella-Modern issue #146, branch issue-146, November 8, 2026; M7): every live run
+(compare_traffic, compare_files' live walk, testmode_check's online runs: testserver.isolate(); any command with
+`python -I tools/testserver.py run -- ...`) gets a copy of the master C:\Tibia\gameserver in
+%TEMP%\patella-testservers\<run> (map, usr, dat, tibia.db, config.cfg copied; mon, npc, origmap hard links; the master's
+tibia-server.exe run in it) on 4 ports of its own from 7300-7499, passed to the proxy, the clients and the Sandbox's
+tunnel; removed afterwards, a killed run's copy by the next run. The tools never write the master (start without a run
+refuses). Shown: compare_traffic or compare_files in the Sandbox and testmode_check on the host at the same time, both
+servers with game connections at once, both passing; the master's checksums identical after them and after a killed
+run's cleanup. notes/testserver.md, "A private server per run"; notes/decisions.md, "#146".
+
 The portable socket (Patella-Modern issue #125, branch issue-125, November 7, 2026; M8): TPortableSocket
 (src/platform/PortableSocket.h, patella_platform, tests_platform on Windows and Linux) is Patella.exe's and the test
 build's live network over Winsock or POSIX sockets: non-blocking IPv6 sockets with IPv4 mapped, polled at the start of
@@ -787,6 +797,13 @@ compare_files.gui reads a failed reading again within the wait's timeout (2 s fo
 it; what a successful reading shows is used as before. compare_files --self-test covers it without a client. In Windows Sandbox
 (#147) five options runs in a row and a full compare_files run found no differences; the first options run met one
 such torn reading and read it again. notes/decisions.md, "#149".
+
+compare_network's bad frames (Patella-Modern issue #150, branch issue-150, November 8, 2026; M7): tools/deliberate.py's
+FRAME_SCENARIOS lists the six bad-frame scenarios of #72, #139 and #142 (login-bad-size, game-bad-size,
+login-inner-long, game-inner-long, game-empty-alone, game-two-empty-together) with Tibia.exe's outcome (the critical
+error box, or stalled at "Connecting") and the fork's client's (the login server's close, or the game); compare_network
+reports exactly those as DELIBERATE with their issue, still compares the rest, and lists every deliberate difference
+it expected. In Windows Sandbox: 41 the same, 4 variable, 6 deliberate, 0 differ. notes/decisions.md, "#150".
 
 Fuzzing (Patella-Modern issue #132, branch issue-132, November 7, 2026; M9): tests/fuzz has eight libFuzzer targets,
 fuzz_settings (Patella.ini, patella_core only), fuzz_network (TNetwork's frames, #72's short packets among the seeds),

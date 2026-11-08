@@ -9427,15 +9427,15 @@ The comparison tools expect these from the fork's clients against Tibia.exe and 
 | #71 | The area a live resize uncovers is black | stripes of old pixels (not compared: no tool moves a border) |
 | #45 (D12) | No Tibia.cfg written; the options go into Patella.ini and are compared with Tibia.exe's Tibia.cfg by value (tools/settings_file.py) | SavePreferences writes Tibia.cfg (the options and hotkey dialogs, a logout, the exit) |
 | #45 (D12) | Patella.ini written at the first start without the options in it (the import of Tibia.cfg, or the defaults) | nothing written at the start |
-| #72 | A server frame whose inner length runs past it, or a frame of size 0, is dropped, a warn line goes to the developer log, and the connection goes on with the next frame (the owner's change of November 7, #139; until then the frame ended the client with the TMyException "packet length exceeds the received data") | reads on past the frame: into the next frames, past ReceiveData into SendData (not compared: no session has such a frame; the golden Network test's deliberate parts, "#72 and #86" and "#139") |
+| #72 | A server frame whose inner length runs past it, or a frame of size 0, is dropped, a warn line goes to the developer log, and the connection goes on with the next frame (the owner's change of November 7, #139; until then the frame ended the client with the TMyException "packet length exceeds the received data") | reads on past the frame: into the next frames, past ReceiveData into SendData; ends with the critical error box (compare_network's login-inner-long and game-inner-long, deliberate since #150; the golden Network test's deliberate parts, "#72 and #86" and "#139") |
 | #139 (1) | After a Tibia.dat that ends early (or a count the next table refuses), only the sprite tables LoadProperties allocated are deleted | deletes the unreached entries' indeterminate pointers (not compared: the reference sessions load the real Tibia.dat) |
 | #139 (2) | After a Tibia.pic that ends early, only the pictures' offset tables LoadPictures allocated are deleted | deletes the unreached pictures' indeterminate pointers (not compared) |
 | #139 (3) | A sprite or picture tile whose runs pass the 1024th pixel is a data error: PROGRAM_ERROR 4 (Tibia.spr) or 5 (Tibia.pic), the pixels before it written as before | writes past the 32 x 32 buffer (not compared: the real files have no such run) |
 | #139 (4) | TReadBuffer::GetString checks that the text fits before it allocates it | allocates first and loses the text at the throw (not observable apart from the memory) |
 | #139 (5) | A .map file with a negative mark count is a corrupted file: "Map file '...' was corrupted!", the block cleared, as for a file that ends early | keeps the count; a mark added then grows the marks down to that index (minutes, much memory) (not compared: no session has such a file) |
 | #139 (6) | A server frame larger than the 16 KB receive buffer is dropped as its bytes come, a warn line goes to the developer log, and the frames after it are read | keeps its first bytes and waits for it forever: the buffer fills and nothing more is received (not compared) |
-| #139 (7) | A server frame whose size is no multiple of 8 is dropped (not decrypted), a warn line goes to the developer log, and the next frame is read | throws "packet size does not fit to symmetric encryption" without dropping it, which ends the client (every later read would throw the same) (not compared) |
-| #142 | A server packet of inner length 0 (empty) is read past: the frames after it are read in the same call, and its frame leaves the receive buffer at once (no drop, no log line) | returns it as the packet read (no command), so the frames behind it wait for the next receive that completes a frame, and its frame stays in the receive buffer until then: a following frame that fits only without it never completes and the connection stalls (not compared: the reference compare and compare_traffic show no difference; the golden Network test's deliberate parts, "#142") |
+| #139 (7) | A server frame whose size is no multiple of 8 is dropped (not decrypted), a warn line goes to the developer log, and the next frame is read | throws "packet size does not fit to symmetric encryption" without dropping it, which ends the client (every later read would throw the same) (compare_network's login-bad-size and game-bad-size, deliberate since #150) |
+| #142 | A server packet of inner length 0 (empty) is read past: the frames after it are read in the same call, and its frame leaves the receive buffer at once (no drop, no log line) | returns it as the packet read (no command), so the frames behind it wait for the next receive that completes a frame, and its frame stays in the receive buffer until then: a following frame that fits only without it never completes and the connection stalls (compare_network's game-empty-alone: the critical error box, and game-two-empty-together: stalled at "Connecting", deliberate since #150; the reference compare and compare_traffic show no difference; the golden Network test's deliberate parts, "#142") |
 | #86 | An ignore or white list entry's name of 30 characters, and a buddy's description of 128, read as those characters only (the list's line, GetBuddyDescription, Patella.ini, Tibia.cfg's writer) | reads on past the name into Permanent (with it set, "\x01" and the next entry's name), past the description into Notify and the padding (not compared: no session has such a name or description) |
 
 ### The tests
@@ -17388,6 +17388,179 @@ there sees only them.
   within 30 s (#147's Direct3D 9 start in the Sandbox) retried by Driver.start (1039 s); compare_network.py (#19's
   recording) exit 1 with 41 of 51 the same, 4 variable, and exactly the 6 known differences of #139 and #142 (#150),
   no harness error (1324 s). gate3-compare_*.log.
+
+## #150: compare_network's bad frames as deliberate differences (Patella-Modern issue #150, M7)
+
+Done by Claude Opus 5.5, November 8, 2026 (branch issue-150, from main e4d3067). Tools only. Found by #125 and #147:
+tools/deliberate.py did not know #139's and #142's frame outcomes, so compare_network reported its six bad-frame
+scenarios as differences on main (41 the same, 4 variable, 6 different).
+
+### The entries (high)
+
+`deliberate.FRAME_SCENARIOS` names each scenario with its issue, Tibia.exe's outcome and the fork's client's, as
+issue #150's Sandbox run of the six on main's tree recorded them (build\logs\issue-150\network-six-before.log):
+
+| Scenario | Issue | Tibia.exe | The fork's client |
+|---|---|---|---|
+| login-bad-size | #139 (7) | the critical error box, exit 1 | drops the frame, then the server's close: "Connection failed", "Disconnected from server", no character list |
+| login-inner-long | #72, #139 | the critical error box, exit 1 | as login-bad-size |
+| game-bad-size | #139 (7) | the critical error box, exit 1 | drops the frame and goes on into the game (a player, Logout; the logout warning at WM_CLOSE) |
+| game-inner-long | #72, #139 | the critical error box, exit 1 | as game-bad-size |
+| game-empty-alone | #142 | the critical error box, exit 1 | reads past the empty packet into the game |
+| game-two-empty-together | #142 | stalls at "Connecting" (no player, the game's first packet not answered), exit 0 at WM_CLOSE | reads past them into the game |
+
+- **Narrow** (high). `deliberate.outcome_of` classifies a result (the critical error box with its caption, Tibia.exe's
+  or the fork's text and exit 1; "Connecting" with a character list and no player; the login's "Connection failed"
+  with "Error: Disconnected from server." and an empty character list; a player, the Logout button and "running
+  (killed)"), and `frame_outcome(scenario, tibia, ours)` matches only a listed scenario whose two results have exactly
+  its two outcomes, and where the fork's client sent Tibia.exe's packets first (a prefix: Tibia.exe stopped earlier).
+  Any other outcome in these scenarios, or these outcomes in any other scenario, is still a difference.
+- **What is still compared** (high). For a match compare_network leaves out only the keys that make the outcome
+  (exit, box, characters, state, gui, gui_after_close, packets, problems) and compares the rest as before: error.txt
+  and the files (#74's and #45's expectations), the note, and the options, except when Tibia.exe wrote Tibia.cfg at
+  its critical error in the game (it saves the game's options there; the fork's client never exits, it is killed at
+  the logout warning, so its Patella.ini has the start's). Considered: comparing the fork's client in these scenarios
+  with Tibia.exe's result of the matching clean scenario (game-normal, login-cut-*): a cross-scenario comparison the
+  tool does not have, and the run-to-run parts of a game start would need their own rules.
+- **The report** (high, as compare_files and reference.py list theirs). A matched scenario is `DELIBERATE` with both
+  clients' summaries, and every scenario lists the deliberate differences it expected under it: the frame's line
+  (`deliberate (#139): a login frame whose size is no multiple of 8: Tibia.exe ends with the critical error box, the
+  fork's client drops it and goes on to the server's close ("Connection failed")`), and #74's and #45's lines
+  (deliberate.expected_lines on Tibia.exe's files and box). The last line counts them: "0 of 51 scenarios differ or
+  failed, 4 variable (...), 6 deliberate (...)"; the exit code is 0 when nothing differs, as before.
+- **The self-test** (`python -I tools/deliberate.py --self-test`): each entry matches its scenario with its outcomes;
+  no entry matches with another outcome on either side, with one client's result on both sides, with other packets,
+  or in nine other scenarios (game-normal, login-normal, the two inner-short ones, the two variable empty frames,
+  login-empty-frame, login-cut-start, game-cut-second); the login entries refuse the game's outcomes and the reverse.
+
+### The checks (high)
+
+- `python -I tools/deliberate.py --self-test` exit 0; `python -I -m py_compile tools/compare_network.py
+  tools/deliberate.py` exit 0 (build\logs\issue-150\deliberate-self-test.log).
+- In Windows Sandbox (#147; the host had no client and the ports 7171, 7172, 7271, 7272 were free for two minutes
+  before each run): `python -I tools/compare_network.py --patella
+  C:/Tibia/Patella-Modern/build/windows-x64/Release/Patella.exe --out build/network/result-150` (issue #19's
+  recording, sha256 61103b95..., copied to build\network) exit 0: of 51 scenarios 41 the same, 4 variable (the wrong
+  keys and the coalesced empty frames, as before), 6 deliberate, each named with its issue, 0 differ; 1305 s
+  (build\logs\issue-150\compare_network.log). Before the change the six alone differed (network-six-before.log, 176 s).
+- Not run: the C++ presets, golden, tidy and clang-format (no C++ changed); the reference compare (the functions of
+  deliberate.py it calls are unchanged).
+
+## #146: a private test server per run, on its own ports; the master never written (Patella-Modern issue #146, M7)
+
+Done by Claude Opus 5.5, November 8, 2026 (branch issue-146, from main c7e984f). The owner's request of November 7,
+the second step of the sandboxed tests (#147 was the first): two world files were cut that day (#137, #123) by runs
+sharing the one server in C:\Tibia\gameserver (a stop that killed it while it saved its map), and every live run waited
+for that server. Tools only; no client change. notes/testserver.md, "A private server per run".
+
+### What the server writes (high: the master's file times, its log, the server's own lines)
+
+The master's files by their modification time against the install (November 2, 08:54), after six days of runs:
+data\map all 9,873 sectors (179 MB: rewritten by every clean stop), data\usr 561 of 64,514 player files (the ~520 a stop
+saves, #18's finding), data\dat owners.dat (and monster.db, edited by hand on November 5), tibia.db, data\log all 7
+logs (112 MB, growing). Never written: the executable and DLLs, tibia.pem, schema.sql, data\mon (195 files), data\npc
+(376), data\origmap (9,873 sectors, 180 MB), the other data\dat files (2004-2006 times). config.cfg names its paths
+relative to the working directory (data_path "data", database_file, rsa_key_file); the server's banner prints the
+login and game port it took from config.cfg; tibia.db's Worlds.Port (7172) is the character list's game port.
+
+### The design (medium: the choices)
+
+- **A copy, not copy-on-write.** C: is NTFS (no block cloning for these files); hard links are only safe for files
+  the server never opens for writing, since a write through a link changes the master. So data\mon, data\npc and
+  data\origmap are hard links (10,444 files, 182 MB, free), everything else the server or the tools may write is a
+  real copy (74,406 files, 363 MB), data\log starts empty, the backup folder, the executable and its DLLs are left
+  out. 44 to 65 s alone, up to 105 s beside another run's copy (16 threads; the 64,514 small player files are most
+  of it). Copying only the 561 player files the server writes would be faster, but which ones it writes depends on
+  who is in the world at the stop: all are copied.
+- **The master's executable, run in the copy.** The server finds everything relative to its working directory, so
+  the master's tibia-server.exe runs with the copy as its working directory. Its path keeps the two Windows Firewall
+  "Allow" rules that name it (#18): a copied executable at a new path listening on 0.0.0.0 (the game port always
+  is) would bring up Windows' firewall prompt on the owner's desktop, and a dismissed prompt adds block rules, one
+  pair per run folder. Since several runs share that executable, start, stop and running() know their server by the
+  run's server.pid only (PID, image path, creation time), never by the image path alone.
+- **Four ports a run.** The login and game port (config.cfg's login_port and game_port, tibia.db's Worlds.Port) and
+  the proxy's pair, one block of 4 from 7300-7499: two host-side runs would otherwise both want the proxy's
+  7271/7272. A block is taken when no run's instance.json has it, nothing listens on it, it binds on 0.0.0.0 and no
+  Windows excluded range holds it (7300-7499 is in none on November 8); under a lock (msvcrt.locking of
+  RUNS_DIR\lock, released by Windows when its holder dies). Without a run the ports are 7171, 7172, 7271, 7272 as
+  before (reference.py's replays keep their own 7271/7272: no sockets since #120).
+- **The run's folder** is `%TEMP%\patella-testservers\<date>-<time>-<PID>` (PATELLA_TESTSERVER_RUNS overrides it):
+  machine-wide, so runs of several worktrees see each other's ports and stale copies; on the master's drive (the hard
+  links). PATELLA_TESTSERVER_RUN names it to the tools; testserver.py reads instance.json at import, and everything
+  that took SERVER_DIR or the ports from it before (compare_traffic.PLAYER_FILES and PEM, proxy.py, session_client's
+  game port, login_client.py, the Sandbox) follows without further change.
+- **Where a run begins: testserver.isolate()** in the `__main__` block of compare_traffic.py, compare_files.py (only
+  when it records its live walk) and testmode_check.py (its online runs), before sandbox.redirect(): it makes the copy
+  and runs the same command line again in that environment (as redirect does for the Sandbox), so every module-level
+  constant is the run's; afterwards it stops the run's server if it still runs and removes the copy. compare_rendering
+  and compare_network use no server; reference_record.py (frozen) is not changed and its start now refuses.
+- **start without a run refuses** ("the master is never written by the tools"); `start --master` keeps the old
+  behaviour for the owner's own use. The Sandbox no longer maps the master at all: the run's folder read-only, its
+  copy's data\usr writable (until now the master's data\usr was writable inside).
+- **The checks of the master.** Each run scans the master (size and modification time of all 84,865 files, about
+  2 s) before the copy and after the run: unchanged, or a WARNING naming the files (not a failure: tools of a branch
+  from before this issue, or the owner, may still run the master's server). A copy during which the master changed
+  is made again (up to 3 times): someone's server saved it meanwhile. `checksums --write|--compare` hashes every file
+  (18 s).
+- **Cleanup.** The end of a run stops its server (Ctrl+C, 600 s for the save once the map loads: #137's rule, never
+  a kill), keeps its logs in build\testserver\runs\<run>, removes the folder file by file without following a link
+  or junction. A run killed midway leaves its folder and maybe its server: the next run's start (or `cleanup`) takes
+  every folder whose owner process has exited (claimed through cleanup.claim, so two cleaners never meet), stops its
+  server the same way (one that does not end in 600 s is left for the next time) and removes it.
+- **The bind race's retry waits up to 180 s for "Server Online!"** (--stall, was --after-online's 60 s) before the
+  Ctrl+C of the failed attempt: a fresh copy's first map load took 42 to 116 s (the copied files are cold; the
+  restarts of the same copy load in 3.5 to 5.6 s), and the Ctrl+C is meant to come after the load (#95).
+
+### Found while proving it (high)
+
+- **A killed process still "ran"** for the first version: owner_alive compared the PID's creation time only, and a
+  process that has exited can still be opened (with its creation time) while its parent holds a handle, as the shell
+  or Popen that started the run does. process_running() now also waits on it (WaitForSingleObject, 0 ms); the
+  server's started_server() too. Self-test: an exited child with its handle still held is "gone".
+- **testmode_check's walk meets the temple NPC.** In the third proof one of 8 testmode_check runs sent no first step
+  north (8 client packets, not 9): the dump before the walks has Cipfried at 32097,32218, next to the player at
+  32098,32219 (run 1: 32096,32217), and the client does not step onto a field with a creature. That is world state of
+  the run's own server (the NPC walks at random), the race #137 removed from compare_traffic's look, not this change;
+  the other 7 runs and every other testmode_check run of this issue were identical. Not done here: a walk script
+  that the NPC cannot block (#137's way).
+
+### Checks
+
+- Gate 1: `python -I tools/testserver.py self-test` exit 0 (the start's wait: 0 failures; the private copies: 26
+  checks, 0 failures: the copy's plan, config.cfg and tibia.db, the hard links and the copies, data\log and data\save,
+  the config's refusals, the ports, an owner that ended with its handle held, the sweep of a run whose owner is gone
+  with a junction into the made-up master in its folder, the master's checksums unchanged, remove_tree's refusal),
+  `python -I tools/sandbox.py --self-test` exit 0, testmode_check.py and compare_files.py `--self-test` exit 0,
+  py_compile of every changed tool (build\logs\issue-146\gate1-*.log).
+- The master's checksums: `testserver.py checksums --write` before the first run (06:38, 84,865 files, 671 MB,
+  master-before.sha256), identical after the first parallel pair (06:51) and after the kill test (07:19:31).
+- Two live runs on separate servers at the same time, both passing (proof-*.log, proof3-*.log):
+  1. compare_traffic.py in Windows Sandbox (its server on 7380/7381, 8 tunnelled connections) and testmode_check.py
+     on the host, headless (7404/7405): both servers ran at once (proof-overlap.log, 06:49:54), both exit 0, no
+     differences, both copies removed, "the master is unchanged" from each.
+  2. A Windows Sandbox start that ended 12 s after WindowsSandbox.exe without running its logon command (no guest.log;
+     compare_files exit 2, nothing of the run had started; testmode_check --runs 4 beside it exit 0, no differences).
+  3. Again: testmode_check.py --runs 8 (7364/7365) and compare_files.py in the Sandbox (7324/7325): both servers had
+     established game connections at the same moment, five samples 07:04:24-07:04:34 (proof3-overlap.log: netstat's
+     ESTABLISHED rows of 7365 and 7325, the two server PIDs); compare_files exit 0, no differences; testmode_check 7 of
+     8 runs identical, run 4 without its first step (the NPC, above), exit 1.
+  4. With the final code (after the two fixes above): compare_traffic in the Sandbox (7396/7397) exit 0, no
+     differences, and testmode_check on the host (7380/7381) exit 0, no differences, its copy made while
+     compare_traffic's server ran (final-*.log). compare_traffic's run named the master's change of 07:21-07:22: the
+     server of #124's worktree (code from before this issue) on the master, which shut down cleanly ("Server shut down
+     successfully", its build\testserver\server.log); 131 files differ by content from master-before.sha256
+     (master-final-compare.log), none written by this issue's runs.
+- A run killed midway (proof-kill-midway.log; build\logs\issue-146\kill_test.py, not committed): `testserver.py run`
+  with a command that starts the server and sleeps; once start returned with the world loaded, the wrapper and its
+  command were killed (TerminateProcess, never the server). The copy and its server (PID 12020) stayed, "owner PID
+  gone"; the next `testserver.py run -- python -c pass` cleaned it up first (Ctrl+C, the server exited after its
+  save, the folder removed), then made and removed its own; no private server left; the master's checksums
+  identical. The first attempt of that test found the owner bug above and left a run whose cleanup is
+  proof-kill-midway-cleanup.log.
+- Gate 3: compare_traffic (runs 1 and 4) and compare_files (run 3) in the Sandbox on private servers, no
+  differences; `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference --exe
+  C:/Tibia/Patella-Modern/build/windows-x64/Release/PatellaTest.exe` exit 0, every session matches its reference
+  (gate3-reference-compare.log). The clients were main's build (C:\Tibia\Patella-Modern, a11086e; no src change here).
 
 ## #124: display modes, clipboard, URLs and message boxes over SDL3 (Patella-Modern issue #124, M8)
 
