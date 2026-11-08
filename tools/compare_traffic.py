@@ -63,6 +63,7 @@ import traceback
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import desktop  # noqa: E402
 import proxy as px  # noqa: E402
+import sandbox  # noqa: E402
 import session_client as sc  # noqa: E402
 import settings_file  # noqa: E402
 import login_client as lc  # noqa: E402
@@ -302,7 +303,10 @@ def read_cfg(name):
 # --- the server --------------------------------------------------------------------------
 
 def server_running():
-	"""A tibia-server.exe from SERVER_DIR runs (started by these tools or not)."""
+	"""A tibia-server.exe from SERVER_DIR runs (started by these tools or not); inside Windows Sandbox the host's
+	answer (issue #147)."""
+	if sandbox.inside():
+		return sandbox.server_running(SERVER_DIR)
 	return bool(testserver.server_processes(testserver.server_exe(SERVER_DIR)))
 
 
@@ -551,6 +555,7 @@ def main():
 	parser.add_argument("--patella", metavar="EXE", help="the x64 Patella.exe to test (its test build PatellaTest.exe "
 		"next to it runs, issue #92); default build/windows-x64/Release/Patella.exe")
 	parser.add_argument(desktop.HIDDEN, action="store_true", help=desktop.HIDDEN_HELP)
+	parser.add_argument(sandbox.DESKTOP, action="store_true", help=sandbox.DESKTOP_HELP)
 	args = parser.parse_args()
 	named = use_patella(args.patella or DEFAULT_PATELLA)
 	out = os.path.abspath(args.out)
@@ -700,6 +705,8 @@ def main():
 
 
 if __name__ == "__main__":
+	# issue #147: inside Windows Sandbox unless --desktop (or --hidden) is given
+	sandbox.redirect(writable=[TRAFFIC], skip=("record", "compare", "--check-only", "-h", "--help"))
 	desktop.hide(skip=("--check-only", "-h", "--help"))  # issue #56: only with --hidden
 	try:
 		sys.exit(main())

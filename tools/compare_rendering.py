@@ -94,6 +94,7 @@ import session_client as sc  # noqa: E402
 import login_client as lc  # noqa: E402
 import testmode_client as tc  # noqa: E402
 import build  # noqa: E402
+import sandbox  # noqa: E402
 
 ROOT = ct.ROOT
 RENDER = os.path.join(ROOT, "build", "render")
@@ -1080,6 +1081,7 @@ def main():
 	parser.add_argument("--windowed", action="store_true", help="show the x64 client's window in the windowed runs too "
 		"(default: headless there, --test-headless, issue #145)")
 	parser.add_argument(desktop.HIDDEN, action="store_true", help=desktop.HIDDEN_HELP)
+	parser.add_argument(sandbox.DESKTOP, action="store_true", help=sandbox.DESKTOP_HELP)
 	parser.add_argument("--self-test", action="store_true", help="check patcap.dll's shared-memory offsets against "
 		"tools/capture/patcap.c and the failure diagnosis on made-up data; no client")
 	args = parser.parse_args()
@@ -1528,5 +1530,11 @@ def kill_clients():
 
 
 if __name__ == "__main__":
+	# issue #147: inside Windows Sandbox unless --desktop (or --hidden) is given, its display at the fullscreen runs'
+	# 1024x768; patcap.dll is built here first (the Sandbox has no compiler)
+	skip = ("record", "compare", "--check-only", "--compare-only", "--self-test", "-h", "--help")
+	if sandbox.wanted(skip):
+		build_capture("capture-x86")
+	sandbox.redirect(writable=[RENDER], skip=skip, display=FULLSCREEN_MODE[:2])  # the fullscreen runs' 1024x768
 	desktop.hide(skip=("--check-only", "--compare-only", "--self-test", "-h", "--help"))  # issue #56: only with --hidden
 	sys.exit(main())

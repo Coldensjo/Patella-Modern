@@ -93,11 +93,17 @@ tag `layout-frozen-final`; new checks are unit tests or test-mode recordings aga
 Headless (issue #145; notes/testmode.md, "Headless"): PatellaTest.exe `--test-headless` (with a script) never shows
 its window and renders without a Vulkan surface, the same packets, dumps, frames and files as windowed; reference.py
 compare, testmode_check.py, compare_rendering.py's windowed x64 runs and the CTest tests that start PatellaTest.exe use
-it by default (`--windowed`: the window as before), several at once, beside a client on the desktop. Still on the
-desktop: Tibia.exe's runs (reference.py record, compare_traffic.py, compare_files.py, compare_rendering.py), the x64
-client's unscripted live runs (compare_traffic.py, compare_files.py) and compare_rendering.py's fullscreen runs.
-Those live checks run on the desktop of the session that starts them; a second interactive session (another Windows
-user, kept connected and unlocked) keeps the user's input away (issue #56; notes/reconstruction.md, "Checking").
+it by default (`--windowed`: the window as before), several at once, beside a client on the desktop. The runs that
+need a desktop (Tibia.exe's, the x64 client's unscripted live runs, compare_rendering.py's fullscreen runs) get the
+Windows Sandbox's since issue #147 (below).
+Windows Sandbox (issue #147; tools/sandbox.py, notes/testserver.md "Windows Sandbox"): compare_traffic.py,
+compare_files.py, compare_rendering.py (windowed and fullscreen, its display set to 1024x768) and compare_network.py
+run themselves inside Windows Sandbox by default, the whole tool (Tibia.exe, the x64 client, the proxy), the test
+server on the host through a reverse tunnel of 7171/7172; the Sandbox's window on a hidden desktop, so nothing shows on
+the user's desktop; one Sandbox at a time (a second run waits); `python -I tools/sandbox.py run -- <tool.py> [args]`
+runs any tool there. `--desktop` runs them on this session's desktop as before; there a second interactive session
+(another Windows user, kept connected and unlocked) keeps the user's input away (issue #56; notes/reconstruction.md,
+"Checking"). Still on the user's desktop: reference.py record (frozen) and tests_vulkan's hidden windows.
 `--hidden` (tools/desktop.py) is experimental: DirectDraw, Direct3D 9, the CPU driver and GetCursorPos fail there.
 
 The golden corpus (issue #24): the 32-bit oracle recorded it until issue #94 (the target golden_corpus, at the tag

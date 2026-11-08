@@ -714,6 +714,10 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   script) never shows its window and renders without a Vulkan surface (the frames read back as before); reference.py
   compare, testmode_check.py, compare_rendering.py's windowed x64 runs and the client's CTest tests run headless by
   default (`--windowed`), several at once and beside a client on the desktop.
+- **Tibia.exe's live runs off the user's desktop:** done in #147 (notes/decisions.md, "#147"): compare_traffic.py,
+  compare_files.py, compare_rendering.py and compare_network.py run inside Windows Sandbox by default
+  (tools/sandbox.py; its window on a hidden desktop, the test server on the host through a reverse tunnel); `--desktop`
+  as before.
 - **`final` on the classes nothing derives from** (#33's second half, after the oracle): done in #47
   (notes/decisions.md, "#47"): 70 classes; the 30 the golden tests use as seams (their fakes built by our
   constructors, stand-ins, a patched member that `final` lets MSVC inline) are listed with the reason.

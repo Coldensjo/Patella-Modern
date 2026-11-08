@@ -742,6 +742,18 @@ use it by default (`--windowed`); CTest headless_client. The reference compare m
 and on the GPU, equal to windowed byte for byte but for the state dumps' addresses; two headless compares beside a
 windowed one all matched, no headless window ever visible. notes/testmode.md, "Headless"; notes/decisions.md, "#145".
 
+Tibia.exe's live runs in Windows Sandbox (Patella-Modern issue #147, branch issue-147, November 8, 2026; M7):
+tools/sandbox.py runs a tool invocation inside Windows Sandbox (the configuration generated from
+tools/sandbox/patella.wsb.template, every folder mapped at its own path, the repository read-only; WindowsSandbox.exe
+on a hidden desktop, so nothing shows on the user's desktop; the job at medium integrity, else the Vulkan loader
+ignores VK_DRIVER_FILES; one Sandbox at a time, a second run waits). The test server stays on the host: a reverse
+tunnel gives the Sandbox the host's 127.0.0.1:7171/7172, and testserver.py start|stop inside runs on the host.
+compare_traffic.py, compare_files.py, compare_rendering.py (its display at 1024x768: the fullscreen pass too) and
+compare_network.py run inside by default (`--desktop`: as before). compare_traffic and compare_files without a
+difference (one compare_traffic run of three failed at the helper's game login; rerun passed), compare_rendering
+every scene identical on the GPU and the CPU driver, compare_network as on the host; ready 8-12 s after the start.
+notes/testserver.md, "Windows Sandbox"; notes/decisions.md, "#147".
+
 The portable socket (Patella-Modern issue #125, branch issue-125, November 7, 2026; M8): TPortableSocket
 (src/platform/PortableSocket.h, patella_platform, tests_platform on Windows and Linux) is Patella.exe's and the test
 build's live network over Winsock or POSIX sockets: non-blocking IPv6 sockets with IPv4 mapped, polled at the start of
