@@ -89,9 +89,10 @@ def worktree_tree():
 
 def build_image(treeish):
 	"""docker build of treeish's docker/linux-x64; the image id."""
-	context = git('archive', '--format=tar', treeish, DOCKER_DIR, binary=True)
-	# The context is the archive's root: the Dockerfile sits at docker/linux-x64/Dockerfile in it.
-	run = subprocess.run(['docker', 'build', '-q', '-f', DOCKER_DIR + '/Dockerfile', '-'], input=context,
+	# The context is docker/linux-x64 itself, as in `docker build docker/linux-x64`: the Dockerfile's RUN --mount of
+	# fetch.sh (issue #153) names a file of the context.
+	context = git('archive', '--format=tar', '%s:%s' % (treeish, DOCKER_DIR), binary=True)
+	run = subprocess.run(['docker', 'build', '-q', '-f', 'Dockerfile', '-'], input=context,
 		capture_output=True)
 	if run.returncode != 0:
 		sys.stdout.write(run.stdout.decode('utf-8', 'replace') + run.stderr.decode('utf-8', 'replace'))

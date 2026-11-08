@@ -164,6 +164,9 @@ jobs:
         run: docker build -t "$IMAGE" docker/linux-x64
       - name: CMake and Ninja of the image (issue #141: 4.4.5, 1.13.2)
         run: docker run --rm "$IMAGE" bash -c "cmake --version && ninja --version"
+      # Issue #153: the builds' retrying downloads against a local server (504s, a wrong file, the fallback); no network.
+      - name: tools/download_selftest.py
+        run: docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work "$IMAGE" python3 -I tools/download_selftest.py
       # The files of CLAUDE.md's check; .clang-format-ignore leaves src/Extern and tools/ out.
       - name: clang-format --dry-run --Werror
         run: >-

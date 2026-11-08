@@ -812,6 +812,12 @@ error box, or stalled at "Connecting") and the fork's client's (the login server
 reports exactly those as DELIBERATE with their issue, still compares the rest, and lists every deliberate difference
 it expected. In Windows Sandbox: 41 the same, 4 variable, 6 deliberate, 0 differ. notes/decisions.md, "#150".
 
+CI's downloads (Patella-Modern issue #153, branch issue-153, November 8, 2026; M7): GitHub's release downloads answered
+504 for hours and failed whole runs. A timeout or 5xx is now retried with a pause everywhere the builds download, and
+CMake falls back to Kitware's own site; a 404 or a wrong SHA-256 stops at once. tools/build.py's download_verified,
+docker/linux-x64/fetch.sh and cmake/Download.cmake's patella_fetch_declare; tools/download_selftest.py shows them
+against a local server, also in hosted CI's clang-format job. notes/decisions.md, "#153".
+
 Fuzzing (Patella-Modern issue #132, branch issue-132, November 7, 2026; M9): tests/fuzz has eight libFuzzer targets,
 fuzz_settings (Patella.ini, patella_core only), fuzz_network (TNetwork's frames, #72's short packets among the seeds),
 fuzz_packets (ReceivePackets and Communication.cpp's handlers in the golden Communication world), fuzz_tibia_cfg,

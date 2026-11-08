@@ -20,35 +20,36 @@
 
 include_guard(GLOBAL)
 include(FetchContent)
+include("${PROJECT_SOURCE_DIR}/cmake/Download.cmake")
 include("${PROJECT_SOURCE_DIR}/cmake/Warnings.cmake")
 include("${PROJECT_SOURCE_DIR}/cmake/Hardening.cmake")
 
 # Sources only (no CMakeLists.txt is used): SOURCE_SUBDIR names a directory that does not exist.
-FetchContent_Declare(patella_vulkan_headers
+patella_fetch_declare(patella_vulkan_headers
 	URL https://github.com/KhronosGroup/Vulkan-Headers/archive/refs/tags/vulkan-sdk-1.4.363.0.tar.gz
 	URL_HASH SHA256=4a078be12bef21cfebc09d878b77a63cff9d68f899254a0b00d0e37ef73e7f7e
 	SOURCE_SUBDIR patella-sources-only)
-FetchContent_Declare(patella_volk
+patella_fetch_declare(patella_volk
 	URL https://github.com/zeux/volk/archive/refs/tags/vulkan-sdk-1.4.363.0.tar.gz
 	URL_HASH SHA256=1547d8d74395d4048fb3f4a6313da56db626e89b55db238d0d7e8944c8a645f3
 	SOURCE_SUBDIR patella-sources-only)
-FetchContent_Declare(patella_vma
+patella_fetch_declare(patella_vma
 	URL https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/archive/refs/tags/v3.5.0.tar.gz
 	URL_HASH SHA256=c5f3db848fca9cb9726b41f256cc3007773321fa92a86d1e0902e66474e8a9e3
 	SOURCE_SUBDIR patella-sources-only)
-FetchContent_Declare(patella_vk_bootstrap
+patella_fetch_declare(patella_vk_bootstrap
 	URL https://github.com/charles-lunarg/vk-bootstrap/archive/refs/tags/v1.4.363.tar.gz
 	URL_HASH SHA256=11927b43a5c5d64646982b273d6436d2243acaa2da8834f7ba382060431155fe
 	SOURCE_SUBDIR patella-sources-only)
 # glslang is built with its own CMakeLists (only the glslang executable, which compiles the shaders),
 # with the compiler's warnings off: third-party code; the build checks ours.
-FetchContent_Declare(patella_glslang
+patella_fetch_declare(patella_glslang
 	URL https://github.com/KhronosGroup/glslang/archive/refs/tags/16.6.0.tar.gz
 	URL_HASH SHA256=9c09b901149c729df745057dafa815278aaa101b84d2b6e14f16a42de52f97f2
 	EXCLUDE_FROM_ALL)
 # The CPU driver: Mesa 26.2.6's lavapipe, prebuilt with MSVC by the mesa-dist-win project (the archive's
 # SHA256 is the one GitHub publishes for the release asset). Only two files are taken from it.
-FetchContent_Declare(patella_lavapipe
+patella_fetch_declare(patella_lavapipe
 	URL https://github.com/pal1000/mesa-dist-win/releases/download/26.2.6/mesa3d-26.2.6-release-msvc.7z
 	URL_HASH SHA256=b2e00615feaba45942343c265cc8c5f576142ca682c1ac6661922d4b72492877
 	DOWNLOAD_NO_EXTRACT TRUE)

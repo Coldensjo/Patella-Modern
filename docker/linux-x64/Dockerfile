@@ -25,6 +25,9 @@
 # - Ninja 1.13.2 (issue #141; Debian trixie's 1.12.1 until then, and Debian has no 1.13 package): the ninja-build
 #   project's release binary for Linux (ninja-linux.zip), checked against the SHA-256 GitHub publishes for the
 #   release asset, in /usr/local/bin. The version of the Windows builds.
+# - The downloads (issue #153): fetch.sh, retries of a timeout or 5xx with a pause, for CMake a fallback to Kitware's
+#   own site; every file checked against its SHA-256 before it is used. It is only mounted for those two RUNs, so it
+#   is not in the image, and the tag says what is in the image: it stays. RUN --mount needs BuildKit, Docker's default.
 #
 # When Debian replaces one of the pinned package versions (a point release), the build fails at
 # apt-get install: take the new version from `apt-cache policy <package>`, or point the sources at
@@ -33,8 +36,8 @@
 
 FROM gcc:16.2.0-trixie@sha256:07280eb2e744f1b7a2d8d4a3894c089ea07266c109758afc388a634bd098e4eb
 
-RUN apt-get update \
-	&& apt-get install -y --no-install-recommends \
+RUN apt-get -o Acquire::Retries=5 update \
+	&& apt-get -o Acquire::Retries=5 install -y --no-install-recommends \
 		clang-22=1:22.1.8-1~deb13u4 \
 		libclang-rt-22-dev=1:22.1.8-1~deb13u4 \
 		clang-format-22=1:22.1.8-1~deb13u4 \
@@ -49,9 +52,10 @@ RUN gcc_dir="$(dirname "$(gcc -print-libgcc-file-name)")" 	&& test "$gcc_dir" = 
 
 ARG CMAKE_VERSION=4.4.5
 ARG CMAKE_SHA256=ed85135c5a5135b45e50423cb406dea04ca3338da0b8ef3c9ede963559680be0
-RUN curl -fsSL -o /tmp/cmake.tar.gz \
+RUN --mount=type=bind,source=fetch.sh,target=/tmp/fetch.sh \
+	sh /tmp/fetch.sh "${CMAKE_SHA256}" /tmp/cmake.tar.gz \
 		"https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz" \
-	&& echo "${CMAKE_SHA256}  /tmp/cmake.tar.gz" | sha256sum -c - \
+		"https://cmake.org/files/v${CMAKE_VERSION%.*}/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz" \
 	&& mkdir /opt/cmake \
 	&& tar -xzf /tmp/cmake.tar.gz -C /opt/cmake --strip-components=1 \
 	&& rm /tmp/cmake.tar.gz \
@@ -59,9 +63,9 @@ RUN curl -fsSL -o /tmp/cmake.tar.gz \
 
 ARG NINJA_VERSION=1.13.2
 ARG NINJA_SHA256=5749cbc4e668273514150a80e387a957f933c6ed3f5f11e03fb30955e2bbead6
-RUN curl -fsSL -o /tmp/ninja.zip \
+RUN --mount=type=bind,source=fetch.sh,target=/tmp/fetch.sh \
+	sh /tmp/fetch.sh "${NINJA_SHA256}" /tmp/ninja.zip \
 		"https://github.com/ninja-build/ninja/releases/download/v${NINJA_VERSION}/ninja-linux.zip" \
-	&& echo "${NINJA_SHA256}  /tmp/ninja.zip" | sha256sum -c - \
 	&& python3 -I -m zipfile -e /tmp/ninja.zip /usr/local/bin \
 	&& chmod 755 /usr/local/bin/ninja \
 	&& rm /tmp/ninja.zip \
