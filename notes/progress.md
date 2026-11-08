@@ -772,6 +772,13 @@ it; what a successful reading shows is used as before. compare_files --self-test
 (#147) five options runs in a row and a full compare_files run found no differences; the first options run met one
 such torn reading and read it again. notes/decisions.md, "#149".
 
+compare_network's bad frames (Patella-Modern issue #150, branch issue-150, November 8, 2026; M7): tools/deliberate.py's
+FRAME_SCENARIOS lists the six bad-frame scenarios of #72, #139 and #142 (login-bad-size, game-bad-size,
+login-inner-long, game-inner-long, game-empty-alone, game-two-empty-together) with Tibia.exe's outcome (the critical
+error box, or stalled at "Connecting") and the fork's client's (the login server's close, or the game); compare_network
+reports exactly those as DELIBERATE with their issue, still compares the rest, and lists every deliberate difference
+it expected. In Windows Sandbox: 41 the same, 4 variable, 6 deliberate, 0 differ. notes/decisions.md, "#150".
+
 Fuzzing (Patella-Modern issue #132, branch issue-132, November 7, 2026; M9): tests/fuzz has eight libFuzzer targets,
 fuzz_settings (Patella.ini, patella_core only), fuzz_network (TNetwork's frames, #72's short packets among the seeds),
 fuzz_packets (ReceivePackets and Communication.cpp's handlers in the golden Communication world), fuzz_tibia_cfg,
