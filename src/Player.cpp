@@ -339,8 +339,12 @@ BOOL InitSdlWindow(bool Gamemaster, const char *ClassName)
 // since issue #74.
 BOOL CPlayerApp::InitInstance()
 {
+	// Not in the original (Patella-Modern issue #130, D14): the data folder and Patella.ini's folder (the working
+	// folder where it has Tibia.dat, as the original's files were).
+	patella::platform::ConfigureDataFiles();
 	// Not in the original (Patella-Modern issue #77, D16): the developer log's level and file from Patella.ini.
 	patella::log::LoadSettings(patella::platform::Platform().FileSystem); // issue #119: through the platform's files
+	patella::platform::LogDataFiles();
 	// Issue #122: the window path (platform/WindowChoice.h): the SDL3 window and loop, or PATELLA_WINDOW=mfc MFC's.
 	const bool Sdl = patella::platform::UseSdlWindow();
 	if (patella::platform::IsUnknownWindowSystem(patella::platform::WindowSystemSetting()))

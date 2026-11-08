@@ -51,9 +51,11 @@ with that preset's compiler set up.
 The 64-bit client is `build\windows-x64\<Configuration>\Patella.exe` with its PDB. `capture-x86` builds only
 `build\capture-x86\Release\patcap.dll`, which the comparisons and the reference recordings load into `Tibia.exe`;
 it is a test instrument, not a product. Run the client from a folder that holds
-copies of the data files (for example `build\run`), never from the root, because the client rewrites
-`Tibia.cfg` on exit. See "Building" in [notes/reconstruction.md](notes/reconstruction.md) for the details and
-for the tests.
+copies of the data files (for example `build\run`), never from the root, because the client writes its settings
+(`Patella.ini`) and the automap next to the data. The client finds its data files (issue #130) in the working folder,
+else next to `Patella.exe`, else in the folder of `--data <folder>` (which comes first) or of `DataFolder=<folder>` in
+a `Patella.ini`; `Patella.ini` stays next to the data. See "Building" in
+[notes/reconstruction.md](notes/reconstruction.md) for the details and for the tests.
 
 On Linux there is no client yet: the presets `linux-x64-gcc` and `linux-x64-clang` build `patella_core`, the
 library of the code that is already portable (big numbers and RSA, XTEA, the string helpers and packet

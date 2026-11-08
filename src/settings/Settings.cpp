@@ -2,6 +2,7 @@
 
 #include "settings/Settings.h"
 
+#include "compat/msvc.h"
 #include "types/Cp1252.h"
 
 #include "platform/FileSystem.h"
@@ -10,9 +11,11 @@
 #include <array>
 #include <cerrno>
 #include <cstddef>
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -249,6 +252,137 @@ bool Save(patella::platform::IFileSystem &Files, const std::string &Path, const 
 		return false;
 	const bool Written = File.Write(Settings.Text());
 	return File.Close() == 0 && Written;
+}
+
+// GCC's analyzer (-fanalyzer, issue #130) follows a std::filesystem::path copy whose string throws length_error into
+// "use of uninitialized value" after the throw: a false positive of its exception paths through libstdc++.
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic push")
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic ignored \"-Wanalyzer-use-of-uninitialized-value\"")
+
+namespace {
+
+// Tibia.dat in Folder (FindNoCase's spelling where CaseInsensitive).
+bool HasData(const std::filesystem::path &Folder, bool CaseInsensitive)
+{
+	if (Folder.empty())
+		return false;
+	try {
+		const std::filesystem::path DataFile = CaseInsensitive ? patella::platform::FindNoCase(Folder, "Tibia.dat")
+															   : Folder / "Tibia.dat";
+		std::error_code Error;
+		return std::filesystem::is_regular_file(DataFile, Error);
+	} catch (...) { // std::bad_alloc of the path
+		return false;
+	}
+}
+
+// The folder that DataFolder of Folder's Patella.ini names (relative to Folder), where it has one.
+std::optional<std::filesystem::path> ConfiguredData(const std::filesystem::path &Folder, bool CaseInsensitive)
+{
+	if (Folder.empty())
+		return std::nullopt;
+	patella::platform::TDataFileSystem Files(patella::platform::TFileLocations{Folder, {}, CaseInsensitive});
+	const std::optional<TSettingsFile> File = Load(Files, FileName);
+	if (!File)
+		return std::nullopt;
+	const std::optional<std::string> Value = File->Get(DataFolderKey);
+	if (!Value || Value->empty())
+		return std::nullopt;
+	// The file's text: UTF-8, or the client's Windows-1252 in a file of version 1 (EncodingOf).
+	const std::string Utf8 = EncodingOf(*File) == TEncoding::Cp1252 ? patella::text::Cp1252ToUtf8(*Value) : *Value;
+	return Folder / std::filesystem::path(std::u8string(Utf8.begin(), Utf8.end()));
+}
+
+std::filesystem::path Absolute(const std::filesystem::path &Working, const std::filesystem::path &Folder)
+{
+	return (Folder.is_absolute() ? Folder : Working / Folder).lexically_normal();
+}
+
+bool SameFolder(const std::filesystem::path &Left, const std::filesystem::path &Right)
+{
+	std::error_code Error;
+	const bool Same = std::filesystem::equivalent(Left, Right, Error);
+	return !Error ? Same : Left.lexically_normal() == Right.lexically_normal();
+}
+
+} // namespace
+
+TLocationChoice ChooseLocations(const TLocationInputs &Inputs)
+{
+	TLocationChoice Choice;
+	Choice.Locations.CaseInsensitive = Inputs.CaseInsensitive;
+	const std::filesystem::path Working = Inputs.Working.lexically_normal();
+	std::filesystem::path Data = Working;
+	std::filesystem::path IniFolder; // step 4's
+	if (Inputs.DataOption) {
+		Choice.Source = TDataSource::Option;
+		Data = Absolute(Working, *Inputs.DataOption);
+	} else if (HasData(Working, Inputs.CaseInsensitive)) {
+		Choice.Source = TDataSource::Working;
+	} else if (!Inputs.Executable.empty() && HasData(Absolute(Working, Inputs.Executable), Inputs.CaseInsensitive)) {
+		Choice.Source = TDataSource::Executable;
+		Data = Absolute(Working, Inputs.Executable);
+	} else {
+		std::vector<std::filesystem::path> Candidates;
+		if (Inputs.Xdg)
+			Candidates.push_back(Inputs.XdgFolder);
+		else
+			Candidates = {Working, Inputs.Executable};
+		for (const std::filesystem::path &Candidate : Candidates) {
+			if (Candidate.empty())
+				continue;
+			const std::filesystem::path Folder = Absolute(Working, Candidate);
+			const std::optional<std::filesystem::path> Configured = ConfiguredData(Folder, Inputs.CaseInsensitive);
+			if (Configured && HasData(Absolute(Working, *Configured), Inputs.CaseInsensitive)) {
+				Choice.Source = TDataSource::Settings;
+				Data = Absolute(Working, *Configured);
+				IniFolder = Folder;
+				break;
+			}
+		}
+	}
+	std::filesystem::path Settings = Data;
+	if (Inputs.Xdg && !Inputs.XdgFolder.empty())
+		Settings = Absolute(Working, Inputs.XdgFolder);
+	else if (!IniFolder.empty())
+		Settings = IniFolder;
+	if (!SameFolder(Data, Working))
+		Choice.Locations.Data = Data;
+	if (!SameFolder(Settings, Data))
+		Choice.Locations.Settings = Settings;
+	Choice.DataFolder = std::move(Data);
+	Choice.SettingsFolder = std::move(Settings);
+	return Choice;
+}
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic pop")
+
+std::filesystem::path XdgSettingsFolder(const char *XdgConfigHome, const char *Home)
+{
+	if (XdgConfigHome != nullptr && *XdgConfigHome != 0) {
+		const std::filesystem::path Folder(XdgConfigHome);
+		if (Folder.is_absolute())
+			return Folder / "patella";
+	}
+	if (Home != nullptr && *Home != 0)
+		return std::filesystem::path(Home) / ".config" / "patella";
+	return {};
+}
+
+const char *SourceName(TDataSource Source)
+{
+	switch (Source) {
+	case TDataSource::Option:
+		return "--data";
+	case TDataSource::Working:
+		return "the working folder";
+	case TDataSource::Executable:
+		return "the executable's folder";
+	case TDataSource::Settings:
+		return "DataFolder of Patella.ini";
+	case TDataSource::Default:
+		break;
+	}
+	return "the working folder (no Tibia.dat found)";
 }
 
 } // namespace patella::settings

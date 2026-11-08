@@ -243,6 +243,15 @@ resolutions and the switch to fullscreen stay with Windows' own calls on Windows
 more on some screens and picks refresh rates differently; the SDL3 version is ready for Linux. *Why it matters:* these
 were among the last places where the game talked to Windows directly, and a Linux client can now use the same code.
 
+**The client finds its game files by itself (#130).**
+The client used to open its game files (the graphics, the item data, the settings, the maps it draws as you explore)
+only from the folder it was started in. It now also finds them next to the program itself, or in a folder given with
+`--data` or written in its settings file, and on Linux it finds the original files whatever mix of capital letters
+their names have (Linux, unlike Windows, tells `Tibia.dat` and `tibia.dat` apart). The settings file stays next to the
+game files, or, on Linux, can live in the usual personal settings folder. Started the old way, nothing changes: the
+same files are opened under the same names, and every test still matches. *Why it matters:* a packaged client (such
+as a Linux AppImage, which may not include the game's own files) can be pointed at a copy of them anywhere.
+
 ## M8 and M9, started early
 
 **Big-number maths fully unit-tested (#128).**
