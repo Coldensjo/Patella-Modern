@@ -742,6 +742,13 @@ use it by default (`--windowed`); CTest headless_client. The reference compare m
 and on the GPU, equal to windowed byte for byte but for the state dumps' addresses; two headless compares beside a
 windowed one all matched, no headless window ever visible. notes/testmode.md, "Headless"; notes/decisions.md, "#145".
 
+A refused Tibia.exe start (Patella-Modern issue #148, branch issue-148, November 8, 2026; M7): the tools that start
+Tibia.exe (session_client.py's Driver for compare_traffic, compare_files, compare_network, compare_rendering and
+reference_record; login_client.py) wait up to 120 s for another client's window (tools/client_start.py, naming its
+process), close a failed start (its box's text logged, its own PID only), start once more, and end the run on a
+second failure instead of piling "A Tibia client is already running!" boxes. Live proof pending (Windows Sandbox,
+#147). notes/decisions.md, "#148".
+
 The portable socket (Patella-Modern issue #125, branch issue-125, November 7, 2026; M8): TPortableSocket
 (src/platform/PortableSocket.h, patella_platform, tests_platform on Windows and Linux) is Patella.exe's and the test
 build's live network over Winsock or POSIX sockets: non-blocking IPv6 sockets with IPv4 mapped, polled at the start of
