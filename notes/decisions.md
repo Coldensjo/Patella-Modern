@@ -17082,6 +17082,12 @@ tools and #123's input over SDL3; `<name>-final.log`; the runs on 29ab392, with 
   another client's window in the same way (compare_network-try1.log); its second (try2 logs) counted 8 differences,
   two of them (login-inner-short, game-inner-short) the TIMERPROC's swallowed TERROR: now the same in both clients.
 
+- After #145 (main fbdadb9 merged, 6a5c43d): `python -I tools/build.py windows-x64` exit 0, 30/30, golden 0 failures, 0
+  warnings; `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` (headless, #145's
+  default) and with `--windowed` exit 0, every session matches; `python -I tools/compare_traffic.py` exit 0, no
+  differences (logs `*-final.log`; the runs on 40c6f96 in pre-145). windows-x64-debug and windows-x64-asan last passed
+  on 29ab392 (pre-123: 28/28 each, no ASan report); their runs on 40c6f96 were stopped for the merge.
+
 ### Found, not done
 
 - tools/deliberate.py (compare_network.py's expected differences) lacks #139's and #142's frame outcomes, so
