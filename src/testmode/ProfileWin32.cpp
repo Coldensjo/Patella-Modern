@@ -18,6 +18,34 @@
 //	F <counter at Present's entry> <Present's ticks> <allocations> <frees> <bytes asked for> <of them up to 1016 bytes>
 //	G <nanoseconds of a frame's device time>
 
+#if !defined(_WIN32)
+// Issue #131: the profile windows are Windows' (the heap hooks patch kernel32's import table; tools/profiling.py runs against
+// Tibia.exe): on Linux the control channel says so and the frame's two points do nothing.
+#include "testmode/ProfileWin32.h"
+
+namespace patella::vulkan {
+class TRenderer;
+}
+
+namespace patella::testmode {
+
+std::string ProfileCommand([[maybe_unused]] const std::string &Text)
+{
+	return "profile windows are not implemented on Linux";
+}
+
+void ProfilePresentBegin([[maybe_unused]] patella::vulkan::TRenderer *Renderer)
+{
+}
+
+void ProfilePresentEnd([[maybe_unused]] patella::vulkan::TRenderer *Renderer)
+{
+}
+
+} // namespace patella::testmode
+
+#else
+
 #include "common.h"
 #include "testmode/ProfileWin32.h"
 #include "vulkan/Renderer.h"
@@ -265,3 +293,5 @@ void ProfilePresentEnd(patella::vulkan::TRenderer *Renderer)
 }
 
 } // namespace patella::testmode
+
+#endif // _WIN32

@@ -21,6 +21,7 @@
 #include "platform/PortableSocket.h" // IWYU pragma: keep (TSocket, whose events Deliver calls)
 #include "testmode/PipeNetwork.h"
 
+#include <deque>
 #include <unordered_map>
 
 namespace patella::testmode {
@@ -56,7 +57,9 @@ public:
 	void Poll() override;
 
 private:
+#if defined(_WIN32)
 	static LRESULT CALLBACK WindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam);
+#endif
 	// TPipeNetwork's notification: the window message.
 	void Post(int Id, TPipeEvent Event, bool Failed);
 	// The window message: the TSocket's event.
@@ -68,7 +71,17 @@ private:
 	TPipeNetwork Pipes;
 	std::unordered_map<platform::TSocket *, int> Ids;
 	std::unordered_map<int, platform::TSocket *> Sockets;
+#if defined(_WIN32)
 	HWND Window = nullptr;
+#else
+	// Linux (issue #131): the events' queue, what PostMessage made on Windows; delivered by Poll, in order, until empty.
+	struct TPosted {
+		int Id;
+		TPipeEvent Event;
+		bool Failed;
+	};
+	std::deque<TPosted> Posted;
+#endif
 	int Error = 0;
 };
 

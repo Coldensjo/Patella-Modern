@@ -185,6 +185,14 @@ endfunction()
 # measure). The level is set per source, so no command line has two levels. Headers included with
 # angle brackets (Windows SDK, MFC, the standard library) are external to MSVC and give no warnings
 # (/external:anglebrackets /external:W0).
+# Issue #131: the Vulkan engine's two big files on Linux (the first time GCC and Clang compile them): the C structures
+# of Vulkan initialised with only their type (-Wextra's -Wmissing-field-initializers) and the original's member names
+# reused as parameters (-Wshadow), which MSVC does not warn about. At -Wall, as the other files of the original's code.
+list(APPEND PATELLA_WARNING_BASELINE_GCC src/Surface.cpp src/vulkan/Renderer.cpp src/vulkan/SurfaceVulkan.cpp)
+list(APPEND PATELLA_WARNING_BASELINE_CLANG src/Surface.cpp src/vulkan/Renderer.cpp src/vulkan/SurfaceVulkan.cpp
+	# The original's headers through these two (-Wsign-conversion, -Wunnecessary-virtual-specifier): Clang only.
+	src/Player.cpp src/testmode/ClientStateWin32.cpp)
+
 function(patella_target_warnings target)
 	if(MSVC)
 		set(full /W4)

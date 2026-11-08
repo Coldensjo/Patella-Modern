@@ -14,8 +14,9 @@
 # Pinned as cmake/Vulkan.cmake pins its libraries: one release, by URL and SHA256 (the digest GitHub publishes for the
 # release asset SDL3-3.4.18.tar.gz), fetched at the first configure into build/<preset>/_deps and built there; nothing
 # is installed on the system. Plan section 5: `find_package` first where a distribution has its own SDL3, which is
-# Linux's (FetchContent's FIND_PACKAGE_ARGS, 3.4.18 or a newer 3.x); on Windows always the pinned archive. No Linux
-# preset includes this file yet (the Linux client is M8's last step), so the Linux image does not have SDL3.
+# Linux's (FetchContent's FIND_PACKAGE_ARGS, 3.4.18 or a newer 3.x); on Windows always the pinned archive. The Linux client
+# (issue #131, cmake/LinuxX64.cmake) builds the pinned archive in the Docker image, which has SDL3's build dependencies
+# (docker/linux-x64/Dockerfile: its X11 and Wayland video drivers, no SDL3 package).
 
 include_guard(GLOBAL)
 include(FetchContent)
@@ -60,13 +61,25 @@ function(patella_add_sdl3)
 	set(SDL_OPENGL OFF)
 	set(SDL_OPENGLES OFF)
 	set(SDL_WERROR OFF)
+	# Linux (issue #131): the X11 and Wayland video drivers, loaded with dlopen at run time; what the client does not use is
+	# off (the input methods' bus connections, the kernel's mode setting and device discovery).
+	set(SDL_IBUS OFF)
+	set(SDL_FCITX OFF)
+	set(SDL_DBUS OFF)
+	set(SDL_LIBUDEV OFF)
+	set(SDL_KMSDRM OFF)
+	set(SDL_X11_XTEST OFF)
 	# The client's CRT: the static one (cmake/WindowsX64.cmake); CMake gives it to the targets SDL makes here.
 	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 	FetchContent_MakeAvailable(patella_sdl3)
 endfunction()
 patella_add_sdl3()
 
-if(TARGET SDL3-static)
+if(TARGET SDL3-static AND NOT MSVC)
+	target_compile_options(SDL3-static PRIVATE -w) # third-party code: no warnings of its own in the build log (build.py)
+	set_target_properties(SDL3-static PROPERTIES POSITION_INDEPENDENT_CODE ON) # the product is position independent (cmake/Hardening.cmake)
+endif()
+if(TARGET SDL3-static AND MSVC)
 	# Third-party code: not with the product's warning settings, and no warning of its own in the build log (build.py
 	# fails a build on any warning, issue #17). SDL gives its sources /W3; /W0 replaces it (a later /W option wins
 	# without the D9025 warning that a /W0 in CMAKE_C_FLAGS before SDL's /W3 would print).

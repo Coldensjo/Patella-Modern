@@ -2,9 +2,15 @@
 
 #include "vulkan/PresentWindow.h"
 
+#if defined(_WIN32)
 #include <commctrl.h>
+#else
+#include <SDL3/SDL_video.h>
+#endif
 
 namespace patella::vulkan {
+
+#if defined(_WIN32)
 
 namespace {
 
@@ -185,5 +191,72 @@ TTestWindow::~TTestWindow()
 {
 	DestroyChild(Window);
 }
+
+#else // Linux (issue #131): the device's window is the main window
+
+void TPresentWindows::Subclass(HWND Window)
+{
+	SubclassedWindow = Window;
+}
+
+void TPresentWindows::Unsubclass()
+{
+	SubclassedWindow = nullptr;
+}
+
+TPresentWindows::~TPresentWindows()
+{
+	Close();
+}
+
+HWND TPresentWindows::Open(HWND Parent)
+{
+	Retire();
+	Subclass(Parent);
+	CurrentWindow = Parent;
+	CurrentPresented = false;
+	return CurrentWindow;
+}
+
+void TPresentWindows::Fit()
+{
+}
+
+void TPresentWindows::Presented()
+{
+	if (CurrentWindow != nullptr)
+		CurrentPresented = true;
+}
+
+void TPresentWindows::Retire()
+{
+	CurrentWindow = nullptr;
+	CurrentPresented = false;
+}
+
+void TPresentWindows::Close()
+{
+	Retire();
+	Unsubclass();
+}
+
+void TPresentWindows::FillUncovered(HDC Context) const
+{
+	static_cast<void>(Context);
+}
+
+TTestWindow::TTestWindow(HWND Parent)
+{
+	static_cast<void>(Parent);
+	// The device test's own surface: a hidden window of its own, Vulkan, never shown.
+	Window = reinterpret_cast<HWND>(SDL_CreateWindow("", 1, 1, SDL_WINDOW_HIDDEN | SDL_WINDOW_VULKAN));
+}
+
+TTestWindow::~TTestWindow()
+{
+	SDL_DestroyWindow(reinterpret_cast<SDL_Window *>(Window));
+}
+
+#endif // _WIN32
 
 } // namespace patella::vulkan

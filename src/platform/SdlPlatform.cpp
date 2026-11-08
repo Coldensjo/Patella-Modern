@@ -13,6 +13,12 @@
 #include "platform/Win32Platform.h"
 #endif
 
+#if !defined(_WIN32)
+#include <fcntl.h>
+#include <sys/file.h>
+#include <unistd.h>
+#endif
+
 #include <SDL3/SDL_clipboard.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_messagebox.h>
@@ -23,6 +29,8 @@
 
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
+#include <cstring>
 #include <optional>
 #include <string>
 #include <vector>
@@ -103,12 +111,50 @@ void TSdlWindow::ShowMessageBox(TWindowHandle Owner, const char *Text, const cha
 	SDL_ShowSimpleMessageBox(Flags, Utf8Caption.c_str(), Utf8Text.c_str(), Parent);
 }
 
+#if !defined(_WIN32)
+namespace {
+
+// Issue #131: the start's count of the Tibia windows (Player.cpp CountTibiaWindows, "A Tibia client is already running!"):
+// no call of SDL3 lists another process's windows, so another client of this user is told by a lock. Taken at the first
+// count (the client's own, before its window shows) and held to the end of the process (exit releases it).
+bool AnotherClientRuns()
+{
+	static const bool Result = [] {
+		const char *const Runtime = std::getenv("XDG_RUNTIME_DIR");
+		std::string Path = Runtime != nullptr && Runtime[0] == '/' ? std::string(Runtime) : "/tmp";
+		Path += "/patella-client-" + std::to_string(::getuid()) + ".lock";
+		const int File = ::open(Path.c_str(), O_CREAT | O_RDWR | O_CLOEXEC, 0600);
+		if (File < 0)
+			return false;
+		return ::flock(File, LOCK_EX | LOCK_NB) != 0; // the descriptor stays open: the lock lasts as long as the process
+	}();
+	return Result;
+}
+
+} // namespace
+
+void TSdlWindow::VisitOwnWindows(TWindowVisitor Visit)
+{
+	int Count = 0;
+	SDL_Window **const Windows = SDL_GetWindows(&Count);
+	for (int i = 0; Windows != nullptr && i < Count; i++) {
+		const char *const Title = SDL_GetWindowTitle(Windows[i]);
+		Visit(Title, Title != nullptr ? static_cast<int>(std::strlen(Title)) : 0, "", 0);
+	}
+	SDL_free(static_cast<void *>(Windows));
+}
+#endif
+
 void TSdlWindow::VisitWindows(TWindowVisitor Visit)
 {
 #if defined(_WIN32)
 	Win32Window().VisitWindows(Visit);
 #else
-	static_cast<void>(Visit);
+	VisitOwnWindows(Visit);
+	if (AnotherClientRuns()) {
+		// The other client counts as one more window of the client's title (CountTibiaWindows).
+		VisitOwnWindows(Visit);
+	}
 #endif
 }
 

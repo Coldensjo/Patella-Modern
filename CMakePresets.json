@@ -108,14 +108,13 @@
 				"rhs": "Linux"
 			},
 			"cacheVariables": {
-				"PATELLA_CLIENT": "OFF",
 				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
 			}
 		},
 		{
 			"name": "linux-x64-gcc",
-			"displayName": "linux-x64-gcc: GCC 16 on Linux x64: patella_core and the unit tests (issue #7)",
-			"description": "Needs GCC 16 (gcc, g++) on PATH; the Docker image of docker/linux-x64 has it. On Windows: python -I tools/build.py linux-x64-gcc runs it in that image.",
+			"displayName": "linux-x64-gcc: GCC 16 on Linux x64: the Linux client (Patella, PatellaTest; issue #131), patella_core and the unit tests (issue #7)",
+			"description": "Needs GCC 16 (gcc, g++) on PATH and SDL3's X11/Wayland build dependencies; the Docker image of docker/linux-x64 has them. On Windows: python -I tools/build.py linux-x64-gcc runs it in that image, with the local Tibia.exe's cursors (mounted read-only). PATELLA_CLIENT=OFF: only the unit tests; PATELLA_PLACEHOLDER_RESOURCES=ON: neutral pictures, the hosted CI's build.",
 			"inherits": "linux-base",
 			"cacheVariables": {
 				"CMAKE_C_COMPILER": "gcc",
@@ -125,7 +124,7 @@
 		},
 		{
 			"name": "linux-x64-clang",
-			"displayName": "linux-x64-clang: Clang on Linux x64 with AddressSanitizer and UBSan: patella_core and the unit tests (issue #7)",
+			"displayName": "linux-x64-clang: Clang on Linux x64 with AddressSanitizer and UBSan: the Linux client (issue #131), patella_core and the unit tests (issue #7)",
 			"description": "Needs Clang (clang, clang++) with compiler-rt on PATH, using GCC 16's libstdc++ (issue #121); the Docker image of docker/linux-x64 has Clang 22 with it. On Windows: python -I tools/build.py linux-x64-clang runs it in that image.",
 			"inherits": "linux-base",
 			"cacheVariables": {

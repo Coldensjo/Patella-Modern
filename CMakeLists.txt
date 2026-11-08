@@ -18,7 +18,8 @@
 # through its test mode since then; patcap.dll is Tibia.exe's, cmake/Capture.cmake);
 # windows-x64-gcc (mingw-w64 GCC 16, plan D6) builds patella_core and the unit tests;
 # linux-x64-gcc (GCC 16) and linux-x64-clang (Clang, with AddressSanitizer and UBSan) the same on
-# Linux (issue #7; on Windows tools/build.py runs them in the Docker image of docker/linux-x64).
+# Linux (issue #7; on Windows tools/build.py runs them in the Docker image of docker/linux-x64), and since issue #131 the
+# Linux client, Patella and PatellaTest (cmake/LinuxX64.cmake).
 # Every product preset builds patella_core (cmake/Core.cmake), the portable code, and patella_testmode
 # (cmake/TestMode.cmake), the portable part of the test mode (issue #21). Their targets take
 # the language, warning and hardening settings of cmake/Warnings.cmake and cmake/Hardening.cmake
@@ -35,7 +36,7 @@ project(Patella
 	LANGUAGES C CXX)
 
 option(PATELLA_CAPTURE "Build only the 32-bit capture DLL patcap.dll for Tibia.exe (preset capture-x86)" OFF)
-option(PATELLA_CLIENT "Build the client with MSVC x64 (preset windows-x64; MSVC only, the Linux presets set it OFF); needs Tibia.exe for its resources" ON)
+option(PATELLA_CLIENT "Build the client (MSVC x64 and the Linux presets; windows-x64-gcc has none); needs Tibia.exe for its resources (PATELLA_PLACEHOLDER_RESOURCES=ON: none, the hosted CI)" ON)
 
 if(PATELLA_CAPTURE)
 	include(cmake/Capture.cmake)
@@ -52,6 +53,9 @@ add_subdirectory(tests/golden)
 add_subdirectory(tests/fuzz)
 if(PATELLA_CLIENT AND MSVC)
 	include(cmake/WindowsX64.cmake)
+elseif(PATELLA_CLIENT AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	# The Linux client (issue #131, plan M8): SDL3 and the Vulkan engine, the Linux presets' Patella and PatellaTest.
+	include(cmake/LinuxX64.cmake)
 endif()
 
 # Each header of src/ compiled on its own, with the settings of the targets above that use it (issue #49).

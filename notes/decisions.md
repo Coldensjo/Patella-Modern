@@ -18033,6 +18033,99 @@ tell in a minute.
 Comments of tools/sandbox.py (the limit's source; the error window), notes/testserver.md, this file's #147 entry,
 CLAUDE.md. No behaviour changed. The probe's scripts and logs are local, in build\logs\issue-154\.
 
+## #131: the Linux client (Patella-Modern issue #131, M8)
+
+M8's exit, the Linux half. The Linux presets (linux-x64-gcc, linux-x64-clang) now build the client: `Patella` and its
+test build `PatellaTest` (cmake/LinuxX64.cmake), SDL3 3.4.18 and the Vulkan engine, in the Docker image with its X11 and
+Wayland dependencies, with the local Tibia.exe's cursors (never its other data, never in an image or a commit).
+
+### What runs, on what
+
+- **Replays (reference compare, tier A against Tibia.exe's recordings):** `PatellaTest --test-headless` (SDL's dummy video
+  driver, the CPU driver lavapipe) plays all four reference sessions; every session matches byte for byte, frame for frame
+  (the frames exact but for the device-filtered pixels within 2, as on Windows; the states, packets, files, boxes, exit
+  codes): `python -I tools/build.py --env linux-x64-gcc python3 -I tools/reference.py compare --reference /reference
+  --exe build/linux-x64-gcc/Release/PatellaTest --data /data --out /out` with those folders mounted (PATELLA_DOCKER_MOUNTS),
+  on GCC, and on Clang under ASan and UBSan.
+- **Live:** tools/linux_live.py logs the test build into a private test server and plays
+  tests/testmode/login-walk.script (login, character list, game, a square, logout) headless and under Xvfb (the X11 video
+  driver, a Vulkan swapchain on lavapipe; nothing is drawn on a display of the user's), and starts the product `Patella`
+  under Xvfb on the CPU driver for 20 s.
+
+### The decisions
+
+- **The Windows types (compat/win32_types.h).** The client's platform layer still names POINT, UINT, WM_*, VK_* and the
+  like. The types and constants of the golden runner's stand-in windows.h moved to src/compat/win32_types.h (types and
+  constants only, no function: a Windows call left over fails the Linux build), which both the stand-in and the
+  Linux client (PATELLA_WIN32_TYPES, common.h) include. The client's sources compile with PATELLA_CORE as patella_core
+  does (no windows.h); only the platform layer's Linux files, SdlFrame.cpp, the Vulkan engine's window code and
+  the test mode are new or guarded by `#if defined(_WIN32)`.
+- **Windows' rand on Linux (PATELLA_MSVC_RAND, compat/msvc.h).** The client's random numbers (XTEA keys, filler bytes, the
+  first login server) are MSVC's formula, so a run with the same seed sends the same random bytes as on Windows.
+- **The login servers and the RSA key come from the environment** (PATELLA_LOGIN_SERVER=host:port and PATELLA_RSA_MODULUS,
+  decimal, read by Network.cpp and Communication.cpp): tools/patch_client.py patches a PE, not an ELF. Developer
+  environment variables, unset by default; plan D8's Patella.ini key stays open.
+- **The window frame in scripted runs on Linux.** SDL reports no borders under Xvfb or the dummy driver, so Patella.ini's
+  outer window 800x600 would be an 800x600 client area where the recordings' client area is 780x557. Scripted runs on
+  Linux use the recordings' frame (33 above, 10 on the other sides) regardless of the window manager (FrameSize,
+  SdlFrame.cpp); unscripted runs use SDL's.
+- **The device window.** SDL3 has no child windows on X11 or Wayland, so TPresentWindows on Linux gives the device
+  the main window itself (issue #52's retired window has nothing to keep); the main window is created with SDL_WINDOW_VULKAN
+  (not in a headless run: the dummy driver has no Vulkan). The surface-less device test's window (TTestWindow) is a
+  hidden SDL window of its own, or none in a headless run (its device is created without a surface, as a headless run's).
+  Every instance enables every Linux surface extension the loader offers (xlib, xcb, wayland), as issue-31-fix did on Windows.
+- **The CPU driver** is the system's Mesa lavapipe on Linux (the distribution's mesa-vulkan-drivers package,
+  /usr/share/vulkan/icd.d/lvp_icd.json; FindCpuDriverManifest), not a copy next to the executable. The tools' CPU runs
+  pin the loader to that one manifest (VK_DRIVER_FILES): the image's other Mesa drivers load in the loader's scan and
+  intel_hasvk crashed there under address randomization (a crash in the driver's own XML parsing, not ours).
+- **The test build's window messages on Linux.** The driver's and the recordings' window messages reach the same handlers
+  the window procedure uses on Windows (sdlframe::WindowMessage, testmode/SdlInputWin32.cpp), so scripted keys and clicks behave
+  as on Windows. The replay's pipe events go through a queue that the idle step delivers until empty, as the window
+  messages were delivered by the message loop.
+- **The test mode's arguments** come from /proc/self/cmdline (platform::Arguments): TState reads them before main, as
+  GetCommandLine answers at any time. **The control channel** is files on Linux (control-command, control-done in
+  --test-out; tools/testmode_client.py) in place of the named events.
+- **The XDG option** is the command line's `--xdg-config` (Patella.ini in $XDG_CONFIG_HOME/patella, else
+  ~/.config/patella; the folder is created). **"A Tibia client is already running!"** on Linux: a per-user lock
+  (flock of /run/user/.../patella-client-<uid>.lock, else /tmp), since SDL lists only the process's own windows.
+- **Reused:** the golden stand-ins' types (above), the fuzz targets and golden_runner are unchanged, the portable
+  socket (#125), TDataFileSystem and FindNoCase (#130), SDL3's display modes and clipboard (#124).
+- **Packages of the image** (docker/linux-x64/Dockerfile, tag `...-sdl3-mesa25.0.7`): libx11-dev, libxext-dev, libxcursor-dev,
+  libxi-dev, libxfixes-dev, libxrandr-dev, libxss-dev (SDL3's X11 driver), libwayland-dev, wayland-protocols, libxkbcommon-dev,
+  libegl-dev (its Wayland driver; SDL's CMake asks for egl.pc), libvulkan1 (the loader), mesa-vulkan-drivers (lavapipe),
+  xvfb (the virtual X display). SDL3 is still built from its pinned archive (`patella_fetch_declare`), not a package.
+- **An uninitialised bool of the original** (TTalkBuffer::Closed: its constructor leaves it as the heap has it): UBSan reported its load in GetClosed. The golden corpus records the bytes the constructor leaves untouched, so the constructor stays; GetClosed reads the byte (a memcpy; the same test of the byte as the original's). With ASan the reference compare passes `malloc_fill_byte=0` (ASan's default fill of 0xbe would make the field non-zero and close a channel, which a fresh heap does not do).
+- **Clang-tidy:** the client's sources and header checks on Linux stay out of compile_commands.json (tidy.py --all and
+  --headers keep reading patella_core's and the libraries'); the same sources are checked by the Windows runs. New Linux files
+  (LinuxPlatform.cpp, DataLocationLinux.cpp, NetworkLinux.cpp, EntryLinux.cpp) are thus not in the hosted tidy job; see "Found, not done".
+
+### Checks (merged with #134 and #157; logs in build\logs\issue-131)
+
+Golden 15,803,218 + 1,512,822 = 17,316,040, 0 failures, 0 warnings on windows-x64, windows-x64-debug, windows-x64-asan,
+linux-x64-gcc and linux-x64-clang (ASan, UBSan); windows-x64-gcc 14/14 tests, no corpus. Reference compare: every session
+matches on Windows (headless), Linux GCC and Linux Clang under ASan and UBSan. Live on Linux: login, game login, 4 walks,
+logout, headless and under Xvfb; the product ran 20 s under Xvfb. Windows: testmode_check, compare_traffic, compare_files,
+compare_rendering both modes (all scenes identical, on this run's traffic recording: the brief's orig-live.jsonl of November 2
+has the old look step and is refused), compare_network 0 of 51 differ. tidy_ci baseline 3, 0 new; banned_calls and clang-format clean.
+
+### Not run, or not possible here
+
+- **Hardware Vulkan drivers on Linux**: the container has no GPU; only lavapipe ran. Everything said above about frames is
+  the CPU driver's. The plan's "hardware drivers" is unverified.
+- **A real X11 or Wayland desktop**: Xvfb only; no window manager, no Wayland compositor, so SDL's real borders, cursors,
+  keyboard, the system clipboard and the SDL3 fullscreen mode switch (SdlSetFullscreenMode on a real display) have not run.
+  SDL_GetDesktopDisplayMode (SdlDesktopMode) did, in the windowed Xvfb run.
+- **tests_vulkan** is not built on Linux (Windows' windows and messages). **The `Patella` window icon** is not set on Linux
+  (no resource file there; the taskbar shows SDL's default).
+
+### Found, not done
+
+- Plan D8's Patella.ini key for the servers and the RSA key (the environment variables stand in).
+- #134's profile windows are Windows' (the heap hooks patch kernel32's import table); on Linux the control channel answers that they are not implemented (src/testmode/ProfileWin32.cpp).
+- tests_vulkan on Linux; tidy's coverage of the new Linux platform files; the window icon on Linux; AppImage (M9).
+- `XDG_RUNTIME_DIR` not set in the container makes SDL's Wayland probe print one line to stderr ("error: XDG_RUNTIME_DIR is
+  invalid"), harmless (SDL falls back to X11).
+
 ## #157: a recording replays wherever it was made (Patella-Modern issue #157, M7)
 
 Tools only. A live proxy puts its own game port into the character list and records that, so since #146 a recording holds

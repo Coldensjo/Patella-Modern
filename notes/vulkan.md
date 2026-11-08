@@ -393,6 +393,11 @@ and the engine says so ("an elevated process ignores VK_DRIVER_FILES"). `auto` a
 loads the CPU driver only when they offer no Vulkan 1.3 GPU. Why lavapipe and not SwiftShader: notes/decisions.md.
 Mesa is MIT-licensed; a package (M9) must carry Mesa's licence text next to the DLL.
 
+On Linux (issue #131) the CPU driver is the system's lavapipe (the distribution's mesa-vulkan-drivers package,
+`/usr/share/vulkan/icd.d/lvp_icd.json`, found by DeviceSettings.cpp's FindCpuDriverManifest); nothing is copied next to
+the executable. A device's surface is the main window's own there (PresentWindow.h: SDL3 has no child windows on X11
+or Wayland).
+
 The engine needs the Vulkan loader (vulkan-1.dll, which every GPU driver with Vulkan installs). A machine
 without any Vulkan driver has no loader; the plan names no loader to ship (Vulkan-Loader is not among its
 dependencies), so such a machine falls back to the original engines today (notes/decisions.md, "Found, not

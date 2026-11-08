@@ -33,7 +33,10 @@ libraries patella_core and patella_testmode and the unit tests; no patcap.dll si
 `windows-x64-asan` / `windows-x64-asan-debug` (windows-x64 under MSVC's AddressSanitizer, `/fsanitize=address`: the
 client, PatellaTest.exe, golden_runner and the unit tests, issue #70; the ASan runtime DLL is copied next to each
 executable), `windows-x64-gcc` (patella_core and the unit tests with mingw-w64 GCC),
-`linux-x64-gcc` / `linux-x64-clang` (patella_core, the unit tests and golden_runner with GCC 16 / Clang 22, the latter
+`linux-x64-gcc` / `linux-x64-clang` (the Linux client `Patella` and its test build `PatellaTest` since issue #131
+(`cmake/LinuxX64.cmake`: SDL3 with its X11 and Wayland drivers, the Vulkan engine, the system's lavapipe; the local Tibia.exe's
+cursors, or neutral ones with `PATELLA_PLACEHOLDER_RESOURCES=1` in the environment where there is no Tibia.exe), patella_core,
+the unit tests and golden_runner with GCC 16 / Clang 22, the latter
 with AddressSanitizer and UBSan; `-debug` for Debug; issue #91: the client's code under test against the Windows
 stand-ins of `tests/golden/linux`), `capture-x86` (only the 32-bit capture DLL `build\capture-x86\Release\patcap.dll`
 that the tools load into Tibia.exe, `cmake/Capture.cmake`; no client, no tests; issue #94). There is no 32-bit client
@@ -45,8 +48,8 @@ and since issue #121 linux-x64-clang (Clang 22 on GCC 16's libstdc++: the image'
 fortify for the std module there); its one user is tests_import_std. Every product preset also compiles each header of src/ on its own
 (`cmake/HeaderCheck.cmake`, issue #49: the `header_check_*` object libraries, a generated one-line source per
 header with a target's settings; a new header goes on one of its lists, or the configure fails). On Windows build.py runs the Linux presets in the Docker image
-`patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2` (build it once: `docker build -t
-patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2 docker/linux-x64`). `python -I tools/build.py --env <preset>
+`patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2-sdl3-mesa25.0.7` (build it once: `docker build -t
+patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2-sdl3-mesa25.0.7 docker/linux-x64`). `python -I tools/build.py --env <preset>
 <command>` runs another command (`cmake --build --preset ...`, `ctest --preset ...`) in that environment. CMake
 (issue #141): 4.4.5 everywhere; on Windows build.py runs the portable `C:\Servers\Software\cmake` (PATELLA_CMAKE_DIR
 overrides it; `python -I tools/build.py --install-cmake <folder>` installs Kitware's zip, SHA-256 checked), never the
@@ -69,8 +72,13 @@ Tibia.dat, as the tools' run folders, else the executable's folder, `--data <fol
 driver (Mesa's lavapipe, copied next to
 the executables) come with the first configure of windows-x64 (`cmake/Vulkan.cmake`); `tests_vulkan` checks it
 headless.
-The window and event loop (issue #122, M8): SDL 3.4.18, pinned and built by `cmake/Sdl3.cmake` (windows-x64 only; the
-Linux presets do not use it yet), `src/SdlFrame.cpp`. MFC is gone (issue #127): no source includes it and Visual Studio's
+The window and event loop (issue #122, M8): SDL 3.4.18, pinned and built by `cmake/Sdl3.cmake`, `src/SdlFrame.cpp`.
+The Linux client (issue #131; notes/testmode.md, "The Linux client"; notes/decisions.md, "#131"): the test build replays the
+reference recordings on Linux (`tools/reference.py compare` in the image, its folders mounted with `PATELLA_DOCKER_MOUNTS`),
+and `python -I tools/linux_live.py [--windowed] [--product]` runs the live login and the scripted walk on a private test
+server from the container (host.docker.internal, no firewall change), or the product under Xvfb. The login server and RSA
+modulus come from the environment there (`PATELLA_LOGIN_SERVER`, `PATELLA_RSA_MODULUS`). Not run yet: Linux hardware
+Vulkan drivers, a real X11 or Wayland desktop. MFC is gone (issue #127): no source includes it and Visual Studio's
 MFC component is not needed; the original's frame and the MFC declarations the golden corpus's calls are named after are
 test code in `tests/golden/mfc` (the MainFrm test), and WinMain is `src/platform/EntryWin32.cpp`. On Windows the keys,
 characters and buttons still arrive as window messages (issue #123) and the display modes are Win32's. Since issue #124 the

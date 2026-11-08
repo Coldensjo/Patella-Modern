@@ -41,6 +41,12 @@
 #include "testmode/ClientStateWin32.h"
 #include "testmode/StateDump.h"
 
+#if !defined(_WIN32)
+#include <cxxabi.h>
+#include <cstdlib>
+#include <memory>
+#endif
+
 #include <array>
 #include <cstdint>
 #include <cstdio>
@@ -111,7 +117,7 @@ TOfferValue Offer(const TOffer &Source)
 	return Out;
 }
 
-std::string Hex(std::uintptr_t Value)
+[[maybe_unused]] std::string Hex(std::uintptr_t Value)
 {
 	std::array<char, 24> Buffer{};
 	std::snprintf(Buffer.data(), Buffer.size(), "%llx", static_cast<unsigned long long>(Value));
@@ -120,11 +126,20 @@ std::string Hex(std::uintptr_t Value)
 
 std::string ClassName(const TComponent *Component, std::uintptr_t Vtable)
 {
+#if defined(_WIN32)
 	const std::string_view Raw = typeid(*Component).raw_name();
 	if (Raw.starts_with(".?AV") && Raw.ends_with("@@"))
 		return std::string(Raw.substr(4, Raw.size() - 6));
 	auto Base = reinterpret_cast<std::uintptr_t>(::GetModuleHandleW(nullptr));
 	return "vt_" + Hex(Vtable - Base + 0x400000);
+#else
+	// Issue #131: the Itanium ABI's name of the class (GCC, Clang), which abi::__cxa_demangle turns into the name
+	// the Windows tools see in MSVC's decorated one.
+	static_cast<void>(Vtable);
+	int Status = 0;
+	const std::unique_ptr<char, void (*)(void *)> Demangled(abi::__cxa_demangle(typeid(*Component).name(), nullptr, nullptr, &Status), std::free);
+	return Status == 0 && Demangled != nullptr ? std::string(Demangled.get()) : std::string(typeid(*Component).name());
+#endif
 }
 
 void Walk(std::vector<TGuiNode> &Nodes, TComponent *Component, int Depth, std::int64_t X, std::int64_t Y)

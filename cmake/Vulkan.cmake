@@ -1,5 +1,7 @@
-# The Vulkan engine of the Windows x64 client (issue #19; notes/vulkan.md; notes/modernization-plan.md,
-# 6.2 and M2), the client's only engine since issue #20. Included by cmake/WindowsX64.cmake:
+# The Vulkan engine of the x64 client (issue #19; notes/vulkan.md; notes/modernization-plan.md, 6.2 and M2), the
+# client's only engine since issue #20. Included by cmake/WindowsX64.cmake and, since issue #131, cmake/LinuxX64.cmake
+# (there the CPU driver is the system's Mesa lavapipe, and tests_vulkan, which is Windows' windows and messages, is left
+# out):
 #
 #	patella_vulkan_deps     the libraries' sources: volk, vk-bootstrap, VMA (src/vulkan/Vma.cpp), without
 #	                        the product's warning settings (they are not ours)
@@ -49,12 +51,15 @@ patella_fetch_declare(patella_glslang
 	EXCLUDE_FROM_ALL)
 # The CPU driver: Mesa 26.2.6's lavapipe, prebuilt with MSVC by the mesa-dist-win project (the archive's
 # SHA256 is the one GitHub publishes for the release asset). Only two files are taken from it.
-patella_fetch_declare(patella_lavapipe
-	URL https://github.com/pal1000/mesa-dist-win/releases/download/26.2.6/mesa3d-26.2.6-release-msvc.7z
-	URL_HASH SHA256=b2e00615feaba45942343c265cc8c5f576142ca682c1ac6661922d4b72492877
-	DOWNLOAD_NO_EXTRACT TRUE)
+if(WIN32)
+	patella_fetch_declare(patella_lavapipe
+		URL https://github.com/pal1000/mesa-dist-win/releases/download/26.2.6/mesa3d-26.2.6-release-msvc.7z
+		URL_HASH SHA256=b2e00615feaba45942343c265cc8c5f576142ca682c1ac6661922d4b72492877
+		DOWNLOAD_NO_EXTRACT TRUE)
+	FetchContent_MakeAvailable(patella_lavapipe)
+endif()
 
-FetchContent_MakeAvailable(patella_vulkan_headers patella_volk patella_vma patella_vk_bootstrap patella_lavapipe)
+FetchContent_MakeAvailable(patella_vulkan_headers patella_volk patella_vma patella_vk_bootstrap)
 
 function(patella_add_glslang)
 	set(ENABLE_OPT OFF)
@@ -67,8 +72,13 @@ function(patella_add_glslang)
 	set(GLSLANG_ENABLE_INSTALL OFF)
 	set(BUILD_EXTERNAL OFF)
 	set(BUILD_SHARED_LIBS OFF)
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W0")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W0")
+	if(MSVC)
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W0")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W0")
+	else()
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w")
+	endif()
 	FetchContent_MakeAvailable(patella_glslang)
 endfunction()
 patella_add_glslang()
@@ -86,13 +96,20 @@ target_include_directories(patella_vulkan_deps SYSTEM PUBLIC
 # volk declares the functions (VK_NO_PROTOTYPES everywhere); its loader also loads the Win32 surface
 # functions, which SurfaceVulkan.cpp declares the same way.
 target_compile_definitions(patella_vulkan_deps PUBLIC VK_NO_PROTOTYPES)
-set_source_files_properties("${patella_volk_SOURCE_DIR}/volk.c" PROPERTIES COMPILE_DEFINITIONS VK_USE_PLATFORM_WIN32_KHR)
+if(WIN32)
+	set_source_files_properties("${patella_volk_SOURCE_DIR}/volk.c" PROPERTIES COMPILE_DEFINITIONS VK_USE_PLATFORM_WIN32_KHR)
+endif()
 set_target_properties(patella_vulkan_deps PROPERTIES
 	CXX_STANDARD 20
 	CXX_STANDARD_REQUIRED ON
 	MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
 	MSVC_DEBUG_INFORMATION_FORMAT ProgramDatabase)
-target_compile_options(patella_vulkan_deps PRIVATE /W0 /utf-8)
+if(MSVC)
+	target_compile_options(patella_vulkan_deps PRIVATE /W0 /utf-8)
+else()
+	target_compile_options(patella_vulkan_deps PRIVATE -w)
+	target_link_libraries(patella_vulkan_deps PUBLIC ${CMAKE_DL_LIBS})
+endif()
 patella_target_hardening(patella_vulkan_deps)
 
 # The shaders, compiled by the glslang of this build into headers of SPIR-V words (per configuration:
@@ -125,15 +142,30 @@ add_library(patella_render_vulkan STATIC
 target_include_directories(patella_render_vulkan PUBLIC "${PROJECT_SOURCE_DIR}/src")
 target_include_directories(patella_render_vulkan PRIVATE "${patella_shader_dir}")
 # comctl32: PresentWindow.cpp subclasses the main window (SetWindowSubclass, issue #71).
-target_link_libraries(patella_render_vulkan PUBLIC patella_vulkan_deps comctl32)
+if(WIN32)
+	target_link_libraries(patella_render_vulkan PUBLIC patella_vulkan_deps comctl32)
+else()
+	# PresentWindow.cpp's device test window (Linux, issue #131).
+	target_link_libraries(patella_render_vulkan PUBLIC patella_vulkan_deps PRIVATE SDL3::Headers)
+endif()
 set_target_properties(patella_render_vulkan PROPERTIES
 	MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
 	MSVC_DEBUG_INFORMATION_FORMAT ProgramDatabase)
 patella_target_language(patella_render_vulkan)
 patella_target_warnings(patella_render_vulkan)
 patella_target_hardening(patella_render_vulkan)
+if(NOT WIN32)
+	# Issue #131: as the Linux client's sources (cmake/LinuxX64.cmake): the Windows presets' clang-tidy runs check them.
+	set_property(TARGET patella_vulkan_deps patella_render_vulkan PROPERTY EXPORT_COMPILE_COMMANDS OFF)
+endif()
 
-# The CPU driver's two files, taken from the archive once per build tree.
+# The CPU driver's two files, taken from the archive once per build tree (Windows; on Linux lavapipe is the system's,
+# the distribution's mesa-vulkan-drivers package, DeviceSettings.cpp FindCpuDriverManifest).
+if(NOT WIN32)
+	function(patella_vulkan_cpu_driver target)
+	endfunction()
+	return()
+endif()
 set(PATELLA_VULKAN_CPU_DRIVER_DIR "${PROJECT_BINARY_DIR}/vulkan-cpu")
 set(patella_lavapipe_archive "${patella_lavapipe_SOURCE_DIR}/mesa3d-26.2.6-release-msvc.7z")
 set(patella_lavapipe_files "${PATELLA_VULKAN_CPU_DRIVER_DIR}/x64/vulkan_lvp.dll"

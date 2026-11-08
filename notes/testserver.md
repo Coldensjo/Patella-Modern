@@ -229,6 +229,14 @@ saved its map), and every live run waited for that server. notes/decisions.md, "
 - **Disk**: about 550 MB a running copy (365 MB of it new data), so two runs at once take about 1.1 GB of `%TEMP%`'s
   drive (it must be the master's for the hard links; elsewhere they are copies).
 
+## From a Linux container (issue #131)
+
+The server stays a Windows program on the host, on the run's private copy (below), bound to 127.0.0.1. A container
+reaches it through Docker Desktop's `host.docker.internal`, whose back end dials the host's localhost: measured with a
+listener on 127.0.0.1 only, so no firewall rule and no change of the machine. Inside the container tools/linux_live.py
+listens on 127.0.0.1 on the same ports and forwards to host.docker.internal, so the character list's world address
+(127.0.0.1) reaches the server without touching the private copy's config.
+
 ## Pointing the clients at it: tools/patch_client.py
 
 Both clients have the login servers and CipSoft's RSA modulus compiled in (src/Network.cpp InitServerList:

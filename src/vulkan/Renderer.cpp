@@ -205,10 +205,13 @@ TDeviceInfo InfoOf(const vkb::PhysicalDevice &Physical, bool Cpu)
 }
 
 // The window system's surface extension of the platform (the one the client's TDeviceRequest names).
+// Every system's surface extension the loader offers is enabled on every instance (issue-31-fix, below): on Linux the
+// X11 and the Wayland one of SDL3's video drivers (issue #131); which of them the window's device names is SDL's choice.
 #if defined(_WIN32)
-constexpr const char *PlatformSurfaceExtension = "VK_KHR_win32_surface";
+constexpr std::array<const char *, 1> PlatformSurfaceExtensions = {"VK_KHR_win32_surface"};
 #else
-constexpr const char *PlatformSurfaceExtension = nullptr;
+constexpr std::array<const char *, 3> PlatformSurfaceExtensions = {"VK_KHR_xlib_surface", "VK_KHR_xcb_surface",
+	"VK_KHR_wayland_surface"};
 #endif
 
 // The builder of every instance the back end creates (issue-31-fix). vk-bootstrap loads its instance
@@ -228,7 +231,8 @@ vkb::InstanceBuilder NewInstanceBuilder(const std::string &SurfaceExtension)
 	vkb::InstanceBuilder Builder(vkGetInstanceProcAddr);
 	Builder.set_app_name("Patella").set_engine_name("Patella").require_api_version(1, 3, 0).set_headless(true);
 	auto System = vkb::SystemInfo::get_system_info(vkGetInstanceProcAddr);
-	const std::array<const char *, 3> Wanted = {VK_KHR_SURFACE_EXTENSION_NAME, PlatformSurfaceExtension, VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
+	std::vector<const char *> Wanted = {VK_KHR_SURFACE_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
+	Wanted.insert(Wanted.begin() + 1, PlatformSurfaceExtensions.begin(), PlatformSurfaceExtensions.end());
 	for (const char *Extension : Wanted) {
 		if (Extension != nullptr && System && System.value().is_extension_available(Extension)
 			&& SurfaceExtension != Extension)

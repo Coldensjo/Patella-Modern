@@ -3,7 +3,7 @@
 # clang-format and clang-tidy for the checks of CI (issue #11). Every version is pinned: the base image
 # by digest, the Debian packages by version, CMake and Ninja by their SHA-256.
 #
-#	docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2 docker/linux-x64
+#	docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2-sdl3-mesa25.0.7 docker/linux-x64
 #
 # - GCC 16.2.0: Docker Hub's official gcc image (built from source by the Docker library, installed in
 #   /usr/local, libstdc++exp.a included; /usr/local/lib64 is first in ld.so.conf). It is Debian 13
@@ -47,6 +47,17 @@ RUN apt-get -o Acquire::Retries=5 update \
 	&& ln -s /usr/bin/clang++-22 /usr/local/bin/clang++ \
 	&& ln -s /usr/bin/clang-format-22 /usr/local/bin/clang-format \
 	&& ln -s /usr/bin/clang-tidy-22 /usr/local/bin/clang-tidy
+
+# The Linux client (issue #131, plan M8; notes/decisions.md, "#131"): SDL3 3.4.18 is built from its source archive at
+# the first configure (cmake/Sdl3.cmake); these are its build dependencies and what the client needs at run time.
+# - libx11-dev, libxext-dev, libxcursor-dev, libxi-dev, libxfixes-dev, libxrandr-dev, libxss-dev: SDL3's X11 video driver
+#   (SDL loads the libraries with dlopen at run time, so the client does not link them).
+# - libwayland-dev, wayland-protocols, libxkbcommon-dev, libegl-dev: its Wayland video driver (wayland-scanner, the
+#   protocols; SDL's CMake also asks for egl.pc).
+# - libvulkan1: the Vulkan loader (volk opens libvulkan.so.1). mesa-vulkan-drivers: lavapipe, the CPU driver of
+#   PATELLA_VULKAN=cpu (Windows has its Mesa next to the executable, cmake/Vulkan.cmake; on Linux it is the system's).
+# - xvfb: a virtual X display for the windowed runs without a desktop (tools/linux_session.py; never a real desktop).
+RUN apt-get -o Acquire::Retries=5 update 	&& apt-get -o Acquire::Retries=5 install -y --no-install-recommends 		libx11-dev=2:1.8.12-1 		libxext-dev=2:1.3.4-1+b3 		libxcursor-dev=1:1.2.3-1 		libxi-dev=2:1.8.2-1 		libxfixes-dev=1:6.0.0-2+b4 		libxrandr-dev=2:1.5.4-1+b3 		libxss-dev=1:1.2.3-1+b3 		libwayland-dev=1.23.1-3 		wayland-protocols=1.44-1 		libxkbcommon-dev=1.7.0-2 		libegl-dev 		libvulkan1=1.4.309.0-1 		mesa-vulkan-drivers=25.0.7-2+deb13u1 		xvfb=2:21.1.16-1.3+deb13u4 	&& rm -rf /var/lib/apt/lists/*
 
 RUN gcc_dir="$(dirname "$(gcc -print-libgcc-file-name)")" 	&& test "$gcc_dir" = /usr/local/lib/gcc/x86_64-linux-gnu/16.2.0 	&& for driver in clang clang++; do echo "--gcc-install-dir=$gcc_dir" > /usr/lib/llvm-22/bin/$driver.cfg; done 	&& clang++ -v -E -x c++ /dev/null 2>&1 | grep -qx "Selected GCC installation: $gcc_dir" 	&& clang -v -E -x c /dev/null 2>&1 | grep -qx "Selected GCC installation: $gcc_dir" 	&& test -f "$(clang++ -print-file-name=libstdc++.modules.json)"
 

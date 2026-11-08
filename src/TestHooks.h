@@ -74,8 +74,12 @@
 
 // The Windows types of the declarations, as common.h includes them (WinSock 2 before windows.h). PATELLA_CDECL:
 // compat/msvc.h. In the client's sources common.h has included both already (issue #49).
+#if defined(_WIN32)
 #include <winsock2.h>
 #include <windows.h>
+#else
+#include "compat/win32_types.h" // issue #131: the Linux client's test build
+#endif
 
 #include "compat/msvc.h"
 #include "compat/span.h"
@@ -89,8 +93,10 @@ namespace patella::testmode {
 // Issue #134: the profile window's two points of a frame (testmode/ProfileWin32.cpp).
 void ProfilePresentBegin(patella::vulkan::TRenderer *Renderer);
 void ProfilePresentEnd(patella::vulkan::TRenderer *Renderer);
+#if defined(_WIN32)
 // True: the message is input from Windows that the driver's script replaces (dropped).
 bool DropInput(const MSG *Message);
+#endif
 // The buffers as spans (issue #60): the RSA block, and the whole of SendData and ReceiveData.
 void RsaBlock(patella::TSpan<const unsigned char, 128> Block);
 void PacketSent(patella::TSpan<const unsigned char> Data, int Size, int Padded);

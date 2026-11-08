@@ -259,6 +259,15 @@ and runs on the SDL3 window alone. *Why it matters:* a Windows build no longer n
 the automatic builds on GitHub can now build and start the whole program, using neutral stand-in pictures because the
 game's own never leave the owner's machine. It is one of the last large steps before a Linux client.
 
+**The game runs on Linux (#131).**
+The client now builds and runs on Linux as well as Windows, from the same code. In the Linux build environment (a
+container, with no graphics card or real desktop), the Linux client plays back every recorded game session and produces
+exactly the same network messages, saved files and pictures as the original 2006 program, using the built-in software
+renderer. It also logs into a test server over the network and plays a short scripted session: login, the character list,
+walking and logging out. *Why it matters:* this is the point of the whole modernization, the game no longer needs
+Windows. Graphics cards under Linux and a real Linux desktop have not been tried yet, because this machine has neither;
+those are the steps left before calling the Linux client finished.
+
 ## M8 and M9, started early
 
 **Big-number maths fully unit-tested (#128).**
