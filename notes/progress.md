@@ -772,6 +772,14 @@ refuses). Shown: compare_traffic or compare_files in the Sandbox and testmode_ch
 servers with game connections at once, both passing; the master's checksums identical after them and after a killed
 run's cleanup. notes/testserver.md, "A private server per run"; notes/decisions.md, "#146".
 
+MFC removed (Patella-Modern issue #127, branch issue-127, November 8, 2026; M8): no source includes MFC; the SDL3
+window is the client's only one (PATELLA_WINDOW and platform/WindowChoice.h gone, the Win32 window system gone with it),
+CPlayerApp derives from nothing, WinMain is platform/EntryWin32.cpp. The original's CMainFrame and the MFC declarations
+the frozen golden corpus's calls are named after moved to tests/golden/mfc (test code; the MainFrm cases replay against
+it, not against src/SdlFrame.cpp). Patella.rc has only the client's own resources. Hosted CI builds and tests the full
+client and test build with neutral placeholder pictures (PATELLA_PLACEHOLDER_RESOURCES, tools/placeholder_resources.py;
+refused where a Tibia.exe exists); the compile-only targets of #25/#46 are gone. notes/decisions.md, "#127".
+
 Data files and paths (Patella-Modern issue #130, branch issue-130, November 8, 2026; M8): the client's files go through
 platform::TDataFileSystem (platform/FileSystem.h), the data folder chosen at start-up by settings::ChooseLocations
 (--data, the working folder with Tibia.dat, the executable's folder, Patella.ini's DataFolder); Patella.ini next to the

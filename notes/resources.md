@@ -1,5 +1,10 @@
 # Resources (issue #17)
 
+Since issue #127 `src/res/Patella.rc` has only the client's own resources (icon 128, cursors 0x84 and 0x89, the version
+information): MFC's half went with MFC. The tables below describe Tibia.exe's section, which the extractor still reads.
+Without a Tibia.exe (the hosted CI) `-DPATELLA_PLACEHOLDER_RESOURCES=ON` builds with neutral generated pictures
+(tools/placeholder_resources.py); that option refuses where a Tibia.exe exists.
+
 Tibia.exe's `.rsrc` section (RVA 0x323000, 0x4520 bytes) holds 55 resource entries in 9 types.
 `src/res/Patella.rc` (with `src/res/resource.h`) rebuilds all of them with the original types,
 IDs and languages, and the compiled `.res` is byte-identical to the original entry for entry.
@@ -130,15 +135,13 @@ fallbacks are the same.
   `/I build\res` and give the `.res` to link.exe (it runs cvtres itself). In a .vcxproj: a
   `ResourceCompile` item for Patella.rc with `AdditionalIncludeDirectories` build\res and a
   pre-build event for the extractor.
-- Do not include MFC's `afxres.rc` (or `afxprint.rc`, ...): Patella.rc already has MFC 7.1's
-  resources, and the installed MFC's would add entries and change texts. With static MFC
-  (`/MT`, no `_AFXDLL`) nothing else brings MFC resources in.
+- Do not include MFC's `afxres.rc` (or `afxprint.rc`, ...) (until issue #127 Patella.rc had MFC 7.1's resources itself;
+  since then it has only the client's own, and no MFC at all).
 - Link with `/MANIFEST:NO` (or without `/MANIFEST:EMBED`): Tibia.exe has no RT_MANIFEST, and an
   embedded manifest would be a 56th entry (and could switch on visual styles or DPI awareness).
 - Then `python -I tools/compare_resources.py Tibia.exe Patella.exe` must report 0 differences;
   that is the final check of #17.
-- The exe's name decides MFC's app name (no AFX_IDS_APP_TITLE, as in the original): "Patella"
-  for Patella.exe. Tibia's code does not use it.
+- (Until issue #127, MFC's app name was the exe's name; there is no MFC any more.)
 
 Done in #16 (November 2, 2026): Patella.vcxproj compiles Patella.rc with build\res on the include path
 (its ExtractResources target runs the extractor when build\res\resources.tsv is missing), without

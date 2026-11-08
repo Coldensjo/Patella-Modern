@@ -13,7 +13,7 @@
 # test programs: the 32-bit oracle (its Patella.exe, the differential tests, the golden corpus's recorder) left the
 # fork with issue #94; it is in upstream Patella and at the tag layout-frozen-final.
 # windows-x64 (MSVC x64) builds the unit tests of tests/unit (issue #9) and the client, a 64-bit
-# Patella.exe with x64 MFC and the Vulkan engine (cmake/WindowsX64.cmake, issue #5) and its test build
+# Patella.exe on SDL3 and the Vulkan engine (cmake/WindowsX64.cmake, issue #5) and its test build
 # PatellaTest.exe; until Patella-Modern issue #92 also a 64-bit patcap.dll (the tools read the x64 client
 # through its test mode since then; patcap.dll is Tibia.exe's, cmake/Capture.cmake);
 # windows-x64-gcc (mingw-w64 GCC 16, plan D6) builds patella_core and the unit tests;

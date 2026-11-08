@@ -51,7 +51,7 @@ AlignTrailingComments:
 SpacesBeforeTrailingComments: 1
 ReflowComments: false
 
-# Includes keep their order (the MFC and Windows headers depend on it).
+# Includes keep their order (the Windows headers depend on it).
 SortIncludes: Never
 FixNamespaceComments: false
 MaxEmptyLinesToKeep: 2

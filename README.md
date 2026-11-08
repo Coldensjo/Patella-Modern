@@ -31,7 +31,7 @@ gitignored.
 ## Building
 
 The build is CMake (3.30 or newer) with Ninja, one workflow preset per platform. On Windows it needs Visual
-Studio 2026 with the C++ workload and the MFC component, Python 3.13 on PATH, and `Tibia.exe` in the root
+Studio 2026 with the C++ workload, Python 3.13 on PATH, and `Tibia.exe` in the root
 (the resource pictures are extracted from it). The MSVC presets need the compiler set up (`vcvarsall.bat`);
 `tools/build.py` does that and runs the workflow from any shell (a developer prompt is not needed):
 

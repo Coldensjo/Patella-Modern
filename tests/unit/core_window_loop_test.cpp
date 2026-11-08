@@ -1,20 +1,15 @@
-// The SDL3 window's event loop (src/platform/LoopTimer.h, WindowChoice.h; issue #122): the main timer in the loop
-// (WM_TIMER's rules: due once its interval has passed, no backlog after a late pass, across the clock's wrap) and the
-// choice of the window path by PATELLA_WINDOW's value.
+// The SDL3 window's event loop (src/platform/LoopTimer.h; issue #122): the main timer in the loop (WM_TIMER's rules:
+// due once its interval has passed, no backlog after a late pass, across the clock's wrap).
 
 #include <doctest/doctest.h>
 
 #include "platform/LoopTimer.h"
-#include "platform/WindowChoice.h"
 
 #include <cstdint>
 
 namespace {
 
-using patella::platform::IsUnknownWindowSystem;
-using patella::platform::ParseWindowSystem;
 using patella::platform::TLoopTimer;
-using patella::platform::TWindowSystem;
 
 } // namespace
 
@@ -86,27 +81,4 @@ TEST_CASE("Loop timer: Start again restarts the interval")
 	CHECK_FALSE(Timer.Due(100));
 	CHECK_FALSE(Timer.Due(129));
 	CHECK(Timer.Due(130));
-}
-
-TEST_CASE("Window path: PATELLA_WINDOW=mfc is MFC's, everything else SDL3's")
-{
-	CHECK(ParseWindowSystem(nullptr) == TWindowSystem::Sdl);
-	CHECK(ParseWindowSystem("") == TWindowSystem::Sdl);
-	CHECK(ParseWindowSystem("sdl") == TWindowSystem::Sdl);
-	CHECK(ParseWindowSystem("SDL") == TWindowSystem::Sdl);
-	CHECK(ParseWindowSystem("mfc") == TWindowSystem::Mfc);
-	CHECK(ParseWindowSystem("MFC") == TWindowSystem::Mfc);
-	CHECK(ParseWindowSystem("Mfc") == TWindowSystem::Mfc);
-	CHECK(ParseWindowSystem("mfc ") == TWindowSystem::Sdl);
-	CHECK(ParseWindowSystem("win32") == TWindowSystem::Sdl);
-}
-
-TEST_CASE("Window path: an unknown PATELLA_WINDOW is reported")
-{
-	CHECK_FALSE(IsUnknownWindowSystem(nullptr));
-	CHECK_FALSE(IsUnknownWindowSystem(""));
-	CHECK_FALSE(IsUnknownWindowSystem("sdl"));
-	CHECK_FALSE(IsUnknownWindowSystem("Mfc"));
-	CHECK(IsUnknownWindowSystem("win32"));
-	CHECK(IsUnknownWindowSystem("mfc "));
 }

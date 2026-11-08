@@ -10,8 +10,8 @@
 // (issue #31).
 // Device switches (issue #52) and the handles they leave (issue #53) are checked at the end.
 // The devices for a window get their surfaces through the engine's window systems (src/vulkan/WindowSystem.h, issue
-// #126): SDL3's (SDL_Vulkan_CreateSurface on the device's window, the client's default path) and Win32's (the MFC
-// window's, until issue #127). SDL's video subsystem is started in main, as the client starts it.
+// #126): SDL3's (SDL_Vulkan_CreateSurface on the device's window, the client's only path since issue #127). SDL's video
+// subsystem is started in main, as the client starts it.
 
 #define DOCTEST_CONFIG_IMPLEMENT
 #include <doctest/doctest.h>
@@ -429,7 +429,7 @@ TEST_CASE("a device for a window after headless instances (the start-up order)")
 		Windows.Close();
 	};
 
-	// The SDL3 window (the client's default): the main window SDL's, the surface SDL_Vulkan_CreateSurface's.
+	// The SDL3 window: the main window SDL's, the surface SDL_Vulkan_CreateSurface's.
 	{
 		const TSdlMainWindow Main(160, 120);
 		REQUIRE(Main.Handle != nullptr);
@@ -437,21 +437,6 @@ TEST_CASE("a device for a window after headless instances (the start-up order)")
 		OnEveryDevice(Main.Handle, pv::SdlWindowSystem(), "SDL3");
 		CHECK_FALSE(IsWindowVisible(Main.Handle));
 	}
-	// The MFC window's path (PATELLA_WINDOW=mfc, until issue #127): a Win32 main window, vkCreateWin32SurfaceKHR.
-	HINSTANCE Module = GetModuleHandleA(nullptr);
-	WNDCLASSA Class = {};
-	Class.lpfnWndProc = DefWindowProcA;
-	Class.hInstance = Module;
-	Class.lpszClassName = "PatellaTestsVulkanHidden";
-	RegisterClassA(&Class);
-	HWND Window = CreateWindowExA(0, Class.lpszClassName, "tests_vulkan", WS_OVERLAPPEDWINDOW, 0, 0, 160, 120, nullptr,
-		nullptr, Module, nullptr);
-	REQUIRE(Window != nullptr);
-	CHECK_FALSE(IsWindowVisible(Window));
-	OnEveryDevice(Window, pv::Win32WindowSystem(), "Win32");
-	CHECK_FALSE(IsWindowVisible(Window));
-	DestroyWindow(Window);
-	UnregisterClassA(Class.lpszClassName, Module);
 }
 
 // The SDL3 window system (issue #126): the client area and the screen as Win32 gives them (the process is not DPI

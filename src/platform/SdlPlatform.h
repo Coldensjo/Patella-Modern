@@ -3,8 +3,7 @@
 // source.
 //
 // The SDL3 window's (SdlFrame.cpp, issue #122) Platform(): what TWin32Clipboard and TWin32Window (Win32Platform.h) do
-// with Win32's calls, done with SDL3's. The MFC window (PATELLA_WINDOW=mfc, until issue #127) and the golden runner
-// keep Win32's. Each needs SDL's video subsystem, which SdlFrame.cpp's Create starts before the client asks them
+// with Win32's calls, done with SDL3's. The golden runner keeps Win32's. Each needs SDL's video subsystem, which SdlFrame.cpp's Create starts before the client asks them
 // anything (a message box needs none).
 
 #pragma once

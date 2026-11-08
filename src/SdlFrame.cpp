@@ -23,7 +23,6 @@
 #include "SdlFrame.h"
 
 #include "Control.h"
-#include "MainFrm.h"
 #include "MainWindow.h"
 #include "Network.h"
 #include "Preferences.h"
@@ -38,7 +37,7 @@
 #include "platform/Win32Platform.h"
 #include "types/Cp1252.h"
 
-#define SDL_MAIN_HANDLED // NOLINT(cppcoreguidelines-macro-usage): SDL_main.h's switch; MFC's WinMain is the entry
+#define SDL_MAIN_HANDLED // NOLINT(cppcoreguidelines-macro-usage): SDL_main.h's switch; WinMain is the entry (platform/EntryWin32.cpp)
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
@@ -70,7 +69,6 @@ int DisplayHeight = 0;
 
 // The client's input state (issue #123: platform/KeyInput.h's rules over SDL's events): CMainFrame::KeyFlags and
 // MainFrm.cpp's file-local button flags and wheel rest, with SDL's click counts made into Windows' double clicks.
-static_assert(platform::KeyFlagShift == KEY_SHIFT && platform::KeyFlagControl == KEY_CONTROL && platform::KeyFlagAlt == KEY_ALT);
 platform::TKeyFlags Keys;
 #if !defined(_WIN32)
 platform::TClickCounter Clicks; // SDL's click counts as Windows' double clicks (not on Windows: OnButtonMessage)
@@ -112,7 +110,7 @@ TFrame FrameSize()
 	return Frame;
 }
 
-// Win32 until issue #127: the extended styles of MFC's frame window, which SDL3 does not set. MFC's frame windows have
+// Win32's: the extended styles of the original's frame window, which SDL3 does not set. MFC's frame windows have
 // a client edge (CFrameWnd::PreCreateWindow's WS_EX_CLIENTEDGE: 2 pixels around the client area), which SetDisplayMode
 // takes away with WS_EX_APPWINDOW for fullscreen mode and gives back for windowed mode (ModifyStyleEx). SDL3 reads the
 // window's extended styles when it computes the outer rectangle, so its sizes stay the client area's, and the outer
@@ -267,7 +265,6 @@ void OnDisplayChange(int Width, int Height)
 		const TOuterRect Rect = WindowRect();
 		if (Width < Rect.Right - Rect.Left || Height < Rect.Bottom - Rect.Top)
 			SetDefaultWindowPosition();
-		DisplayChanged = true;
 	}
 }
 
@@ -1045,13 +1042,12 @@ void Hide()
 		SDL_HideWindow(Window);
 }
 
-int Run(void (*Idle)(long Count))
+int Run(void (*Idle)())
 {
-	long IdleCount = 0;
 	while (!Destroyed) {
-		// Win32 until the MFC removal (issue #127): the thread's messages, as MFC's PumpMessage dispatched them (the
-		// test build drops the desktop's input with a script, CPlayerApp::PreTranslateMessage's filter), each followed
-		// by what it noted; SDL's own pump is off (SDL_HINT_WINDOWS_ENABLE_MESSAGELOOP).
+		// Win32's on Windows: the thread's messages, as MFC's PumpMessage dispatched them (the test build drops the
+		// desktop's input with a script), each followed by what it noted; SDL's own pump is off
+		// (SDL_HINT_WINDOWS_ENABLE_MESSAGELOOP: its order differs, notes/decisions.md "#122").
 		MSG Message = {};
 		while (!Destroyed && ::PeekMessageA(&Message, nullptr, 0, 0, PM_REMOVE)) {
 			if (Message.message == WM_QUIT) {
@@ -1064,7 +1060,6 @@ int Run(void (*Idle)(long Count))
 #endif
 			::TranslateMessage(&Message);
 			::DispatchMessageA(&Message);
-			IdleCount = 0;
 			HandleNoted();
 		}
 		if (Destroyed)
@@ -1078,8 +1073,7 @@ int Run(void (*Idle)(long Count))
 		// The main timer in the loop (issue #122): WM_TIMER came when the queue was otherwise empty.
 		if (platform::SdlLoopInput().TimerDue(platform::Platform().Clock.Milliseconds()))
 			TimerEvent();
-		Idle(IdleCount);
-		IdleCount++;
+		Idle();
 	}
 	SDL_Quit();
 	return 0;
@@ -1090,7 +1084,7 @@ void HostResolved(int Error)
 	OnHostResolved(Error);
 }
 
-// MainFrm.cpp's ExitProgram: closes the client without asking. Win32 until issue #127: a posted WM_CLOSE (SDL's
+// MainFrm.cpp's ExitProgram: closes the client without asking. Win32's: a posted WM_CLOSE (SDL's
 // window procedure makes it the close request), so that it comes after the messages already queued, as MFC's.
 void ExitProgram()
 {

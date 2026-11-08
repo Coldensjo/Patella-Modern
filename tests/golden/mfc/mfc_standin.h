@@ -1,9 +1,8 @@
-// Minimal stand-in for the MFC declarations the reconstruction uses, for
-// the golden tests (tests/golden, TIBIA_MFC_SHIM: the client's code they
-// compile; until issue #94 also the 32-bit oracle's compile check and test
-// programs). Declarations only: it is not linkable and
-// does not reproduce MFC's layout beyond m_hSocket. Patella.exe builds with
-// real MFC (the Patella target).
+// The MFC declarations the golden corpus's calls are named after (tests/golden; until issue #127 src/compat/mfc_shim.h,
+// which stood in for MFC for the golden tests): CAsyncSocket for the Network test's socket (network/MfcSocket.h), the
+// frame classes for the original's CMainFrame (MainFrm.cpp beside this file). Test code only: the client has no MFC
+// since issue #127. Declarations only (the tests define them as their fakes, which log the calls the frozen corpus
+// records); it does not reproduce MFC's layout beyond m_hSocket.
 
 #pragma once
 
@@ -38,7 +37,7 @@ public:
 
 BOOL AfxSocketInit(WSADATA *lpwsaData = nullptr);
 
-// --- added for Player.cpp: the application and frame window classes ---
+// --- the frame window classes of MainFrm.cpp ---
 
 class CCmdTarget : public CObject {
 };
@@ -48,8 +47,6 @@ class CPoint : public tagPOINT {
 
 class CWnd : public CCmdTarget {
 public:
-	BOOL ShowWindow(int nCmdShow);
-	void UpdateWindow() { ::UpdateWindow(m_hWnd); } // NOLINT(readability-make-member-function-const): as MFC declares it
 	[[nodiscard]] HWND GetSafeHwnd() const { return this == nullptr ? nullptr : m_hWnd; }
 	LRESULT Default();
 	BOOL ModifyStyle(DWORD dwRemove, DWORD dwAdd, UINT nFlags = 0);
@@ -74,40 +71,13 @@ protected:
 	BOOL OnSetCursor(CWnd *pWnd, UINT nHitTest, UINT message);
 };
 
-struct CCreateContext;
-
 class CFrameWnd : public CWnd {
 public:
 	CFrameWnd();
 	~CFrameWnd() override;
-	static const RECT rectDefault;
-	virtual BOOL Create(LPCTSTR lpszClassName, LPCTSTR lpszWindowName, DWORD dwStyle = WS_OVERLAPPEDWINDOW,
-		const RECT &rect = rectDefault, CWnd *pParentWnd = nullptr, LPCTSTR lpszMenuName = nullptr,
-		DWORD dwExStyle = 0, CCreateContext *pContext = nullptr);
 };
 
-class CWinThread : public CCmdTarget {
-public:
-	virtual BOOL InitInstance();
-	virtual int Run();
-	virtual BOOL OnIdle(LONG lCount);
-	virtual int ExitInstance(); // issue #122: the SDL3 loop's end (Player.cpp Run)
-
-	CWnd *m_pMainWnd;
-};
-
-class CWinApp : public CWinThread {
-public:
-	CWinApp(LPCTSTR lpszAppName = nullptr);
-
-	LPTSTR m_lpCmdLine;
-};
-
-CWnd *AfxGetMainWnd();
-BOOL AfxRegisterClass(WNDCLASS *lpWndClass);
 HINSTANCE AfxGetInstanceHandle();
-HINSTANCE AfxGetResourceHandle();
-WNDPROC AfxGetAfxWndProc();
 
 #define DECLARE_MESSAGE_MAP() \
 protected: \
@@ -144,5 +114,3 @@ protected: \
 #define ON_WM_NCHITTEST() 0,
 #define ON_WM_CAPTURECHANGED() 0,
 #define ON_MESSAGE(message, memberFxn) 0,
-
-CWinApp *AfxGetApp();

@@ -37,7 +37,7 @@
 #include "commseeds.h"
 #include "golden_patch.h"
 
-#include "compat/mfc_shim.h"
+#include "mfc/mfc_standin.h"
 #include "Communication.h"
 #include "Control.h"
 #include "GUI.h"

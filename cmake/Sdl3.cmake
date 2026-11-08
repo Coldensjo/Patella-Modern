@@ -9,8 +9,7 @@
 #	SDL3::SDL3-static   SDL 3.4.18, built from its release archive with its own CMakeLists as a static library
 #	                    with the client's CRT (the static one), only the subsystems the client needs (video and
 #	                    events; Vulkan on: SDL_Vulkan_CreateSurface, #126)
-#	SDL3::Headers       its headers alone: what Patella_compile and PatellaTest_compile (PATELLA_CLIENT_COMPILE_ONLY,
-#	                    the hosted CI) compile against, so they do not build the library
+#	SDL3::Headers       its headers alone: what the header checks compile against, so they do not build the library
 #
 # Pinned as cmake/Vulkan.cmake pins its libraries: one release, by URL and SHA256 (the digest GitHub publishes for the
 # release asset SDL3-3.4.18.tar.gz), fetched at the first configure into build/<preset>/_deps and built there; nothing

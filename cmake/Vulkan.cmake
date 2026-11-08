@@ -12,7 +12,7 @@
 #	the CPU driver          Mesa's lavapipe (vulkan_lvp.dll and lvp_icd.x86_64.json), copied next to
 #	                        every executable that uses the engine (patella_vulkan_cpu_driver)
 #
-# The client adds src/vulkan/SurfaceVulkan.cpp (TSurfaceVulkan, the TSurface on the MFC window) and
+# The client adds src/vulkan/SurfaceVulkan.cpp (TSurfaceVulkan, the TSurface on the SDL3 window) and
 # PATELLA_VULKAN (Surface.cpp's and Control.cpp's engine selection of the x64 client). The libraries
 # and the client link the static CRT, as the client does. Every dependency is pinned by URL and SHA256
 # (notes/vulkan.md, "Dependencies"); the first configure downloads them (about 85 MB, most of it Mesa's
