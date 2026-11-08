@@ -231,6 +231,14 @@ the game loop picks up, so the game itself stays single-threaded. Server address
 recorded session and live comparison still matches the original byte for byte. *Why it matters:* the network was one
 of the last Windows-only parts between the client and Linux.
 
+**Clipboard, message boxes and web links through SDL3 (#124).**
+Copying and pasting text, the error message boxes and opening a web page in the browser now go through SDL3 instead of
+Windows-only calls. The boxes show the same title and text, and the test tools still find and close them the same way.
+Text on the clipboard is converted between the game's character set and Unicode as before. The list of screen
+resolutions and the switch to fullscreen stay with Windows' own calls on Windows, because SDL3 lists one resolution
+more on some screens and picks refresh rates differently; the SDL3 version is ready for Linux. *Why it matters:* these
+were among the last places where the game talked to Windows directly, and a Linux client can now use the same code.
+
 ## M8 and M9, started early
 
 **Big-number maths fully unit-tested (#128).**

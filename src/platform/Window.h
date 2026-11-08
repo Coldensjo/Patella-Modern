@@ -4,18 +4,22 @@
 // What the client asks of the desktop besides its own window's messages: the message boxes (Player.cpp FatalError,
 // the start's two), the other top-level windows (InitInstance's count of the Tibia clients, CountTibiaWindows) and
 // the display's modes (the Graphics Options dialog's list, vulkan/SurfaceVulkan.cpp GetFullscreenModes; the desktop's
-// own, CreateSurfaces' depth check, issue #138). Each goes
-// through the process's IWindow (platform/Platform.h):
+// own, CreateSurfaces' depth check, issue #138; the fullscreen mode's change, CreateSurfaces and ExitDisplay, issue
+// #124). Each goes through the process's IWindow (platform/Platform.h):
 //
-//	TWin32Window     MessageBoxA, EnumWindows with GetWindowTextA and GetClassNameA, EnumDisplaySettingsA
-//	                 (platform/Win32Platform.h): Patella.exe's and the golden runner's
+//	TWin32Window     MessageBoxA, EnumWindows with GetWindowTextA and GetClassNameA, EnumDisplaySettingsA,
+//	                 ChangeDisplaySettingsA (platform/Win32Platform.h): the golden runner's, and Patella.exe's on the
+//	                 MFC window (PATELLA_WINDOW=mfc, until issue #127)
+//	TSdlWindow       SDL3's (issue #124; platform/SdlPlatform.h): SDL_ShowSimpleMessageBox; the display's modes
+//	                 SDL3's off Windows, Win32's on Windows (SDL3's list differs there); the other windows Win32's
+//	                 EnumWindows (SDL3 has no such call): Patella.exe's on the SDL3 window
 //	TTestWindow      the test mode's (testmode/TestModeWin32.cpp): with a script a box is not shown (messages.txt);
 //	                 only the process's own windows are visited (issue #96); with --test-display-modes the file's
-//	                 modes (issue #48); the rest Win32's (the desktop's mode too: the machine's); with --test-headless
-//	                 headless (issue #145)
+//	                 modes (issue #48); the rest the window path's (TSdlWindow or TWin32Window, as Patella.exe's; the
+//	                 desktop's mode too: the machine's); with --test-headless headless (issue #145)
 //
 // The frame window itself (MainFrm.cpp's CMainFrame, MFC) is the Win32 side's, as the application (Player.cpp's
-// CPlayerApp) is: M8's SDL3 window takes their place behind this interface and IInput (Input.h).
+// CPlayerApp) is; since issue #122 SdlFrame.cpp's SDL3 window takes their place by default.
 
 #pragma once
 
@@ -58,6 +62,10 @@ public:
 	// The display's current mode, the desktop's (EnumDisplaySettingsA(nullptr, ENUM_CURRENT_SETTINGS); issue #138):
 	// false when it cannot be read.
 	[[nodiscard]] virtual bool DesktopMode(TDisplayMode &Mode) = 0;
+	// Issue #124: switches the display to Mode for the fullscreen window Window (ChangeDisplaySettingsA(&Mode,
+	// CDS_FULLSCREEN) with its width, height and bits per pixel): false where the display has no such mode or the
+	// change failed. With Mode null the display goes back to the desktop's mode (ChangeDisplaySettingsA(nullptr, 0)).
+	virtual bool SetFullscreenMode(TWindowHandle Window, const TDisplayMode *Mode) = 0;
 	// True when the client runs without a desktop (the test build's --test-headless, issue #145; Patella.exe's
 	// false): its main window is never shown (it exists, hidden, for its messages), the Vulkan engine renders without
 	// a surface and presents nothing, and fullscreen mode leaves the display's mode alone.

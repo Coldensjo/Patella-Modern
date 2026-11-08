@@ -784,6 +784,14 @@ SDL_Vulkan_CreateSurface on each device's own window, which SDL wraps for the ca
 MFC window Win32's until #127. The device choice and lavapipe are unchanged; tests_vulkan takes its surfaces through
 SDL3.
 
+Done in #124 (notes/decisions.md, "#124"): the SDL3 window's clipboard (SDL_SetClipboardText/SDL_GetClipboardText, UTF-8
+to and from Windows-1252), message boxes (SDL_ShowSimpleMessageBox; the tools read them from outside as before) and
+URLs (SDL_OpenURL) are SDL3's (src/platform/SdlPlatform.cpp); the fullscreen mode change is IWindow::SetFullscreenMode.
+The display modes stay EnumDisplaySettingsA/ChangeDisplaySettingsA on Windows, behind IWindow: SDL3 lists the desktop's
+custom mode Windows does not enumerate and other refresh rates; SDL3's versions (SDL_GetFullscreenDisplayModes,
+SDL_SetWindowFullscreenMode, platform/DisplayModeList.h, unit-tested) are the other systems'. The Win32 calls are left
+only in the Win32 implementation (Win32Platform.cpp, and the MFC path's MainFrm.cpp and WindowSystemWin32.cpp).
+
 Exit: the Linux client logs into the test server and plays the scripted sessions; tier A green on Windows
 x64 and Linux x64 against the reference recordings; the Vulkan engine passes the reference frames on Linux
 (hardware drivers and the CPU driver).

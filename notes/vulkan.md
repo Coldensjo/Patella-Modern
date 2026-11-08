@@ -266,8 +266,9 @@ surface function: TSurfaceVulkan::Request). Which one it asks follows the client
   GetSystemMetrics and vkCreateWin32SurfaceKHR, as the engine did on every path before; SDL is not started there.
 
 Still Win32 on both paths: the devices' own windows and the main window's erase (PresentWindow.h; Windows-only by
-their nature: issue #52 is a Windows driver's leftover, issue #71 Windows' modal size loop), and the fullscreen
-display mode (ChangeDisplaySettingsA, with the display's issue #124). The engine's rectangles are TEdgeRects
+their nature: issue #52 is a Windows driver's leftover, issue #71 Windows' modal size loop). The fullscreen display
+mode is the platform's IWindow::SetFullscreenMode since issue #124 (on Windows still ChangeDisplaySettingsA on both
+window paths; SDL_SetWindowFullscreenMode on the other systems). The engine's rectangles are TEdgeRects
 (platform/Surface.h) since issue #126; the client area's rectangle starts at 0, 0 (only its size was ever read).
 
 ## How it works
@@ -308,7 +309,9 @@ client's), MAILBOX or FIFO where IMMEDIATE is missing; vsync by default (D13) co
 swapchain is created again when the client area's size changes or Vulkan reports it out of date; a minimised
 window shows nothing. Fullscreen mode sets the display mode with ChangeDisplaySettings (Direct3D 9's fullscreen
 device does that itself) and sets it back when the device goes; the window is the client's topmost popup
-(MainFrm.cpp SetDisplayMode).
+(MainFrm.cpp SetDisplayMode). Since issue #124 through IWindow::SetFullscreenMode: Win32's on Windows; SDL3's
+(SDL_SetWindowFullscreenMode with the primary display's mode of that size and depth, at the desktop's refresh rate
+where it has it) for the other systems.
 
 **Display modes** (issue #20): surfaceDX9.cpp listed them with DirectDraw 4 (`EnumDisplayModes(0)`, no refresh
 rates) and its callback (at least 640x480 and 16 bits; the frequency always 0, as the callback tests the refresh
@@ -316,7 +319,11 @@ rate's flag among the pixel format's flags). The engine lists EnumDisplaySetting
 width, height and depth once, with the same filter and frequency 0: on this machine (RTX 5080, November 3, 2026)
 both lists are the same 24 modes in the same order (a probe that asks both, build\logs\issue-20\display-modes-probe.log),
 so the graphics options show the same list and compare_files.py's next resolution is the same. The desktop's depth
-check (DirectDraw's GetDisplayMode, PROGRAM_ERROR 8 below 16 bits) is EnumDisplaySettings' current mode.
+check (DirectDraw's GetDisplayMode, PROGRAM_ERROR 8 below 16 bits) is EnumDisplaySettings' current mode. Since issue
+#124 both are the platform's (IWindow::DisplayMode, DesktopMode): Win32's on Windows on both window paths (SDL3 lists
+one mode more here, the desktop's custom 5120x1440, and other refresh rates: notes/decisions.md, "#124"), and for the
+other systems SDL_GetFullscreenDisplayModes in EnumDisplaySettings' order (SDL's backwards, its four-byte formats as
+32 bits; platform/DisplayModeList.h) and SDL_GetCurrentDisplayMode.
 CanStretch (DirectDraw's four stretch and shrink capabilities, which set the default of "Don't stretch/shrink
 the Map") is true: Vulkan stretches on every device, and DirectDraw reports all four here too.
 

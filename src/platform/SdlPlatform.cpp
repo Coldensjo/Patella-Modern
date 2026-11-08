@@ -1,0 +1,263 @@
+// SdlPlatform.cpp: the SDL3 implementations of the platform's clipboard and desktop (Patella-Modern issue #124;
+// platform/SdlPlatform.h). Not part of the original source: each function does with SDL3 what Win32Platform.cpp's
+// TWin32Clipboard and TWin32Window do with Win32's calls, for the SDL3 window's client (SdlFrame.cpp). The display's
+// modes are SDL3's off Windows only (TSdlWindow, below).
+
+#include "platform/SdlPlatform.h"
+
+#include "platform/DisplayModeList.h"
+#include "platform/Platform.h"
+#include "types/Cp1252.h"
+
+#if defined(_WIN32)
+#include "platform/Win32Platform.h"
+#endif
+
+#include <SDL3/SDL_clipboard.h>
+#include <SDL3/SDL_init.h>
+#include <SDL3/SDL_messagebox.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_video.h>
+
+#include <cmath>
+#include <cstddef>
+#include <optional>
+#include <string>
+#include <vector>
+
+namespace patella::platform {
+
+namespace {
+
+bool VideoStarted()
+{
+	return SDL_WasInit(SDL_INIT_VIDEO) != 0;
+}
+
+// The SDL window of a native handle (the HWND on Windows: SdlFrame.cpp's window is known to the client by it, as in
+// vulkan/WindowSystemSdl.cpp), else null.
+SDL_Window *SdlWindowOf(TWindowHandle Handle)
+{
+	if (Handle == nullptr || !VideoStarted())
+		return nullptr;
+	SDL_Window *Found = nullptr;
+	int Count = 0;
+	SDL_Window **const Windows = SDL_GetWindows(&Count);
+	for (int i = 0; Windows != nullptr && i < Count && Found == nullptr; i++) {
+#if defined(_WIN32)
+		if (SDL_GetPointerProperty(SDL_GetWindowProperties(Windows[i]), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr) == Handle)
+			Found = Windows[i];
+#else
+		if (Windows[i] == Handle)
+			Found = Windows[i];
+#endif
+	}
+	SDL_free(static_cast<void *>(Windows));
+	return Found;
+}
+
+} // namespace
+
+// TWin32Clipboard::HasText's IsClipboardFormatAvailable(CF_UNICODETEXT): on Windows SDL asks the same.
+bool TSdlClipboard::HasText()
+{
+	return VideoStarted() && SDL_HasClipboardText();
+}
+
+// TWin32Clipboard::Text: the text up to its first NUL (SDL's is a C string), converted to the client's. SDL gives an
+// empty text where the clipboard cannot be opened (Win32's nullopt): the paste then has nothing, as with no text.
+std::optional<std::string> TSdlClipboard::Text()
+{
+	if (!VideoStarted())
+		return std::nullopt;
+	char *const Utf8 = SDL_GetClipboardText();
+	if (Utf8 == nullptr)
+		return std::nullopt;
+	std::string Text = patella::text::Utf8ToCp1252(Utf8);
+	SDL_free(Utf8);
+	return Text;
+}
+
+// TWin32Clipboard::SetText. Two differences of SDL's (notes/decisions.md, "#124"): on Windows it writes each line
+// feed without a carriage return before it as CR LF (the console's selection of several lines), and an empty text
+// empties the clipboard instead of putting an empty text there.
+bool TSdlClipboard::SetText(const char *Text)
+{
+	if (!VideoStarted())
+		return false;
+	const std::string Utf8 = patella::text::Cp1252ToUtf8(Text);
+	return SDL_SetClipboardText(Utf8.c_str());
+}
+
+// TWin32Window::ShowMessageBox's MessageBoxA(Owner, Text, Caption, MB_ICONHAND or MB_ICONEXCLAMATION): one OK button,
+// modal, the thread's messages dispatched while it is open. Every box of the client has no owner (Player.cpp), so
+// the box's parent is the SDL window of Owner where there is one, else none. The texts are the client's: in UTF-8 for SDL.
+void TSdlWindow::ShowMessageBox(TWindowHandle Owner, const char *Text, const char *Caption, TMessageBoxIcon Icon)
+{
+	SDL_Window *const Parent = SdlWindowOf(Owner);
+	const std::string Utf8Text = patella::text::Cp1252ToUtf8(Text != nullptr ? Text : "");
+	const std::string Utf8Caption = patella::text::Cp1252ToUtf8(Caption != nullptr ? Caption : "");
+	const SDL_MessageBoxFlags Flags = Icon == TMessageBoxIcon::Error ? SDL_MESSAGEBOX_ERROR : SDL_MESSAGEBOX_WARNING;
+	SDL_ShowSimpleMessageBox(Flags, Utf8Caption.c_str(), Utf8Text.c_str(), Parent);
+}
+
+void TSdlWindow::VisitWindows(TWindowVisitor Visit)
+{
+#if defined(_WIN32)
+	Win32Window().VisitWindows(Visit);
+#else
+	static_cast<void>(Visit);
+#endif
+}
+
+namespace {
+
+TDisplayMode ModeOf(const SDL_DisplayMode &Mode)
+{
+	TDisplayMode Result;
+	Result.Width = Mode.w;
+	Result.Height = Mode.h;
+	Result.Depth = DisplayDepth(static_cast<int>(SDL_BITSPERPIXEL(Mode.format)), static_cast<int>(SDL_BYTESPERPIXEL(Mode.format)));
+	return Result;
+}
+
+int Millihertz(float Refresh)
+{
+	return static_cast<int>(std::lround(static_cast<double>(Refresh) * 1000.0));
+}
+
+// The primary display's fullscreen modes, SDL's list (EnumDisplaySettingsA(nullptr, ...)'s display: the primary one).
+// Null where SDL's video subsystem is not started or the list cannot be read; SDL_free it.
+SDL_DisplayMode **FullscreenModes(int &Count)
+{
+	Count = 0;
+	if (!VideoStarted())
+		return nullptr;
+	const SDL_DisplayID Display = SDL_GetPrimaryDisplay();
+	if (Display == 0)
+		return nullptr;
+	return SDL_GetFullscreenDisplayModes(Display, &Count);
+}
+
+} // namespace
+
+// EnumDisplaySettingsA(nullptr, Index) in SDL3: SDL's list in Windows' order (DisplayModeList.h).
+bool SdlDisplayMode(unsigned int Index, TDisplayMode &Mode)
+{
+	int Count = 0;
+	SDL_DisplayMode **const Modes = FullscreenModes(Count);
+	if (Modes == nullptr)
+		return false;
+	std::size_t SdlIndex = 0;
+	const bool Found = ListedModeIndex(static_cast<std::size_t>(Count), Index, SdlIndex);
+	if (Found)
+		Mode = ModeOf(*Modes[SdlIndex]);
+	SDL_free(static_cast<void *>(Modes));
+	return Found;
+}
+
+// EnumDisplaySettingsA(nullptr, ENUM_CURRENT_SETTINGS) in SDL3: the display's mode now.
+bool SdlDesktopMode(TDisplayMode &Mode)
+{
+	if (!VideoStarted())
+		return false;
+	const SDL_DisplayMode *const Current = SDL_GetCurrentDisplayMode(SDL_GetPrimaryDisplay());
+	if (Current == nullptr)
+		return false;
+	Mode = ModeOf(*Current);
+	return true;
+}
+
+// ChangeDisplaySettingsA in SDL3, on SDL's fullscreen window (SdlFrame.cpp SetDisplayMode
+// made it a fullscreen desktop window): SDL_SetWindowFullscreenMode with the primary display's mode of that size and
+// depth (DisplayModeList.h ChooseFullscreenMode), which makes it an exclusive fullscreen window and SDL switch the
+// display; null back to the fullscreen desktop window and the desktop's mode. False where SDL has no window of that
+// handle (with a mode), no such mode, or the display did not take it.
+bool SdlSetFullscreenMode(TWindowHandle Window, const TDisplayMode *Mode)
+{
+	SDL_Window *const Found = SdlWindowOf(Window);
+	// A window SDL no longer has (destroyed: SDL gave the display its desktop mode back then) needs nothing undone.
+	if (Found == nullptr)
+		return Mode == nullptr;
+	if (Mode == nullptr) {
+		const bool Done = SDL_SetWindowFullscreenMode(Found, nullptr);
+		SDL_SyncWindow(Found);
+		return Done;
+	}
+	int ModeCount = 0;
+	SDL_DisplayMode **const Modes = FullscreenModes(ModeCount);
+	if (Modes == nullptr)
+		return false;
+	std::vector<TListedMode> Listed;
+	for (int i = 0; i < ModeCount; i++)
+		Listed.push_back(TListedMode{ModeOf(*Modes[i]), Millihertz(Modes[i]->refresh_rate)});
+	const SDL_DisplayMode *const Desktop = SDL_GetDesktopDisplayMode(SDL_GetPrimaryDisplay());
+	const int Chosen = ChooseFullscreenMode(Listed, *Mode, Desktop != nullptr ? Millihertz(Desktop->refresh_rate) : 0);
+	bool Done = false;
+	if (Chosen >= 0) {
+		const SDL_DisplayMode Wanted = *Modes[Chosen];
+		Done = SDL_SetWindowFullscreenMode(Found, &Wanted);
+		SDL_SyncWindow(Found);
+		// SDL switches the display only for a fullscreen window that is shown; it always is here (the client goes
+		// fullscreen only from its shown window). Where the display did not take the mode, the change failed.
+		const SDL_DisplayMode *const Current = SDL_GetCurrentDisplayMode(Wanted.displayID);
+		if (Done && (SDL_GetWindowFlags(Found) & SDL_WINDOW_FULLSCREEN) != 0
+			&& (Current == nullptr || Current->w != Wanted.w || Current->h != Wanted.h)) {
+			SDL_SetWindowFullscreenMode(Found, nullptr);
+			SDL_SyncWindow(Found);
+			Done = false;
+		}
+	}
+	SDL_free(static_cast<void *>(Modes));
+	return Done;
+}
+
+// On Windows the display's modes stay Win32's (notes/decisions.md, "#124"): SDL3 lists the desktop's current mode
+// where Windows does not enumerate it (a custom mode: the Graphics Options dialog would gain a line) and reports other
+// refresh rates than Windows (so the mode it sets could differ from ChangeDisplaySettingsA's choice). SDL3's above are
+// the other systems'.
+bool TSdlWindow::DisplayMode(unsigned int Index, TDisplayMode &Mode)
+{
+#if defined(_WIN32)
+	return Win32Window().DisplayMode(Index, Mode);
+#else
+	return SdlDisplayMode(Index, Mode);
+#endif
+}
+
+bool TSdlWindow::DesktopMode(TDisplayMode &Mode)
+{
+#if defined(_WIN32)
+	return Win32Window().DesktopMode(Mode);
+#else
+	return SdlDesktopMode(Mode);
+#endif
+}
+
+bool TSdlWindow::SetFullscreenMode(TWindowHandle Window, const TDisplayMode *Mode)
+{
+#if defined(_WIN32)
+	return Win32Window().SetFullscreenMode(Window, Mode);
+#else
+	return SdlSetFullscreenMode(Window, Mode);
+#endif
+}
+
+namespace {
+constinit TSdlClipboard SdlClipboardInstance;
+constinit TSdlWindow SdlWindowInstance;
+} // namespace
+
+TSdlClipboard &SdlClipboard()
+{
+	return SdlClipboardInstance;
+}
+
+TSdlWindow &SdlWindow()
+{
+	return SdlWindowInstance;
+}
+
+} // namespace patella::platform

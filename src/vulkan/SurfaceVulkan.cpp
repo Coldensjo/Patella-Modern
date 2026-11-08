@@ -10,8 +10,9 @@
 //
 // The window system (issue #126; vulkan/WindowSystem.h): the main window's client area, the screen's size and each
 // device's surface come from the window path's (platform/WindowChoice.h): SDL3's (SDL_Vulkan_CreateSurface) by default,
-// Win32's on MFC's window until issue #127. Still Win32 on both: the devices' own windows (PresentWindow.h, issue #52)
-// and the fullscreen display mode (ChangeDisplaySettingsA, the display's issue #124).
+// Win32's on MFC's window until issue #127. Still Win32 on both: the devices' own windows (PresentWindow.h, issue #52).
+// The fullscreen display mode is the platform's IWindow::SetFullscreenMode since issue #124 (on Windows
+// ChangeDisplaySettingsA on both window paths; SDL3's SDL_SetWindowFullscreenMode on the other systems).
 //
 // Headless (issue #145; platform/Window.h IWindow::Headless, the test build's --test-headless): the device gets no
 // surface (TRenderer renders into its images and presents nothing; the frame observer reads the canvas back before
@@ -36,7 +37,6 @@
 
 #include <cstdint>
 #include <cstdlib>
-#include <cstring>
 #include <memory>
 #include <string>
 #include <vector>
@@ -557,7 +557,8 @@ void TSurfaceVulkan::ExitDisplay()
 	CurrentTarget = -1;
 	CacheSurfaces = 0;
 	if (DisplayModeSet) {
-		ChangeDisplaySettingsA(nullptr, 0);
+		// ChangeDisplaySettingsA(nullptr, 0); since issue #124 the platform's IWindow::SetFullscreenMode.
+		patella::platform::Platform().Window.SetFullscreenMode(hWindow, nullptr);
 		DisplayModeSet = false;
 	}
 	ViewMode = 0;
@@ -964,17 +965,16 @@ void TSurfaceVulkan::CreateSurfaces()
 		throw TProgramError{PROGRAM_ERROR::COLOR_DEPTH};
 	if (ViewMode == FULLSCREEN_MODE) {
 		// Direct3D 9's fullscreen device sets the display mode; the window is already a popup over the
-		// whole screen (MainFrm.cpp SetDisplayMode).
-		DEVMODEA Mode;
-		memset(&Mode, 0, sizeof(Mode));
-		Mode.dmSize = sizeof(DEVMODEA);
-		Mode.dmPelsWidth = Width;
-		Mode.dmPelsHeight = Height;
-		Mode.dmBitsPerPel = Depth;
-		Mode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
+		// whole screen (MainFrm.cpp SetDisplayMode; SdlFrame.cpp's: SDL's fullscreen window). Since issue #124 the
+		// platform's IWindow::SetFullscreenMode (on Windows ChangeDisplaySettingsA(&Mode, CDS_FULLSCREEN) with the
+		// width, height and bits per pixel, as here until then; elsewhere SDL3's SDL_SetWindowFullscreenMode).
+		patella::platform::TDisplayMode Mode;
+		Mode.Width = Width;
+		Mode.Height = Height;
+		Mode.Depth = Depth;
 		// Issue #145: headless, the display's mode stays the desktop's (the change counts as made).
 		if (!patella::platform::Platform().Window.Headless()) {
-			if (ChangeDisplaySettingsA(&Mode, CDS_FULLSCREEN) != DISP_CHANGE_SUCCESSFUL) {
+			if (!patella::platform::Platform().Window.SetFullscreenMode(hWindow, &Mode)) {
 				Shared.InitStep = 1;
 				throw TProgramError{PROGRAM_ERROR::SURFACE};
 			}

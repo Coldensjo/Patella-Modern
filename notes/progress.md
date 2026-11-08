@@ -772,6 +772,14 @@ WSAAsyncGetHostByName and afxsock.h are gone from the client; the golden runner 
 connection or a lookup is open (platform/NetworkWin32.cpp). The SDL3 frame's WM_USER + 1 went (SdlFrame.cpp's HostResolved).
 notes/decisions.md, "#125".
 
+Display modes, clipboard, URLs and message boxes over SDL3 (Patella-Modern issue #124, branch issue-124, November 8,
+2026; M8): the SDL3 window's Platform() has SDL3's clipboard (UTF-8 to and from Windows-1252), message boxes
+(SDL_ShowSimpleMessageBox, read from outside by the tools as MessageBoxA's) and URLs (SDL_OpenURL; src/platform/
+SdlPlatform.cpp); the Vulkan engine's mode change is IWindow::SetFullscreenMode. On Windows the display modes stay
+EnumDisplaySettingsA/ChangeDisplaySettingsA behind IWindow: a probe found SDL3 listing the desktop's custom 5120x1440
+mode (25 modes, Windows 24) and other refresh rates; SDL3's versions are the other systems' (platform/DisplayModeList.h,
+unit-tested). The MFC path keeps Win32's. notes/decisions.md, "#124".
+
 compare_files' options scenario (Patella-Modern issue #149, branch issue-149, November 8, 2026; M7): Tibia.exe's
 window tree is read from outside while the client builds or frees an options dialog, and since #144's waits the first
 poll comes during that change: 4 of 25 runs of Tibia.exe's side failed with a ReadError through a stale pointer.

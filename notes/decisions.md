@@ -17388,3 +17388,87 @@ there sees only them.
   within 30 s (#147's Direct3D 9 start in the Sandbox) retried by Driver.start (1039 s); compare_network.py (#19's
   recording) exit 1 with 41 of 51 the same, 4 variable, and exactly the 6 known differences of #139 and #142 (#150),
   no harness error (1324 s). gate3-compare_*.log.
+
+## #124: display modes, clipboard, URLs and message boxes over SDL3 (Patella-Modern issue #124, M8)
+
+Done by Claude Opus 5.5, November 8, 2026 (branch issue-124, from main c7e984f). Plan section 7, M8's table row
+"EnumDisplaySettings, ChangeDisplaySettings, GetSystemMetrics / Clipboard, ShellExecute, MessageBox". Behaviour is the
+invariant (plan 2, 3, 7): where SDL3 does not give the same result on Windows, the Win32 call stays, behind the
+platform interface (IWindow, IClipboard: platform/Window.h, Clipboard.h), in the Win32 implementation.
+
+### What changed (high)
+
+- **TSdlClipboard and TSdlWindow** (new: src/platform/SdlPlatform.h, .cpp; compiled into the x64 client): the SDL3
+  window's Platform(). Win32Platform.cpp's WindowClipboard() and WindowDesktop() choose them on the SDL3 path (the
+  default) and TWin32Clipboard / TWin32Window on MFC's (PATELLA_WINDOW=mfc, until #127), as WindowInput() chose the
+  input in #122; the golden runner (no PATELLA_SDL3) keeps Win32's. The test build's TTestWindow passes on to the window
+  path's what it does not do itself (the box without a script, the modes without --test-display-modes, the desktop's
+  mode, the mode change), and its clipboard without a script is the window path's.
+- **The clipboard**: SDL_HasClipboardText, SDL_GetClipboardText, SDL_SetClipboardText, the text converted between
+  UTF-8 and the client's Windows-1252 (types/Cp1252.h; `?` for a character outside it, the owner's decision in #112).
+- **Message boxes**: SDL_ShowSimpleMessageBox (SDL_MESSAGEBOX_ERROR for MB_ICONHAND, SDL_MESSAGEBOX_WARNING for
+  MB_ICONEXCLAMATION), the texts in UTF-8; FatalError's text (#77) unchanged. The parent is the SDL window of the
+  owner's handle; every box of the client has none (Player.cpp), as before.
+- **URLs**: SdlFrame.cpp's OpenURL calls SDL_OpenURL (on Windows ShellExecuteW with "open", SW_SHOWNORMAL; the URL in
+  UTF-8) instead of ShellExecuteA; a failure goes to the log (warn), where ShellExecute's was ignored.
+- **The fullscreen mode change** is an IWindow call now: IWindow::SetFullscreenMode(Window, Mode), null for the
+  desktop's mode. vulkan/SurfaceVulkan.cpp CreateSurfaces and ExitDisplay call it where they called
+  ChangeDisplaySettingsA(&Mode, CDS_FULLSCREEN) and ChangeDisplaySettingsA(nullptr, 0); TWin32Window's does exactly
+  those calls (the same DEVMODEA: width, height, bits per pixel, no frequency). Headless still skips it (#145).
+- **GetSystemMetrics**: SdlFrame.cpp's and the Vulkan engine's SDL window system already read the primary display's
+  bounds (SDL_GetDisplayBounds, #122 and #126); what is left is MainFrm.cpp's and WindowSystemWin32.cpp's, the MFC
+  path's.
+
+After the change these calls are only in the Win32 implementation: Win32Platform.cpp (MessageBoxA, the clipboard's
+calls, EnumDisplaySettingsA, ChangeDisplaySettingsA), MainFrm.cpp and vulkan/WindowSystemWin32.cpp (the MFC path:
+GetSystemMetrics, ShellExecuteA) and TestModeWin32.cpp (none of them now). Linux's golden stand-ins
+(tests/golden/linux/win32.cpp) already had ChangeDisplaySettingsA for Win32Platform.cpp.
+
+### The display modes stay Win32's on Windows (high: measured)
+
+A probe (build\logs\issue-124\display-modes-probe.log; the probe's source is not committed) asked both on this machine
+(RTX 5080, desktop 5120x1440 at 240 Hz) and filtered each list as the Graphics Options dialog does (GetFullscreenModes:
+at least 640x480 and 16 bits, each size and depth once), SDL's read in EnumDisplaySettings' order:
+
+- the 24 modes of EnumDisplaySettingsA are SDL's first 24, in the same order; **SDL3 lists a 25th, 5120x1440x32**, the
+  desktop's mode, which Windows does not enumerate (a custom mode). SDL adds ENUM_CURRENT_SETTINGS to its list on
+  purpose (SDL_windowsmodes.c WIN_GetDisplayModes: "in case it's a custom mode that doesn't enumerate"). The dialog would
+  gain a line;
+- SDL3 reports the desktop at 59.99 Hz where EnumDisplaySettingsA says 240 Hz, and it sets a mode with an explicit
+  refresh rate from its own list (SDL_SetWindowFullscreenMode takes only one of SDL's modes), where the client's
+  ChangeDisplaySettingsA leaves the rate to Windows. The mode SDL would set could differ from the original's.
+
+So on Windows TSdlWindow's DisplayMode, DesktopMode and SetFullscreenMode are TWin32Window's (EnumDisplaySettingsA,
+ChangeDisplaySettingsA), and the SDL3 window stays SDL's fullscreen desktop window as in #122. SDL3's own versions are
+written and compiled (SdlDisplayMode, SdlDesktopMode, SdlSetFullscreenMode in SdlPlatform.cpp: the primary display's
+SDL_GetFullscreenDisplayModes read backwards, SDL_GetCurrentDisplayMode, SDL_SetWindowFullscreenMode on the SDL window
+of the handle with the mode of that size and depth at the desktop's rate where it has one, else SDL's highest, the
+display's mode checked after it): TSdlWindow's off Windows, for the Linux client. Their rules are portable
+(platform/DisplayModeList.h: SDL's order backwards, SDL's four-byte formats as 32 bits, the mode choice) and unit-tested
+(tests/unit/core_display_modes_test.cpp in tests_core, every preset).
+
+### Differences of SDL3's that remain (medium: the owner's to change)
+
+- **Clipboard, copying several lines** (the console's selection, ConsoleWindow.cpp GetSelectedText, joins lines with a
+  bare LF): SDL writes each LF without a CR before it as CR LF (SDL_windowsclipboard.c WIN_SetClipboardText), so
+  another program reads "a\r\nb" where the original's and #112's put "a\nb". The client's own paste removes CRs (the
+  original's GetClipboardText), so a copy pasted back into the client is unchanged. Kept: SDL's clipboard is the
+  issue's ask, and CR LF is Windows' own line end; the alternative is TWin32Clipboard on Windows (one line in
+  WindowClipboard). Needs the user.
+- **Clipboard, an empty text**: SDL_SetClipboardText("") empties the clipboard; the original put an empty text there.
+  Both paste nothing. No caller copies an empty text in practice (names, a selection).
+- **Clipboard, a clipboard that cannot be opened**: SDL gives an empty text (Win32's: no text, GetClipboardText's
+  null); both paste nothing.
+- **Message boxes**: SDL's box is its own dialog (SDL_windowsmessagebox.c: the process has no common-controls 6
+  manifest, so not a TaskDialog), class #32770 with the icon, the text in a Static control and one "OK" button, as
+  MessageBoxA's; the tools that read boxes from outside (client_start.message_boxes, compare_files.dialog_windows,
+  compare_network's box outcome) read the same caption and text (Checks, below). What differs: the layout and font,
+  no system sound (MessageBoxA plays the icon's sound), the button's control ID (SDL's 100s, MessageBox's IDCANCEL for
+  an MB_OK box; compare_files posts the button's own ID either way), SDL shows the cursor while the box is open, sends
+  key-up events for held keys (SDL_ResetKeyboard) and raises the window that had the focus after it. None reaches the
+  client: its boxes have no owner and FatalError's ends the program.
+- **URLs**: ShellExecuteW's "open" verb for ShellExecuteA's default verb: the same for a URL (the protocol's handler).
+
+### Checks
+
+Filled in below with the results.
