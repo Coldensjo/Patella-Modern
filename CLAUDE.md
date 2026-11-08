@@ -99,6 +99,10 @@ client's unscripted live runs (compare_traffic.py, compare_files.py) and compare
 Those live checks run on the desktop of the session that starts them; a second interactive session (another Windows
 user, kept connected and unlocked) keeps the user's input away (issue #56; notes/reconstruction.md, "Checking").
 `--hidden` (tools/desktop.py) is experimental: DirectDraw, Direct3D 9, the CPU driver and GetCursorPos fail there.
+Tibia.exe refuses to start beside any other client window (a headless PatellaTest.exe's too) with "A Tibia client is
+already running!" (issue #148): the tools wait up to 120 s for such a window, naming its process (`PATELLA_CLIENT_WAIT`),
+then refuse; a failed start is closed (its own PID, the box's text logged), tried once more, then ends the run
+(tools/client_start.py, session_client.py's Driver.start).
 
 The golden corpus (issue #24): the 32-bit oracle recorded it until issue #94 (the target golden_corpus, at the tag
 `layout-frozen-final`); the frozen copy is `C:\Tibia\Patella-Modern\build\golden` (derived from Tibia.exe: local

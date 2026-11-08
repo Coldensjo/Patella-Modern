@@ -434,6 +434,8 @@ def record_main(args):
 			elif name == "error":
 				reference_run(reference, name, cf.craft_error(events_of(walk)), session_error,
 					comment="compare_files.py's error")
+		except sc.StartError:  # issue #148: a client that cannot start ends the recording
+			raise
 		except Exception as e:  # noqa: BLE001 - every session is tried
 			import traceback
 			traceback.print_exc()

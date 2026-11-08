@@ -1326,6 +1326,8 @@ def main():
 				else:
 					result = run_error(run, target, events, name)
 				results[name][run] = result
+			except sc.StartError:  # issue #148: a client that cannot start ends the run (every later start would fail)
+				raise
 			except Exception as e:  # noqa: BLE001 - one failed run must not stop the others
 				traceback.print_exc()
 				errors.setdefault(name, []).append("%s: %s" % (run, e))

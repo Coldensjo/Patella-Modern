@@ -562,6 +562,14 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   same results there: PatellaTest.exe on a GPU (`reference.py compare --vulkan gpu --hidden`), the OpenGL engine
   (`compare_rendering.py --engines gl --hidden`) and compare_network.py. notes/decisions.md, "The live checks on a
   hidden desktop".
+- **Tibia.exe does not start beside another client's window (Patella-Modern issue #148).** Its start counts the
+  desktop's windows titled "Tibia   " or of class TibiaClient, hidden ones too (a headless PatellaTest.exe's, a build's
+  test client's, the owner's game), and with another one shows "A Tibia client is already running!" and waits on it.
+  The tools that start Tibia.exe (session_client.py's Driver: compare_traffic.py, compare_files.py, compare_network.py,
+  compare_rendering.py, reference_record.py; and login_client.py) wait up to 120 s for such a window to close, naming
+  its process (`PATELLA_CLIENT_WAIT`: other seconds), and refuse with an error after that; a start that fails anyway is
+  ended (its box's text to the log, its own PID only) and tried once more, and a second failure ends the run.
+  `python -I tools/client_start.py` lists the windows that would block a start. notes/decisions.md, "#148".
 - **Keep off the mouse and the keyboard while one runs.** They drive real client windows with posted window
   messages, and real input reaches the same windows: a mouse move or click over a client window comes in
   between the posted ones, a key goes to the client that has the focus. On November 2 a click during a
