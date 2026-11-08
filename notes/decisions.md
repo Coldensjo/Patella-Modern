@@ -17881,4 +17881,4 @@ are unchanged (the gates).
 - compare_rendering.py's default recording flow since #146: a recording from compare_traffic.py's private server names that
   run's game port in the character list, and compare_rendering.py replays on the default ports, so every run ends with
   "no game connection" (a replay has no rewrite of the port; here it was run with a recording on the default ports,
-  the main checkout's build	rafficesult\orig-live.jsonl, and every scene is identical).
+  the main checkout's build/traffic/result/orig-live.jsonl, and every scene is identical).
