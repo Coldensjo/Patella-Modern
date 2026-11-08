@@ -17297,6 +17297,24 @@ there sees only them.
   (build\logs\issue-148\gate1-*.log).
 - `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` (headless) exit 0, every
   session matches its reference (gate3-reference-compare.log).
-- The live proof (a Tibia.exe kept open, each comparison started beside it with PATELLA_CLIENT_WAIT=10 and =off) and
-  the clean live runs are not run here: on November 8 the owner stopped live runs on the desktop; they wait for
-  Windows Sandbox (#147).
+- **The issue's proof, inside Windows Sandbox** (#147; on November 8 the owner stopped live runs on the desktop):
+  one job, `python -I tools/sandbox.py run --writable build/proof ... -- build/logs/issue-148/proof.py run --patella
+  C:/Tibia/Patella-Modern/build/windows-x64/Release/Patella.exe` (proof.py is kept with the logs, not committed), so
+  the blocker and the comparisons share the Sandbox's desktop: a Tibia.exe of its own kept open (its window
+  `PID 4464 (Tibia.exe): class 'TibiaClient', title 'Tibia   ', visible`), then compare_network (--only
+  login-normal), compare_traffic (--skip-live --no-cross), compare_files (--only options) and compare_rendering
+  (--engines vulkan-cpu --modes windowed --no-repeat) each twice beside it. PATELLA_CLIENT_WAIT=10: every one exited 1
+  after 13-14 s with "Tibia.exe not started: another client's window is still open after 10 s ...: PID 4464
+  (Tibia.exe) ...", no Tibia.exe started. PATELLA_CLIENT_WAIT=off: every one exited 1 after 5-6 s: two starts, each
+  logging "PID n's message box 'Tibia - Error': 'A Tibia client is already running!'" and the blocking window, each
+  killed, then StartError (compare_network: "login-normal: HARNESS ERROR ..." and "the run is stopped"). After each
+  of the 8 runs only the blocker was left and no message box; the blocker closed with exit 0. 8 of 8 as expected
+  (gate2-proof-sandbox.log, proof-summary.log, proof-<tool>-wait-<10|off>.log). The Sandbox's own processes have no
+  window the count sees (client windows before the blocker: none). The Sandbox's window never showed.
+- **One clean run of each comparison, in Windows Sandbox** (their default since #147), `--patella
+  C:/Tibia/Patella-Modern/build/windows-x64/Release/Patella.exe`: compare_traffic.py exit 0, no differences (197 s);
+  compare_files.py exit 0, no differences (189 s); compare_rendering.py (both modes, `--recording` the traffic run's
+  orig-live.jsonl) exit 0, all scenes identical in its four passes, twice a first Tibia.exe start without a frame
+  within 30 s (#147's Direct3D 9 start in the Sandbox) retried by Driver.start (1039 s); compare_network.py (#19's
+  recording) exit 1 with 41 of 51 the same, 4 variable, and exactly the 6 known differences of #139 and #142 (#150),
+  no harness error (1324 s). gate3-compare_*.log.

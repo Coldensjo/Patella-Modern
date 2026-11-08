@@ -758,8 +758,9 @@ A refused Tibia.exe start (Patella-Modern issue #148, branch issue-148, November
 Tibia.exe (session_client.py's Driver for compare_traffic, compare_files, compare_network, compare_rendering and
 reference_record; login_client.py) wait up to 120 s for another client's window (tools/client_start.py, naming its
 process), close a failed start (its box's text logged, its own PID only), start once more, and end the run on a
-second failure instead of piling "A Tibia client is already running!" boxes. Live proof pending (Windows Sandbox,
-#147). notes/decisions.md, "#148".
+second failure instead of piling "A Tibia client is already running!" boxes. Shown in Windows Sandbox with a
+Tibia.exe kept open beside each of the four comparisons: refused and named, or the box logged and the client closed,
+nothing left. notes/decisions.md, "#148".
 
 The portable socket (Patella-Modern issue #125, branch issue-125, November 7, 2026; M8): TPortableSocket
 (src/platform/PortableSocket.h, patella_platform, tests_platform on Windows and Linux) is Patella.exe's and the test
