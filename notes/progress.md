@@ -812,6 +812,12 @@ error box, or stalled at "Connecting") and the fork's client's (the login server
 reports exactly those as DELIBERATE with their issue, still compares the rest, and lists every deliberate difference
 it expected. In Windows Sandbox: 41 the same, 4 variable, 6 deliberate, 0 differ. notes/decisions.md, "#150".
 
+login-walk.script's walk (Patella-Modern issue #151, branch issue-151, November 8, 2026; M7): Cipfried, the temple NPC,
+could stand on the field of the script's first step north, and the client then sends no step (1 of 22 runs of #146).
+The square now goes south first and stays on rows beyond his radius (#137's way: the scenario, not the check);
+testmode_check is unchanged. 20 testmode_check runs in a row passed, 4 walks in every run; none of them met a block.
+notes/decisions.md, "#151".
+
 Fuzzing (Patella-Modern issue #132, branch issue-132, November 7, 2026; M9): tests/fuzz has eight libFuzzer targets,
 fuzz_settings (Patella.ini, patella_core only), fuzz_network (TNetwork's frames, #72's short packets among the seeds),
 fuzz_packets (ReceivePackets and Communication.cpp's handlers in the golden Communication world), fuzz_tibia_cfg,
