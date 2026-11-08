@@ -184,7 +184,7 @@ compares with a hosted run) and reports exactly what it reports: run it before p
 (issue #51: MSVC's `std::size_t` hides locals from misc-const-correctness). A change that adds a finding
 fixes it or rewrites the baseline in the image: `python -I tools/build.py --env linux-x64-clang bash -c "cmake
 --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --write-baseline
-build/linux-x64-clang/tidy-baseline.tsv --zero bugprone-"`, then copy it to `tools/`. `.github/workflows/self-hosted.yml` (windows-x64
+build/linux-x64-clang/tidy-baseline.tsv --zero bugprone-"`, then copy it to `tools/`. Downloads (issue #153): every pinned download retries a timeout or 5xx with a pause, and stops at once on a 404 or a wrong SHA-256 (tools/build.py's download_verified, docker/linux-x64/fetch.sh, `patella_fetch_declare` of cmake/Download.cmake, which a new pinned archive uses instead of FetchContent_Declare); CMake's zip and tarball fall back to https://cmake.org/files/; `python -I tools/download_selftest.py` shows it against a local server (hosted CI's clang-format job runs it). `.github/workflows/self-hosted.yml` (windows-x64
 with the frozen golden corpus, capture-x86, the reference compare, the comparisons and testmode_check.py, the Linux
 presets with the corpus; this machine) runs only on push and workflow_dispatch, and only when the repository variable
 `PATELLA_SELF_HOSTED` is `true`. Details: `notes/reconstruction.md`, "Checking".

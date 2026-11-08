@@ -19,15 +19,16 @@
 
 include_guard(GLOBAL)
 include(FetchContent)
+include("${PROJECT_SOURCE_DIR}/cmake/Download.cmake")
 
 set(PATELLA_SDL3_VERSION 3.4.18)
 if(WIN32)
-	FetchContent_Declare(patella_sdl3
+	patella_fetch_declare(patella_sdl3
 		URL https://github.com/libsdl-org/SDL/releases/download/release-${PATELLA_SDL3_VERSION}/SDL3-${PATELLA_SDL3_VERSION}.tar.gz
 		URL_HASH SHA256=9c75cf16330322c217dedd2e0609f1124f1b54b8633e763467b4684d0f4334a3
 		EXCLUDE_FROM_ALL)
 else()
-	FetchContent_Declare(patella_sdl3
+	patella_fetch_declare(patella_sdl3
 		URL https://github.com/libsdl-org/SDL/releases/download/release-${PATELLA_SDL3_VERSION}/SDL3-${PATELLA_SDL3_VERSION}.tar.gz
 		URL_HASH SHA256=9c75cf16330322c217dedd2e0609f1124f1b54b8633e763467b4684d0f4334a3
 		EXCLUDE_FROM_ALL

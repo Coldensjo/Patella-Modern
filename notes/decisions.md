@@ -17822,3 +17822,38 @@ Patella.exe's list loses what only MFC needed: winspool, shlwapi, oleaut32, dela
 `PATELLA_WINDOW`, platform/WindowChoice.h and its unit tests; vulkan/WindowSystemWin32.cpp (Win32WindowSystem) and its
 tests_vulkan case; the MFC branches of Player.cpp, TestModeWin32.cpp, Win32Platform.cpp, NetworkWin32.cpp and
 SurfaceVulkan.cpp; `DisplayChanged`'s write in SdlFrame.cpp (nothing has read it since SurfaceGL.cpp left).
+
+## #153: retries and a fallback for the builds' downloads (Patella-Modern issue #153, M7)
+
+November 8: GitHub's release downloads answered 504 on and off for hours, on the hosted runners and on this machine, with githubstatus.com all operational. Six of eight jobs of a run failed before any code was built.
+
+### What is downloaded, and how now
+
+| Download | Used by | Path since #153 | Fallback |
+| --- | --- | --- | --- |
+| CMake's Windows zip | the three Windows jobs, a new machine | tools/build.py `download_verified` | cmake.org/files/ |
+| CMake's Linux tarball | the image | docker/linux-x64/fetch.sh | cmake.org/files/ |
+| Ninja's Linux zip | the image | fetch.sh | none (GitHub only) |
+| doctest, Vulkan-Headers, volk, VMA, vk-bootstrap, glslang, Mesa's lavapipe, SDL3 | every configure | cmake/Download.cmake `patella_fetch_declare` | none (GitHub only) |
+| Debian's packages | the image | apt's `Acquire::Retries=5` | Debian's mirrors |
+
+Not changed: the base image's pull from Docker Hub (the Docker daemon's own retries) and actions/checkout, neither of which is a release download.
+
+### The rule, the same in all three paths
+
+- Retried with a pause (10 s times the attempt, at most 60 s): a timeout, HTTP 408, 429 and 5xx, a refused or dropped connection, an unfinished transfer. The last URL gets 10 attempts (about 6.5 minutes of pauses); a URL with a fallback after it gets 4 (about one minute), so CMake reaches Kitware's site quickly.
+- Stopped at once, with no retry and no fallback: any other HTTP error and a SHA-256 mismatch. A 404 means the pin is wrong and a wrong hash means a wrong file; neither improves by asking again. Whichever URL a file came from, it gets its final name only after its SHA-256 matched.
+
+### CMake's FetchContent: a pre-download, and why
+
+CMake's own download (ExternalProject's download.cmake.in, read at 4.4.5) retries only curl's codes 6, 7, 8, 15, 28 and 35. An HTTP error is curl's 22, so a 504 puts the URL on a skip list at once. That rules out the options the module offers: a URL list (no pause, and repeating a URL has no effect), TIMEOUT or INACTIVITY_TIMEOUT (they don't touch 22), and pre-seeding DOWNLOAD_DIR (FetchContent's direct population, CMP0168, overwrites it with its own `<name>-tmp`). A dependency provider would only see the declared arguments and would have to do the same download.
+
+`patella_fetch_declare` is the simplest thing that works: the same arguments as FetchContent_Declare, so each call site changes one word. It downloads to `_deps/patella-downloads/<name>/<the URL's file name>` with file(DOWNLOAD), reading the HTTP status from the transfer's LOG, checks the SHA-256, and declares that local file with the same URL_HASH, so FetchContent verifies it a second time. The file keeps its own name because DOWNLOAD_NO_EXTRACT copies it under that name into the source folder (cmake/Vulkan.cmake). A folder per dependency because Vulkan-Headers' and volk's archives have the same name. A later configure, also a `--fresh` one, finds the file and needs no network. An installed package (FIND_PACKAGE_ARGS), FETCHCONTENT_FULLY_DISCONNECTED and FETCHCONTENT_SOURCE_DIR_<NAME> still mean no download. An existing build folder extracts its archives once more after this change, because the declared URL changed.
+
+### The image
+
+fetch.sh is bind-mounted for the two RUNs (`RUN --mount`, BuildKit, Docker's default), so it is not in the image. The tag says what is in the image (GCC, Clang, libstdc++, CMake, Ninja), and none of that changed, so the tag stays and the image needs no rebuild. curl's own `--retry` isn't used: it has no fallback, and `--retry-all-errors` would retry a 404. Because the Dockerfile now uses a file of its context, tools/tidy_ci.py archives docker/linux-x64 itself as the context (it was the repository's root), the same context as `docker build docker/linux-x64`.
+
+### The proof
+
+`python -I tools/download_selftest.py` (no network) serves scripted answers from 127.0.0.1 to all three paths: 504s then the file; 408, 429, 500 and 503; a dropped connection; a transfer cut short; 404 and 403; a wrong file first, after a 504, after a cut transfer and from the fallback; a fallback answering 504 once. For each it checks the outcome, the number of requests to each URL, that the pauses are kept, and that no result and no partial file is left behind after a failure. patella_fetch_declare also runs in a small project: an extracted archive after a 504, a DOWNLOAD_NO_EXTRACT file after a 503 and a 502, an installed package that is never fetched, a `--fresh` configure with no request at all, a wrong archive after a 504 that fails the configure and is not kept. Hosted CI runs it in the clang-format job, in the image (its CMake 4.4.5, curl and dash).

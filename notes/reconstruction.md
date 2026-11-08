@@ -211,7 +211,10 @@ names another folder), never the first one on PATH (the machine PATH's C:\Progra
 PATH, and vcvarsall.bat puts Visual Studio's CMake first), and refuses a missing one or another version with a
 message. `python -I tools/build.py --install-cmake <folder>` downloads the zip, checks it against build.py's
 CMAKE_SHA256 (the release's cmake-4.4.5-SHA-256.txt) and unpacks it; hosted CI's Windows jobs do that, the Linux
-image has Kitware's Linux release of the same version. tools/compare_rendering.py and tools/fuzz.py run the same
+image has Kitware's Linux release of the same version. Downloads (issue #153) retry a timeout or 5xx with a pause, and
+CMake's also falls back to Kitware's own site: `download_verified` in build.py, `docker/linux-x64/fetch.sh` in the
+image, `patella_fetch_declare` of `cmake/Download.cmake` for the libraries (new pinned archives go through it); every
+SHA-256 stays, and `python -I tools/download_selftest.py` shows all three against a local server. tools/compare_rendering.py and tools/fuzz.py run the same
 CMake. A build folder configured with CMake 4.1.2 needs one `python -I tools/build.py <preset> --fresh` (or a new
 folder): its cache names the old cmake and its std module.
 
