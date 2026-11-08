@@ -1,0 +1,21 @@
+<!--
+	Windows Sandbox configuration of tools/sandbox.py (Patella-Modern issue #147). Not used as it is: sandbox.py
+	fills the fields in braces at run time and writes the result to build\sandbox\<run>\patella.wsb, so no path of
+	this machine is committed. {folders}: one <MappedFolder> per mapping (the portable Python, the repository and the
+	test server's folder read-only; the tool's work folders, the server's player files and the run's exchange folder
+	writable), each at the same path inside the Sandbox as on the host.
+-->
+<Configuration>
+	<VGpu>Enable</VGpu>
+	<Networking>Enable</Networking>
+	<AudioInput>Disable</AudioInput>
+	<VideoInput>Disable</VideoInput>
+	<ClipboardRedirection>Disable</ClipboardRedirection>
+	<PrinterRedirection>Disable</PrinterRedirection>
+	<MemoryInMB>{memory}</MemoryInMB>
+	<MappedFolders>
+{folders}	</MappedFolders>
+	<LogonCommand>
+		<Command>{command}</Command>
+	</LogonCommand>
+</Configuration>

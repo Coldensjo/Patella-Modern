@@ -105,11 +105,13 @@ focus moves); without a script it is refused.
 Who runs headless by default: `reference.py compare` (and `compare_traffic.py compare`, `compare_files.py compare`,
 `compare_rendering.py compare`), `testmode_check.py`, compare_rendering.py's windowed runs of the x64 client, and
 the CTest tests that start PatellaTest.exe (fatal_error_box, init_control_failure, headless_client). `--windowed`
-of each tool shows the window as before. What still needs the desktop: Tibia.exe's runs (reference.py record,
-compare_traffic.py's and compare_files.py's live runs, compare_rendering.py's Tibia.exe runs), the x64 client's
-unscripted live runs (compare_traffic.py, compare_files.py: the tools post messages to its window and it reads the
-cursor with GetCursorPos), compare_rendering.py's fullscreen runs, and tests_vulkan (its windows are hidden, but
-it presents into them).
+of each tool shows the window as before. What needs a desktop: Tibia.exe's runs, the x64 client's unscripted live
+runs (compare_traffic.py, compare_files.py: the tools post messages to its window and it reads the cursor with
+GetCursorPos), compare_rendering.py's fullscreen runs, and tests_vulkan (its windows are hidden, but it presents into
+them). Since issue #147 the first three have the Windows Sandbox's desktop, not the user's: compare_traffic.py,
+compare_files.py, compare_rendering.py and compare_network.py run inside Windows Sandbox by default, whose window is
+on a hidden desktop of the host (tools/sandbox.py; notes/testserver.md, "Windows Sandbox"; `--desktop`: the user's
+desktop as before). Still on the user's desktop: reference.py record (frozen, never run again) and tests_vulkan.
 
 ### The cold start (issue #25)
 

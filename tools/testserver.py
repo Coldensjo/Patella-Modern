@@ -819,6 +819,12 @@ def self_test(out=print):
 
 
 def main(argv):
+	# issue #147: inside Windows Sandbox the server stays on the host: start and stop run there (tools/sandbox.py)
+	sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+	import sandbox
+	forwarded = sandbox.forward_testserver(argv)
+	if forwarded is not None:
+		return forwarded
 	if len(argv) == 2 and argv[0] == "_ctrl-c":
 		return send_ctrl_c(int(argv[1]))
 	parser = argparse.ArgumentParser(description="Start and stop the local test server (notes/testserver.md).")

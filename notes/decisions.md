@@ -17103,6 +17103,144 @@ tools and #123's input over SDL3; `<name>-final.log`; the runs on 29ab392, with 
 - The MFC path's lookup reply (WM_USER + 1 by SendMessage) and IPv6 servers are not exercised live: every recording and
   comparison patches the client to 127.0.0.1. tests_platform covers the lookup and an IPv6 connection.
 
+## #147: Tibia.exe's live runs in Windows Sandbox, off the user's desktop (Patella-Modern issue #147, M7)
+
+Done by Claude Opus 5.5, November 8, 2026 (branch issue-147, from main 437e7f0). The owner's instruction of November
+8: no live runs on the owner's desktop any more (test windows jumped in front of their game, error boxes piled up,
+agents collided on the one desktop). The owner enabled Windows Sandbox (Containers-DisposableClientVM). Moved ahead of
+#146, so until #146 the Sandbox reaches the shared test server on the host. tools/sandbox.py, tools/sandbox/;
+notes/testserver.md, "Windows Sandbox".
+
+### The design: the whole tool runs inside, the server stays outside (high)
+
+The tools that read Tibia.exe's memory (client_state.py) and post its input must run on Tibia.exe's machine, and
+compare_traffic.py and compare_files.py also run the x64 client unscripted (posted messages, GetCursorPos: #145 could
+not make those headless). So the whole tool invocation runs inside the Sandbox, both clients, the proxy and the
+comparison; only the test server stays on the host. compare_traffic.py, compare_files.py, compare_rendering.py and
+compare_network.py run themselves again there by default (`sandbox.redirect` in their `__main__`, as desktop.hide
+does for `--hidden`); `--desktop` keeps the old way (and `--hidden` still means the hidden desktop on the host).
+`python -I tools/sandbox.py run -- <tool.py> [arguments]` runs any tool invocation there (#148's and #149's live
+proofs). Considered: Tibia.exe alone inside, driven from the host through a channel of our own (every call of
+client_state.py, login_client.py and session_client.py would need a remote form; #148 changes those files).
+
+- **The mappings** (generated at run time into build\sandbox\<run>\patella.wsb from tools/sandbox/patella.wsb.template,
+  so no path of this machine is committed): every folder at the same path inside as on the host, so every path of
+  the tools and of the command line holds there unchanged. Read-only: the portable Python's real folder
+  (C:\Servers\Software\python\cpython-3.13.15-windows-x86_64-none here; the `cpython-3.13-...` link is not followed
+  inside, so the host's sys.executable is not used), the repository (worktree), the test server's folder (tibia.pem,
+  the map for compare_files.py --check-route), and the folder of any existing path on the command line (`--patella
+  C:/Tibia/Patella-Modern/build/windows-x64/Release/Patella.exe` maps that Release folder). Writable, mapped under
+  the read-only ones (nesting works): the tool's work folder (build\traffic, build\files, build\render,
+  build\network) and `--out`, the server's data\usr (the tools restore the test characters' player files, as on the
+  host) and the run's exchange folder build\sandbox\<run>. A write elsewhere in the repository fails with
+  "Permission denied" (checked).
+- **What the Sandbox needs and has** (high, checked inside): the portable Python 3.13.15 runs from its read-only
+  mapping (python-build-standalone carries its own runtime); Tibia.exe imports only system DLLs (DDRAW, OPENGL32,
+  WINMM, WS2_32 ...; d3d9.dll at run time), and so do patcap.dll, PatellaTest.exe (static CRT) and lavapipe's
+  vulkan_lvp.dll; System32 has vulkan-1.dll and d3d9.dll; the Sandbox's adapters are the host's GPUs through GPU
+  paravirtualization (NVIDIA GeForce RTX 5080, AMD Radeon Graphics) and the Microsoft Remote Display Adapter. No new
+  dependency; no compiler inside (compare_rendering.py builds patcap.dll on the host first when its source is newer).
+- **The Sandbox's window stays off the user's desktop** (high). WindowsSandbox.exe starts on a hidden desktop of its
+  own (CreateDesktopW in WinSta0, STARTUPINFO.lpDesktop); WindowsSandboxRemoteSession.exe, the Sandbox's window,
+  is made there, so nothing of the Sandbox appears on the user's desktop or taskbar and it never takes the focus.
+  Every run recorded it: a watcher polling the user's desktop every 50 ms saw no Sandbox window and the Sandbox never
+  as the foreground window. The Sandbox's own Windows is unaffected: its desktop is the input desktop inside the
+  virtual machine (GetCursorPos works, OpenInputDesktop succeeds, Direct3D 9 starts), unlike issue #56's hidden
+  desktop for a client on the host. Measured the other way first (`--show-window`): started minimized
+  (SW_SHOWMINNOACTIVE), the launcher's window obeys, but WindowsSandboxRemoteSession.exe opens its window restored
+  and was the foreground window in 2 of the watcher's polls before it was minimized again (0.83 s after the start).
+  That is a focus steal from whatever the user is doing (a game in exclusive fullscreen would lose it), so it is only
+  the fallback of `--show-window` and `--keep`. A WM_CLOSE to the Sandbox's window brought it to the foreground on the
+  user's desktop and did not close it on the hidden one; the Sandbox ends by `shutdown /s` inside it.
+  What still shows on the host: nothing on the desktop; in Task Manager the processes WindowsSandboxRemoteSession.exe,
+  WindowsSandboxServer.exe (stays a while after the run, no window) and vmmemWindowsSandbox (about 3 GB while it
+  runs; the configuration allows 8 GB of the host's 61.6 GB).
+- **The test server through a reverse tunnel** (high). The Sandbox reaches the host only through its NAT network
+  (vEthernet (Default Switch), 172.22.160.1 on the host, the Sandbox 172.22.x.y): it could not reach the host at all
+  (connections to the host's 192.168.50.38 and 172.24.112.1 timed out: the host's firewall), and the login server
+  listens on 127.0.0.1 only. The host can reach the Sandbox once the Sandbox's own firewall is off (netsh inside the
+  disposable Windows; not a change of this machine). So the guest listens on its own 127.0.0.1:7171 and 7172, and
+  announces each connection there on a control connection the host opened; the host connects 127.0.0.1:<port> on its
+  side and a data connection to the Sandbox, and joins them (both directions, half-closes passed on). Inside, the
+  clients are patched to 127.0.0.1 and the proxy forwards to 127.0.0.1 exactly as on the host; the character list's
+  127.0.0.1:7172 works unchanged. No host firewall rule, no port opened on the host, nothing of the host reachable
+  from the Sandbox but these two ports. `testserver.py start|stop` inside is passed to the host (requests in the
+  exchange folder; testserver.main's first lines), which runs it there, and compare_traffic.server_running asks the
+  host; a server the run started and left running is stopped when the run ends.
+- **Medium integrity for the job** (high). The Sandbox's account (WDAGUtilityAccount) runs at high integrity, and the
+  Vulkan loader ignores VK_DRIVER_FILES there as for an elevated process: inside, a probe listed the two GPUs with or
+  without VK_DRIVER_FILES naming lavapipe's manifest, on the host only llvmpipe with it. The x64 client's CPU driver
+  was therefore never found: compare_files' options scenario and reference.py's options session gave `Engine:
+  Tibia.exe 1, the x64 client 2` (the CPU button's switch failed and stored nothing) while the host matched. The guest
+  now runs the job with SAFER's normal-user token, its integrity label lowered to medium (CreateProcessAsUserW with
+  a restricted copy of its own token); llvmpipe is found and both match. Tibia.exe, patcap.dll and the memory reads
+  work at medium integrity as on the host.
+- **One Sandbox at a time** (high). Windows runs one instance. A lock file in the user's temporary folder
+  (msvcrt.locking, released by Windows when the holder dies) plus a check that no Sandbox process runs: a second run
+  says who holds it and waits, polling every 5 s; it neither fails nor starts a second Sandbox. Checked with two runs
+  started 3 s apart: the second waited and started 1 s after the first had closed its Sandbox.
+- **Ending a run** (high). The host writes shutdown.json when the run ends, also when it fails or is interrupted
+  (Ctrl+C, `--timeout`); the guest polls it while the job runs, ends the job (exit code 3) and shuts the Sandbox down
+  (`shutdown /s /t 0 /f` inside). Checked with `--timeout 5` on a 10 s job: the job ended 0.5 s after it started
+  being waited for, the Sandbox closed 22 s after its start. The guest's output reaches the host's stdout as bytes,
+  undecoded: the first compare_network run's host side died on a byte its console encoding could not print (the
+  Sandbox's Windows has the host's locale; Tibia.exe's console line "Västeuropa, normaltid"), and the Sandbox ran on
+  until its job ended, 22 minutes, before the guest learnt to end its job on the host's request.
+
+### The limits measured (high)
+
+| | inside the Sandbox | on the host (#144's numbers) |
+|---|---|---|
+| start to ready (LogonCommand's ready.json) | 7.9-11.6 s (17 runs) | - |
+| the job's end to the Sandbox's end | about 9 s | - |
+| compare_traffic.py | 183-267 s in all, no differences (2 of 3 runs; below) | 145-189 s |
+| compare_files.py | 199-212 s in all, no differences (3 runs) | 157 s |
+| compare_rendering.py --modes windowed | 571 s, every scene identical, both engines | 392 s (both modes) |
+| compare_rendering.py --modes fullscreen | 552 s, every scene identical, both engines | refused on a 5120x1440 desktop |
+| compare_network.py | 1305 s (the job); 41 of 51 the same, 4 variable, 6 different | #125's run: the same 41, 4, 6 |
+
+- **DirectX 9 and patcap.dll inside** work: every Tibia.exe frame came from Direct3D 9 Present (not OpenGL), with the
+  hooks of the host. Direct3D 9's CreateDevice takes 3.5-4.1 s inside (on the host within a second), and the first
+  Tibia.exe start of each engine pass (4 of 8 starts) made its device (D3D_OK at about 2.8 s) but showed no Present
+  within compare_rendering's 30 s; its second start (START_ATTEMPTS, issue #98's) worked every time.
+- **The GPU's frames**: the Sandbox's GPU is the host's RTX 5080 through GPU paravirtualization, and the Vulkan
+  engine's frames on it were identical to Tibia.exe's in every scene, as the CPU driver's were: compare_rendering's GPU
+  pass needs no host here. On a machine whose GPU driver offers no GPU paravirtualization the Sandbox has only a basic
+  adapter (not tried).
+- **The display** follows the Sandbox's window size (4080x1111 by default on the hidden desktop). `sandbox.run(display=
+  (w, h))` sizes the window and corrects by the guest's reported screen (the window's own bar takes 33 rows);
+  compare_rendering.py asks for 1024x768, its fullscreen runs' mode, which the host's 5120x1440 desktop refused: the
+  fullscreen pass runs inside now and needs no 1024x768 desktop.
+- **compare_network.py's 6 differences** are the six #125's host run recorded (#139's and #142's deliberate
+  outcomes that tools/deliberate.py does not know yet: login-bad-size, game-bad-size, login-inner-long,
+  game-inner-long, game-two-empty-together, game-empty-alone); the 4 variable ones too. Nothing new inside.
+- **The x64 client inside**: PatellaTest.exe runs there with the GPU (compare_traffic.py's unscripted runs and
+  compare_rendering.py's vulkan pass: NVIDIA GeForce RTX 5080) and with lavapipe (vulkan-cpu, after the integrity fix).
+
+### What stays on the host
+
+The test server (tibia-server.exe, testserver.py; #146 will give each run its own copy). The reference compare,
+testmode_check.py and the CTest tests run our headless client on the host (#145) and stay there: nothing of them
+shows. reference.py record (Tibia.exe under patcap.dll on the desktop) is not redirected: the reference recordings are
+frozen (#93) and never recorded again; `sandbox.py run -- tools/reference.py record ...` would run it inside if ever
+needed. `--desktop` keeps the old path for every redirected tool.
+
+The final runs on the branch's last code (build\logs\issue-147\final2-*.log): compare_traffic.py and
+compare_files.py without a difference; a watcher on the user's desktop polled every 100 ms through both (6,289 polls)
+and saw no window of the Sandbox and no Tibia.exe, Patella.exe or PatellaTest.exe process on the host.
+
+### Found, not done
+
+- One compare_traffic.py run of three failed in its second live session (final-compare_traffic.log): the helper
+  (Tibia.exe, "Patella Second") showed no established game connection within session_client.login's 10 s, its socket
+  closed (state 1), while the server had logged the character in 5 s after the helper's start and kept it until the
+  tool killed the helper 11 s later. The rerun passed. Not seen on the host so far; the tunnel's part (if any) is
+  not known. A second failure of this kind would be worth a look at the tunnel's pair() and at login's wait.
+- The Sandbox's first Direct3D 9 start often shows no frame within 30 s (above); the retry covers it.
+- A Sandbox whose guest dies without shutting down cannot be closed by WM_CLOSE on the hidden desktop; sandbox.py then
+  names the processes left (the owner ends them in Task Manager; later runs wait for them). Not seen in a real run;
+  once while developing (the guest waited for a job that never came; it now also ends on the host's shutdown request).
+
 ## #149: compare_files' options scenario reads the window tree again after a torn reading (Patella-Modern issue #149, M7)
 
 Done by Claude Opus 5.5, November 8, 2026 (branch issue-149, from main 437e7f0). Tools only: tools/compare_files.py and
