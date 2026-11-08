@@ -11,7 +11,8 @@
 #   step-1 ... step-16: all three data files and PATELLA_TEST_FAIL_INIT=<n> (src/TestHooks.h): InitControl throws
 #     PROGRAM_ERROR 6 before its step n (16: after the last), the box with "(Error Code 6)"
 # The data files are CipSoft's: they stay on this machine, in the build folder, and the folder is removed
-# afterwards. Without them the test is skipped (exit code 77). No Vulkan driver loads (VK_LOADER_DRIVERS_DISABLE=*,
+# afterwards. Without them the test is skipped (exit code 77). The client runs headless (--test-headless, issue
+# #145): nothing appears on the desktop. No Vulkan driver loads (VK_LOADER_DRIVERS_DISABLE=*,
 # PATELLA_VULKAN=cpu): the error comes before the surface, and a run that got past InitControl would end with
 # PROGRAM_ERROR 12 instead, which fails the test. No window is shown: the frame window is never created.
 # Arguments: -DEXE=<PatellaTest.exe> -DDATA=<the folder of Tibia.exe> -DTMPROOT=<folder>
@@ -56,7 +57,7 @@ function(run_client name data step expected)
 	else()
 		set(ENV{PATELLA_TEST_FAIL_INIT} "${step}")
 	endif()
-	execute_process(COMMAND "${EXE}" --test-script start.script --test-out out WORKING_DIRECTORY "${dir}"
+	execute_process(COMMAND "${EXE}" --test-script start.script --test-out out --test-headless WORKING_DIRECTORY "${dir}"
 		RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE errors TIMEOUT 120)
 	set(messages "")
 	if(EXISTS "${dir}/out/messages.txt")

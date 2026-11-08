@@ -22,7 +22,8 @@ and gets compare_traffic.py's Tibia.cfg; the client is started with --test-scrip
 --test-log <out>\run<N>.log and plays the script on its virtual clock; the script ends with quit and
 the client exits; then the server is stopped (it saves). Nothing drives the window from outside: the
 script is the only input, and the client drops the desktop's own mouse and keyboard while it runs.
-The client's window is still a real window on the desktop.
+Since issue #145 the client runs headless (--test-headless: its window is never shown, the Vulkan engine
+renders without a surface), so nothing appears on the desktop; --windowed shows it as before.
 
 The cold start (issue #25): the server listens on both ports before it has loaded the world, and on a
 cold start (its files not in the disk cache: 21 s to listen in the first live run of issue #21) the
@@ -139,17 +140,19 @@ def setup(exe):
 	ct.RUN_EXES[RUN] = EXE_NAME
 
 
-def run_client(script, log_path, timeout, dumps, vulkan):
+def run_client(script, log_path, timeout, dumps, vulkan, headless=True):
 	"""Starts the test client in the run folder with the script and waits for it to exit."""
 	folder = ct.run_dir(RUN)
 	command = [os.path.join(folder, EXE_NAME), "--test-script", script, "--test-log", log_path,
 		"--test-out", dumps]
+	if headless:
+		command.append("--test-headless")  # issue #145: no window shown, no Vulkan surface
 	env = dict(os.environ)
 	env["PATELLA_VULKAN"] = vulkan
 	started = time.time()
 	proc = subprocess.Popen(command, cwd=folder, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
 		stdin=subprocess.DEVNULL, env=env)
-	log("started %s, PID %d, PATELLA_VULKAN=%s" % (EXE_NAME, proc.pid, vulkan))
+	log("started %s, PID %d, PATELLA_VULKAN=%s, %s" % (EXE_NAME, proc.pid, vulkan, "headless" if headless else "windowed"))
 	try:
 		_, stderr = proc.communicate(timeout=timeout)
 	except subprocess.TimeoutExpired:
@@ -218,7 +221,7 @@ def run_with_retry(number, out, run, retries=RETRIES):
 		attempt += 1
 
 
-def live_run(number, script, out, players, timeout, vulkan):
+def live_run(number, script, out, players, timeout, vulkan, headless=True):
 	log("=== run %d" % number)
 	ct.restore_players(players)
 	start_server_online()
@@ -231,7 +234,7 @@ def live_run(number, script, out, players, timeout, vulkan):
 		os.makedirs(prefix)
 		proxy = px.Proxy(prefix + ".jsonl", px.load_private_key(ct.PEM), log=log)
 		with proxy:
-			run_client(script, prefix + ".log", timeout, prefix, vulkan)
+			run_client(script, prefix + ".log", timeout, prefix, vulkan, headless)
 		if proxy.errors:
 			raise CheckError("proxy errors: %s" % proxy.errors)
 		for name in (settings_file.PATELLA_INI, settings_file.TIBIA_CFG):
@@ -450,6 +453,8 @@ def main(argv=None):
 	parser.add_argument("--timeout", type=int, default=180, help="seconds a run may take (default 180)")
 	parser.add_argument("--vulkan", default="cpu", help="PATELLA_VULKAN of the client (default %(default)s: the"
 		" pinned CPU driver)")
+	parser.add_argument("--windowed", action="store_true", help="show the client's window and present its frames"
+		" (default: headless, --test-headless, issue #145)")
 	parser.add_argument("--compare-only", action="store_true", help="compare the recordings already in --out")
 	parser.add_argument("--self-test", action="store_true", help="the comparisons on made-up data (no server,"
 		" no client)")
@@ -476,7 +481,7 @@ def main(argv=None):
 		try:
 			for number in range(1, args.runs + 1):
 				run_with_retry(number, out, lambda number=number: live_run(number, script, out, players,
-					args.timeout, args.vulkan))
+					args.timeout, args.vulkan, not args.windowed))
 		finally:
 			ct.restore_players(players)
 			log("player files of the test characters restored")

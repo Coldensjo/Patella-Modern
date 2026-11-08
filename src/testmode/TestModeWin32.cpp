@@ -4,7 +4,7 @@
 //
 //	PatellaTest.exe [--test-script <file>] [--test-log <file>] [--test-out <folder>]
 //	                [--test-replay <file>] [--test-display-modes <file>] [--test-control <name>]
-//	                [the client's own words]
+//	                [--test-headless] [the client's own words]
 //
 // Without --test-script the test build is the client on the system clock (issue #109: the platform's
 // TWin32Clock: timeGetTime, time, Sleep). With a script (src/testmode/InputScript.h):
@@ -101,6 +101,13 @@
 // running!" with more than one, "Application is corrupted!" with none) sees only this process's windows
 // (TTestWindow::VisitWindows, issue #119), so another client on the machine (another worktree's test, a parallel CTest test,
 // a Tibia.exe) cannot stop a test client. Patella.exe counts every window, as the original.
+//
+// Issue #145: --test-headless (with a script; exit code 3 without one) runs the client without a desktop
+// (TTestWindow::Headless, platform/Window.h): its main window is made but never shown, so it neither appears nor
+// takes the focus, and the desktop's input cannot reach it (the script is its only input, as with any script); the
+// Vulkan engine renders without a surface and presents nothing (the frame dump reads the canvas back as always);
+// fullscreen mode leaves the display's mode alone. Several headless clients may run at once (the replay opens no
+// port, issue #120; the count of the Tibia windows sees only the process's own, issue #96).
 //
 // A script that does not parse ends the program before the window opens, with exit code 3 and the
 // message on stderr, in the log and through OutputDebugString (never a dialog).
@@ -219,6 +226,7 @@ struct TState {
 	TVirtualClock Virtual{RealYield};
 	IClock *Clock = &platform::Win32Clock(); // the system's clock (issue #109: the platform's own)
 	bool Scripted = false;
+	bool Headless = false; // --test-headless (issue #145)
 	TScheduler Scheduler;
 	POINT Cursor = {-1, -1}; // client coordinates
 	TFile Log;               // --test-log, text: "\r\n" (never closed: TState lives until the process ends)
@@ -297,10 +305,11 @@ struct TArguments {
 	std::wstring Replay;
 	std::wstring DisplayModes;
 	std::wstring Control;
+	bool Headless = false;
 };
 
 // The arguments --test-script, --test-log, --test-out, --test-replay, --test-display-modes and --test-control
-// of the command line.
+// of the command line, and the word --test-headless.
 TArguments ReadArguments()
 {
 	TArguments Result;
@@ -308,6 +317,10 @@ TArguments ReadArguments()
 	LPWSTR *Arguments = ::CommandLineToArgvW(::GetCommandLineW(), &Count);
 	if (Arguments == nullptr)
 		return Result;
+	for (int i = 1; i < Count; i++) {
+		if (wcscmp(Arguments[i], L"--test-headless") == 0)
+			Result.Headless = true;
+	}
 	for (int i = 1; i + 1 < Count; i++) {
 		if (wcscmp(Arguments[i], L"--test-script") == 0)
 			Result.Script = Arguments[i + 1];
@@ -405,6 +418,8 @@ void Initialize(TState &State)
 	if (!Arguments.Control.empty())
 		OpenControl(State, Arguments.Control);
 	const std::wstring &ScriptPath = Arguments.Script;
+	if (Arguments.Headless && ScriptPath.empty())
+		Fail(State, "--test-headless needs --test-script <file>: without a script the client takes the desktop's input");
 	if (ScriptPath.empty())
 		return;
 	std::ifstream In(ScriptPath, std::ios::binary);
@@ -430,6 +445,9 @@ void Initialize(TState &State)
 	State.Scheduler = TScheduler(std::move(Parsed.Script));
 	State.Clock = &State.Virtual;
 	State.Scripted = true;
+	State.Headless = Arguments.Headless;
+	if (State.Headless)
+		WriteLog(State, "testmode: headless (no window shown, no Vulkan surface)");
 }
 
 // Never destroyed: the client reads the clocks until the very end of the process (static
@@ -1356,6 +1374,8 @@ public:
 	{
 		return patella::platform::Win32Window().DesktopMode(Mode);
 	}
+	// Issue #145: --test-headless.
+	[[nodiscard]] bool Headless() override { return State().Headless; }
 };
 
 constinit TTestInput TestInput;

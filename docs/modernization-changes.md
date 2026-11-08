@@ -184,6 +184,15 @@ replacing the platform layer (M8, with SDL3) is all it takes to run it on Linux.
 The test client used to replay a recorded server over real network ports, so two test runs at once would collide.
 The replay now runs inside the program, so many runs can happen side by side.
 
+**Test runs without a window (#145).**
+Every automatic test of our own client used to open a real game window on the screen, which popped up in front of
+whatever the owner was doing and made parallel test runs fight over the one desktop. The test client can now run
+"headless": the window exists inside the program but is never shown, and the graphics are drawn into memory instead
+of onto the screen, so the pictures the tests compare are exactly the same. The replay comparisons, the determinism
+check and our client's rendering runs now work this way by default, several at a time, while someone uses the
+computer. Only the runs of the original Tibia.exe (and a few that test the window itself, such as fullscreen) still
+need the desktop.
+
 ## M8: one platform layer on SDL3 (in progress)
 
 **The game window now comes from SDL3 (#122).**

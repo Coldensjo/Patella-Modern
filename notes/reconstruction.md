@@ -546,6 +546,13 @@ data files and the patched client, and a second Tibia.exe run (orig-repeat) has 
 
 Limits of the GUI comparisons until M2's built-in test mode replaces them (Patella-Modern issue #13):
 
+- **Headless since Patella-Modern issue #145.** The runs of our own scripted test client need no desktop:
+  reference.py compare, testmode_check.py, compare_rendering.py's windowed x64 runs and the CTest tests run
+  PatellaTest.exe with `--test-headless` (its window never shown, the Vulkan engine without a surface; the same
+  results as windowed, notes/testmode.md, "Headless"), several at once and while the desktop is in use. The limits
+  below are those of the runs that still need it: Tibia.exe's (reference.py record, compare_traffic.py,
+  compare_files.py, compare_rendering.py), the x64 client's unscripted live runs (compare_traffic.py,
+  compare_files.py: posted messages and GetCursorPos) and compare_rendering.py's fullscreen runs.
 - **They run on the desktop of the session they are started in (Patella-Modern issue #56).** For a run that no
   one's mouse and keyboard may reach, start it in a second interactive session ("Checking", "The live checks in a
   second session"). `--hidden` (every live tool; tools/desktop.py; experimental) runs the tool on a hidden desktop

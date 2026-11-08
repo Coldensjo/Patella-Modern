@@ -167,4 +167,10 @@ if(PATELLA_TEST_BUILD)
 		"-DDATA=${patella_data_dir}" "-DTMPROOT=${PROJECT_BINARY_DIR}/tmp"
 		-P "${PROJECT_SOURCE_DIR}/cmake/RunInitControlFailure.cmake")
 	set_tests_properties(init_control_failure PROPERTIES SKIP_RETURN_CODE 77)
+	# Issue #145: --test-headless, no window shown and no Vulkan surface, still writes the state dump and the frame
+	# (cmake/RunHeadless.cmake; skipped without the data files).
+	add_test(NAME headless_client COMMAND "${CMAKE_COMMAND}" "-DEXE=$<TARGET_FILE:PatellaTest>"
+		"-DDATA=${patella_data_dir}" "-DTMPROOT=${PROJECT_BINARY_DIR}/tmp"
+		-P "${PROJECT_SOURCE_DIR}/cmake/RunHeadless.cmake")
+	set_tests_properties(headless_client PROPERTIES SKIP_RETURN_CODE 77)
 endif()

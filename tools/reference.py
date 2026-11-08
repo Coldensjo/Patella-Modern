@@ -31,7 +31,9 @@ compare (the test client, PatellaTest.exe; this file, Python only, no Windows-on
   --test-script session.script --test-replay replay.txt (the server side, replayed inside the client:
   no server, and since issue #120 no port either, so compares run side by side) --test-display-modes (the recording machine's display modes, issue #48: the Graphics
   Options dialog lists them, not this machine's) --test-out, PATELLA_VULKAN=cpu and TZ=UTC0 (as the
-  record step's Tibia.exe); then compared:
+  record step's Tibia.exe), and since issue #145 --test-headless (no window shown, no Vulkan surface: nothing on
+  the desktop, so compares run side by side and beside a client on the desktop; --windowed shows the window as
+  before); then compared:
   a. the client's packets (packets.log) against Tibia.exe's, per connection, in order: the payloads,
      the XTEA padding and the first packets with their whole RSA block (key and random bytes: the
      virtual clock gives rand() the same seed); the server packets the client decrypted against those
@@ -630,7 +632,7 @@ def prepare_run(folder, exe, meta, reference, data_dir):
 	return snapshot(folder, skip=(os.path.basename(exe),))
 
 
-def run_session(name, reference, exe, out, vulkan, timeout, data_dir):
+def run_session(name, reference, exe, out, vulkan, timeout, data_dir, headless=True):
 	"""One test client run of a session: <out>\\<name>\\run (the run folder), dumps (--test-out),
 	files (what it wrote), run.json (exit code, removed files, timings)."""
 	meta = load_meta(reference)
@@ -651,6 +653,8 @@ def run_session(name, reference, exe, out, vulkan, timeout, data_dir):
 	if meta.get("server"):
 		# The replay's listen lines are inside the client (issue #120, src/testmode/PipeNetwork.h): no port.
 		command += ["--test-replay", replay]
+	if headless:
+		command.append("--test-headless")  # issue #145: no window shown, no Vulkan surface
 	env = dict(os.environ, PATELLA_VULKAN=vulkan, TZ=TIME_ZONE)
 	log("=== %s: %s" % (name, " ".join(command)))
 	start = time.time()
@@ -757,7 +761,8 @@ def compare_main(args):
 
 	failed_runs, differing, stale = [], [], []
 	say("Reference comparison (issue #23), %s" % time.strftime("%Y-%m-%d %H:%M"))
-	say("reference %s; test client %s; PATELLA_VULKAN=%s; results in %s" % (reference, exe, args.vulkan, out))
+	say("reference %s; test client %s; PATELLA_VULKAN=%s; %s; results in %s" % (reference, exe, args.vulkan,
+		"windowed" if args.windowed else "headless", out))
 	manifest, problems = manifest_problems(reference)
 	if manifest is not None:
 		say("manifest: %s" % data_manifest.describe(manifest))
@@ -792,7 +797,7 @@ def compare_main(args):
 			continue
 		if not args.check_only:
 			try:
-				run_session(name, folder, exe, out, args.vulkan, args.timeout, args.data)
+				run_session(name, folder, exe, out, args.vulkan, args.timeout, args.data, headless=not args.windowed)
 			except (ReferenceError_, OSError) as e:
 				traceback.print_exc()
 				say("  RUN FAILED: %s" % e)
@@ -994,6 +999,8 @@ def main(argv=None):
 			p.add_argument("--out", default=DEFAULT_OUT, help="the results (default %(default)s)")
 			p.add_argument("--vulkan", default="cpu", help="PATELLA_VULKAN for the client (default cpu: the pinned CPU driver)")
 			p.add_argument("--timeout", type=int, default=600, help="seconds per run (default 600)")
+			p.add_argument("--windowed", action="store_true",
+				help="show the client's window and present its frames (default: headless, --test-headless, issue #145)")
 			p.add_argument("--check-only", action="store_true", help="compare the results already in --out")
 			p.add_argument("--unverified", action="store_true",
 				help="compare even when the set does not match its MANIFEST.tsv (issue #93; local experiments only)")

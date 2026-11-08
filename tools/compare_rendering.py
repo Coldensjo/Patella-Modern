@@ -46,7 +46,9 @@ channel every window message as a post line (it drops Windows' input), patcap's 
 lines and each capture as a frame line (the frame dump: the next frame the Vulkan engine shows, and its
 device-filtered pixels, the forms of patcap's picture and mask); the probe names the engine's device and
 counts its frames. The game scenes come from a recorded session replayed by tools/proxy.py (both
-clients get the same server bytes); no server is needed.
+clients get the same server bytes); no server is needed. Since issue #145 its windowed runs are headless
+(--test-headless: the window never shown, the Vulkan engine without a surface, the frames read back as before);
+its fullscreen runs and --windowed show the window. Tibia.exe's runs always need the desktop.
 
 The display stays on while the tool runs (Patella-Modern issue #98): SetThreadExecutionState with
 ES_DISPLAY_REQUIRED, as a video player does; the posted window messages are not user input, so without it
@@ -357,9 +359,9 @@ class TestDriver(sc.Driver):
 
 	manual_clock = True  # clock manual: run_session checks a step's condition after its settle (issue #144)
 
-	def __init__(self, run_dir, exe, script, env=None, **kwargs):
-		super().__init__(run_dir, exe, None, test=True, scripted=True, test_arguments=["--test-script", script],
-			**kwargs)
+	def __init__(self, run_dir, exe, script, env=None, headless=False, **kwargs):
+		super().__init__(run_dir, exe, None, test=True, scripted=True, test_arguments=["--test-script", script]
+			+ (["--test-headless"] if headless else []), **kwargs)
 		self.env = env
 		self.cap = None
 		self.frames = 0
@@ -892,7 +894,7 @@ def device_choice_mask(driver, dialog):
 	return [x, y, right, bottom]
 
 
-def run(engine, client, out, recording, label=None, fullscreen=False):
+def run(engine, client, out, recording, label=None, fullscreen=False, headless=False):
 	"""One client with one engine through all scenes; the pictures go to out\\<engine>\\<label>
 	(out\\<engine>-fullscreen\\<label> in fullscreen mode). The client runs in the run folder named
 	label (orig, patella, orig-repeat), emptied first (compare_traffic.clean_run_dir: the automap
@@ -915,7 +917,7 @@ def run(engine, client, out, recording, label=None, fullscreen=False):
 		script = os.path.join(folder, "start.script")
 		with open(script, "w", encoding="utf-8", newline="\n") as f:
 			f.write(TEST_START_SCRIPT)
-		driver = TestDriver(ct.run_dir(label), info["exe"], script, env=client_env(engine, client))
+		driver = TestDriver(ct.run_dir(label), info["exe"], script, env=client_env(engine, client), headless=headless)
 	else:
 		driver = Driver(ct.run_dir(label), info["exe"], info["pdb"], env=client_env(engine, client))
 	scenes, apis, scene_masks, filtered = {}, set(), {}, {}
@@ -1075,6 +1077,8 @@ def main():
 	parser.add_argument("--patella", metavar="EXE", help="the x64 Patella.exe to test (its test build PatellaTest.exe "
 		"next to it runs, read through its test mode, issue #92); default build/windows-x64/Release/Patella.exe; as "
 		"tools/compare_traffic.py's --patella")
+	parser.add_argument("--windowed", action="store_true", help="show the x64 client's window in the windowed runs too "
+		"(default: headless there, --test-headless, issue #145)")
 	parser.add_argument(desktop.HIDDEN, action="store_true", help=desktop.HIDDEN_HELP)
 	parser.add_argument("--self-test", action="store_true", help="check patcap.dll's shared-memory offsets against "
 		"tools/capture/patcap.c and the failure diagnosis on made-up data; no client")
@@ -1131,7 +1135,8 @@ def main():
 			for client, label in plan:
 				name = engine + (" fullscreen" if fullscreen else "")
 				try:
-					runs[(name, label)] = run(engine, client, args.out, args.recording, label, fullscreen)
+					runs[(name, label)] = run(engine, client, args.out, args.recording, label, fullscreen,
+						headless=not fullscreen and not args.windowed)
 				except Exception as e:
 					traceback.print_exc()
 					failed.append("%s %s: %s" % (name, label, e))
