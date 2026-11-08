@@ -17294,6 +17294,19 @@ click_open with it (one click, then the ReadError).
 ### The checks (medium)
 
 On November 8 the owner stopped live runs on the desktop (no Tibia.exe, no windowed PatellaTest.exe) after the
-reproduction above. The issue's proof (five passing options runs in a row) and the live compare_files run are to run
-in Windows Sandbox (#147) and are recorded here when they have run. Run so far: compare_files and client_state
---self-test, py_compile, the headless reference compare.
+reproduction above; the proof ran in Windows Sandbox (#147, main 3e84099 merged), with main's Patella.exe of 437e7f0
+(`python -I tools/compare_files.py --only options --patella C:/Tibia/Patella-Modern/build/windows-x64/Release/Patella.exe
+--out build/files/proof<N>`; build\logs\issue-149\gate2-options-run<N>.log):
+
+| Run | Exit | Result | Torn readings read again |
+| :--- | :--- | :--- | :--- |
+| 1 | 0 | no differences | one: Tibia.exe's side, wait_node("TGraphicsOptionsDialog") after the Graphics click, ReadProcessMemory 0x14 (the failure of run 17 above), read again and found |
+| 2 | 0 | no differences | none |
+| 3 | 0 | no differences | none |
+| 4 | 0 | no differences | none |
+| 5 | 0 | no differences | none |
+
+Each run took 69 s from the Sandbox's start to its end. The full compare_files run afterwards (options, walk with
+its live recording against the test server, error) found no differences, exit 0, 201 s
+(gate3-compare_files-full.log). Also: compare_files and client_state --self-test, py_compile, the headless reference
+compare (every session matches).
