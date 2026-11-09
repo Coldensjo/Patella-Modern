@@ -18429,3 +18429,41 @@ CPack's own AppImage generator (CMake 4.2+). It needs appimagetool and patchelf,
 - The AppImage has not run on a real desktop: Xvfb only, as the Linux client (#131).
 - The tarball and AppImage need glibc 2.38: built on Debian 13's. Older distributions would need an older build image, which GCC 16 in the image rules out for now.
 - Not packaged: the Windows installer the plan calls optional; a Flatpak (D4 chose AppImage).
+## #155: no heap call per frame (Patella-Modern issue #155, M9)
+
+Done by Claude Opus 5.5, November 9, 2026 (branch issue-155, from main af28b22). src/vulkan/Renderer.cpp, src/platform/PortableSocket.cpp, a test in tests/vulkan/render_test.cpp; the numbers are in notes/progress.md, "Profiling".
+
+### What allocated, measured (high)
+
+A temporary patch, never committed, made each "allocs" window of `tools/profiling.py` also record the call stack of each heap call (RtlCaptureStackBackTrace in ProfileWin32.cpp's heap hooks, resolved with llvm-symbolizer against PatellaTest.pdb). Per frame, on the GPU, in the Sandbox:
+
+| Where | title screen | standing | walking |
+| :--- | :--- | :--- | :--- |
+| `TRenderer::Draw`, the vertices' vector | 4 | 43.0 | 39.3 |
+| `TRenderer::Draw`, the samplers' vector | 4 | 43.0 | 39.3 |
+| `TPortableSocket::Poll`, the connection numbers | 0 | 1.09 | 1.08 |
+| everything else together | under 0.001 | 0.02 | 0.02 |
+
+So the lead in the issue (`TSurfaceVulkan::WriteImage`'s vector) was not it: `WriteImage` and `WriteMaskedImage` allocate only on a sprite cache miss, about 0.003 times per frame. All of the bytes are Draw's vertex vector.
+
+### The changes (high)
+
+- **`TRenderer::Draw`:** the two vectors are now members of `TRenderer::TState` (`QuadVertices`, `QuadSamplers`). Draw empties them with `clear()`, reserves what the batch needs and refills them. A vector keeps its capacity, so only a batch larger than any before it allocates; the largest is 1,600 quads from `FlushVertices`, or the light's rectangles. The buffers live as long as the device. Nothing can come through from an earlier frame: Draw fills exactly `Count * 6` vertices and `Count` samplers and reads only those, and the new test in tests_vulkan draws batches of 400, 1, 3, 0, 50 and 2 quads in turn and compares every picture with the model.
+- **`TPortableSocket::Poll`:** the sorted list of connection numbers is now on the stack, for up to 8 connections (the client has at most a few), and in a vector beyond that. It stays local to the call and is not a reused member, because `Poll` can be re-entered: on Windows it also runs from the poll window's WM_TIMER (NetworkWin32.cpp), which a handler's modal loop can dispatch while an outer `Poll` is walking the list.
+- Not changed: `WriteImage` and `WriteMaskedImage`, which are not per-frame work, and `TSurfaceVulkan`'s `Vertices` and `Shade`, which already keep their capacity.
+
+### What remains (high)
+
+After the change the heap calls of the x64 client are at Tibia.exe's level: on the GPU 0.00 on the title screen, 0.004 standing, 0.007 walking; Tibia.exe's 0.00, 0.002, 0.004. None of the rest happens every frame, and none is removable without changing what it does (the same recording on the fixed build, each under 0.004 per frame):
+
+- A sprite cache miss: `WriteImage` and `WriteMaskedImage`, and `TGraphics::LoadSprite`'s file opening and reading (`TReadBinaryFile`, `Cp1252ToWide` for the file name). They come with new sprites on the screen.
+- The test build only, not in Patella.exe: the packet log (PacketLog.cpp), the control channel (TestModeWin32.cpp) and its dumps.
+- One-off growth: the first frames, and a batch larger than any before it (`QuadVertices`, `QuadSamplers`); then none.
+- Not counted by this measurement, in either client: what the Vulkan driver, Direct3D 9, SDL's own allocator and the system's DLLs allocate.
+
+On the CPU driver the rest is 0.05 to 0.06 per frame, higher only because that device has about a tenth of the frames: the same calls per second.
+
+### #156's figure (for the owner's decision)
+
+The title screen's work before Present, median of 5 runs (Sandbox numbers), the same runs as the counts: before the change the x64 client 0.062 ms on the GPU (0.062-0.068) and 0.063 ms on the CPU driver (0.054-0.066), Tibia.exe 0.041 ms (0.040-0.053); after it 0.058 ms on the GPU (0.058-0.059) and 0.060 ms on the CPU driver (0.056-0.084), Tibia.exe 0.041 ms (0.041-0.042). So the eight allocations were worth about 0.004 ms; about 0.017 ms of the 0.02 ms stays, 1.41 times Tibia.exe's, the spreads apart. #156 is not touched here.
+
