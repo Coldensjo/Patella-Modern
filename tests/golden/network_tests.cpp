@@ -942,7 +942,6 @@ std::string OriginalDump()
 	return std::string(LastDump, strnlen(LastDump, DUMP_SIZE));
 }
 
-int Compared = 0;
 void Compare(const char *Operation)
 {
 	Checks++;
@@ -976,7 +975,6 @@ void Compare(const char *Operation)
 			break;
 		}
 	CHECK(Size == 0, "Network %s (%s): SendData differs at %d", Operation, What, Size - 1);
-	Compared++;
 }
 
 // --- Rounds ----------------------------------------------------------------------------------

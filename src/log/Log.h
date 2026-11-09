@@ -26,7 +26,7 @@
 //
 // The fatal path's extras for Debug builds (Player.cpp FatalError), here so that every compiler tests them:
 // CurrentStacktrace (std::stacktrace's text where the standard library has it: MSVC's, and libstdc++'s with
-// libstdc++exp, GCC 16 and Clang 22 on Linux; nothing on mingw-w64's GCC 16 and on the oracle's C++17), and
+// libstdc++exp, GCC 16 and Clang 23 on Linux; nothing on mingw-w64's GCC 16 and on the oracle's C++17), and
 // BreakIfDebugged (a breakpoint when a debugger is attached: IsDebuggerPresent and DebugBreak on Windows, the
 // TracerPid of /proc/self/status and SIGTRAP on Linux; nothing elsewhere).
 

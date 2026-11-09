@@ -14,7 +14,11 @@
 # anonymous namespaces instead of file-scope static (issue #44: the statics kept for the images' .bss carry a
 # NOLINT; the check leaves headers alone), pointer parameters to const when only their pointees are read
 # (issue #50: clang-tidy's check looks at pointers to integers and floating types), and the bug-prone patterns. The checks that are noise for a
-# reconstruction (its parameter lists and integer types are the original's) are off.
+# reconstruction (its parameter lists and integer types are the original's) are off. Issue #143 (clang-tidy 23):
+# bugprone-signed-bitwise and bugprone-std-exception-baseclass, which version 23 moved here from hicpp-*, a group this
+# file never enabled, are off too (the original's flag arithmetic; TMyException is deliberately no std::exception), and
+# misc-const-correctness.AnalyzeParameters, new in 23, is off (parameters are readability-non-const-parameter's, and
+# the original's signatures); notes/decisions.md, "#143".
 Checks: >
   -*,
   bugprone-*,
@@ -22,6 +26,8 @@ Checks: >
   -bugprone-narrowing-conversions,
   -bugprone-implicit-widening-of-multiplication-result,
   -bugprone-reserved-identifier,
+  -bugprone-signed-bitwise,
+  -bugprone-std-exception-baseclass,
   cppcoreguidelines-avoid-goto,
   cppcoreguidelines-no-malloc,
   cppcoreguidelines-owning-memory,
@@ -69,3 +75,4 @@ CheckOptions:
   misc-const-correctness.AnalyzePointers: true
   misc-const-correctness.WarnPointersAsPointers: true
   misc-const-correctness.WarnPointersAsValues: false
+  misc-const-correctness.AnalyzeParameters: false

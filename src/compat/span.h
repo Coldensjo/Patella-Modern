@@ -3,7 +3,7 @@
 // with issue #94) and kept for tests/unit's stand-in build. Not part of the original source.
 //
 // After this header PATELLA_HAS_SPAN is 1 where the library has std::span (every product preset: MSVC
-// /std:c++latest, GCC 16, Clang 22) and 0 elsewhere (a C++17 library) or with PATELLA_SPAN_STANDIN, which
+// /std:c++latest, GCC 16, Clang 23) and 0 elsewhere (a C++17 library) or with PATELLA_SPAN_STANDIN, which
 // tests/unit's stand-in build defines for a whole target (never for one file: the two are different types), so that
 // the stand-in runs the tests std::span passes, on the same compiler.
 //

@@ -98,12 +98,12 @@ std::vector<std::uint8_t> ZlibStored(std::span<const std::uint8_t> Data)
 
 std::vector<std::uint8_t> EncodePngRgb(int Width, int Height, std::span<const std::uint8_t> Rgb)
 {
-	auto Row = static_cast<std::size_t>(Width) * 3;
+	const auto Row = static_cast<std::size_t>(Width) * 3;
 	std::vector<std::uint8_t> Raw;
 	Raw.reserve((Row + 1) * static_cast<std::size_t>(Height));
 	for (int y = 0; y < Height; y++) {
 		Raw.push_back(0); // filter type 0 (none)
-		auto Start = Rgb.begin() + static_cast<std::ptrdiff_t>(Row * static_cast<std::size_t>(y));
+		const auto Start = Rgb.begin() + static_cast<std::ptrdiff_t>(Row * static_cast<std::size_t>(y));
 		Raw.insert(Raw.end(), Start, Start + static_cast<std::ptrdiff_t>(Row));
 	}
 	std::vector<std::uint8_t> Out = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'};

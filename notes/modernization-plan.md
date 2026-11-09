@@ -877,6 +877,7 @@ x64 and Linux x64 against the reference recordings; the Vulkan engine passes the
   placeholder, and tools/package_check.py's Linux marker extended to it.
   Done in #163 (notes/decisions.md, "#163"): tests_vulkan on GitHub's Windows runner at medium integrity (the runner is elevated), and
   the automatic choice going on to the CPU driver on a machine with a loader and no system driver.
+  Done in #143 (notes/decisions.md, "#143"): the Linux image's Clang, clang-tidy and clang-format are LLVM 23.1, from apt.llvm.org.
 
 ---
 

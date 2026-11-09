@@ -225,7 +225,7 @@ python -I tools/build.py windows-x64-debug       # the same, Debug
 python -I tools/build.py windows-x64-asan        # windows-x64 under MSVC's AddressSanitizer (-debug: Debug)
 python -I tools/build.py windows-x64-gcc         # the unit tests with mingw-w64 GCC 16 (-debug: Debug)
 python -I tools/build.py linux-x64-gcc           # patella_core, the unit tests, golden_runner, GCC 16 (Docker on Windows)
-python -I tools/build.py linux-x64-clang         # the same, Clang 22 with ASan and UBSan (-debug: Debug)
+python -I tools/build.py linux-x64-clang         # the same, Clang 23 with ASan and UBSan (-debug: Debug)
 python -I tools/build.py capture-x86             # only patcap.dll, the 32-bit capture DLL for Tibia.exe
 python -I tools/build.py --list                  # the workflow presets
 python -I tools/build.py windows-x64 --fresh     # extra options go to cmake --workflow
@@ -261,7 +261,7 @@ python -I tools/build.py linux-x64-clang         # under ASan and UBSan
 4.4's since issue #141) before project() and
 requires the compiler's std module; `patella_target_import_std(<target>)`, after the target's language, warning and
 hardening settings, lets a target's sources import it and gives the std module the target's options. Its one user is
-tests_import_std (tests/unit/import_std_test.cpp). linux-x64-clang (issue #121): the image's Clang 22 uses GCC 16's
+tests_import_std (tests/unit/import_std_test.cpp). linux-x64-clang (issue #121): the image's Clang 23 uses GCC 16's
 libstdc++ (Debian's libstdc++ 14, which has no std module, until then), and on Clang the target and its std module
 are compiled without _FORTIFY_SOURCE (glibc's Clang wrappers of the printf family cannot be exported). On a CMake version without a known gate the configure warns and builds without it. Per compiler, the
 errors and what would unblock Clang: notes/decisions.md, "import std (Patella-Modern issue #113, M7)". A build folder
@@ -342,14 +342,14 @@ The Linux presets `linux-x64-gcc` (GCC 16) and `linux-x64-clang` (Clang, with Ad
 each with a `-debug` workflow, build patella_core and the unit tests, not the client (PATELLA_CLIENT is OFF; the
 client needs Tibia.exe for its resources, and Windows). On Linux: `cmake --workflow --preset linux-x64-gcc`. On
 Windows, `python -I tools/build.py linux-x64-gcc` (and `--env linux-x64-gcc <command>`) runs them in the Docker
-image `patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2-sdl3-mesa25.0.7` (docker/linux-x64/Dockerfile: Docker Hub's gcc:16.2.0-trixie
-pinned by digest, Debian's Clang 22.1.8 pinned by version, Kitware's CMake 4.4.5 and the ninja-build project's Ninja
+image `patella-modern/linux-x64:gcc16.2-clang23.1-libstdcxx16-cmake4.4.5-ninja1.13.2-sdl3-mesa25.0.7` (docker/linux-x64/Dockerfile: Docker Hub's gcc:16.2.0-trixie
+pinned by digest, LLVM's apt repository for Clang 23.1 (issue #143: the signing key by SHA-256 and fingerprint, the suite, the version pattern `1:23.1.*`; the repository is a rolling snapshot, so the snapshot itself is not fixed; notes/decisions.md "#143"), Kitware's CMake 4.4.5 and the ninja-build project's Ninja
 1.13.2 by their SHA-256 (Ninja: Debian's 1.12.1 until issue #141's second part)
 (issue #141; 4.1.2 from issue #113, Debian's 3.31.6 before), Clang on GCC 16.2's libstdc++ through its configuration files
-/usr/lib/llvm-22/bin/clang++.cfg and clang.cfg (`--gcc-install-dir`, issue #121; Debian's GCC 14 and its libstdc++
+/usr/lib/llvm-23/bin/clang++.cfg and clang.cfg (`--gcc-install-dir`, issue #121; Debian's GCC 14 and its libstdc++
 until then, and the tag `gcc16.2-clang22.1`), since issue #11
-also clang-format and clang-tidy 22.1.8; build it once with
-`docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2-sdl3-mesa25.0.7 docker/linux-x64`, about half a minute, and again
+also clang-format and clang-tidy, 23.1 since issue #143; build it once with
+`docker build -t patella-modern/linux-x64:gcc16.2-clang23.1-libstdcxx16-cmake4.4.5-ninja1.13.2-sdl3-mesa25.0.7 docker/linux-x64`, about half a minute, and again
 when the Dockerfile changes: the tag stays the same while it names the same compilers, library and CMake; issues #121
 and #141 gave it a new one, so a branch with the old Dockerfile keeps its image). build.py
 mounts the repository read-only, copies the files git knows (tracked, and untracked ones that are not ignored:
@@ -369,7 +369,7 @@ python -I tools/build.py windows-x64-gcc     # (and windows-x64-gcc-debug); cmak
 ```
 
 They write build\<preset>\tests\unit\<Configuration>: `tests_unit` (src/compat/cxx26.h as the compiler selects
-it: the stand-ins on MSVC and on Clang 22 (also with GCC 16's libstdc++, issue #121: its inplace_vector is GCC's),
+it: the stand-ins on MSVC and on Clang 23 (also with GCC 16's libstdc++, issue #121: its inplace_vector is GCC's),
 contract_assert and std::inplace_vector on GCC 16)
 and `tests_unit_cxx26_standin` (the same tests with PATELLA_CXX26_STANDIN), each a CTest test, plus one per
 contract violation scenario (RunContractViolation.cmake), `tests_core` and, since Patella-Modern issue #21,
@@ -620,7 +620,10 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
 - Code style (issue #8): `.clang-format` describes the style of src/ (tabs of four columns, function bodies
   on their own line, no column limit; the arguments of PATELLA_ASSERT*, TERROR* and TMYEXCEPTION are whitespace-sensitive,
   so clang-format never touches them), `.clang-format-ignore` leaves src/Extern and tools/ alone,
-  `.editorconfig` sets tabs, LF and UTF-8 for every editor. With Visual Studio's clang-format 22
+  `.editorconfig` sets tabs, LF and UTF-8 for every editor. The clang-format that counts is the image's (the hosted
+  job's; 23.1 since issue #143), run with `python -I tools/build.py --env linux-x64-clang bash -c "clang-format --dry-run
+  --Werror <the files>"`. Visual Studio 18's 22.1.3 agrees today; the 2022 Build Tools' 19.1.5 does not (notes/decisions.md,
+  "#143"). With Visual Studio 18's clang-format
   (`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/types/*.h
   src/testmode/*.cpp src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/settings/*.cpp src/settings/*.h
   src/res/resource.h tests/unit/*.cpp
@@ -672,7 +675,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   compile commands of linux-x64-clang (the 27 sources of src/ that build on Linux since issue #110: patella_core's, src/testmode's
   and src/vulkan's portable ones, and the headers of src/ they include; since issue #160 also the four sources only the
   Linux client compiles, src/platform/*Linux*.cpp, and since issue #164 the sources both systems compile, whose Linux branches
-  nothing else analysed, each with its Linux settings, all of them enforced by `--require`; notes/decisions.md "#160", "#164") with clang-tidy 22.1.8 of the Docker image. `--baseline <file>` fails
+  nothing else analysed, each with its Linux settings, all of them enforced by `--require`; notes/decisions.md "#160", "#164") with clang-tidy 23.1 of the Docker image. `--baseline <file>` fails
   (exit 1) only on a finding that is not in the list, or one more of a kind, and reports the ones that are
   gone; `--write-baseline <file>` writes the list.
   The local check is `tools/tidy_ci.py` (issue #51): it runs the hosted clang-tidy job itself on this machine,
@@ -1108,7 +1111,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   tests/fuzz/driver.cpp: CTest's `fuzz_<name>` (label `fuzz`) replays tests/fuzz/seeds/<name> (hand-made from the
   formats, committed; `python -I tools/fuzz.py synthetic` writes them) and a fixed number of the driver's own
   mutations, under the preset's sanitizers; the hosted CI runs them so. libFuzzer: `python -I tools/fuzz.py build
-  --platform linux` (build/linux-x64-clang-fuzz: linux-x64-clang with PATELLA_FUZZ=ON in the image, Clang 22's
+  --platform linux` (build/linux-x64-clang-fuzz: linux-x64-clang with PATELLA_FUZZ=ON in the image, Clang 23's
   libFuzzer with ASan and UBSan) or `--platform windows` (build/windows-x64-fuzz: windows-x64-asan with PATELLA_FUZZ=ON
   and without the client, MSVC's /fsanitize=fuzzer; its lines have features, no `cov:`), then `python -I tools/fuzz.py
   run --platform linux|windows --time 600 [target ...]`: per target its log, summary.tsv (executions, rate, coverage,

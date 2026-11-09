@@ -1240,7 +1240,7 @@ static TTalkLine *Statement[2]; // raw memory (TTalkLine has no default construc
 static bool HasStatement, HasName, HasMark;
 static TCoordinate MarkCoordinate;
 static TMark MarkData;
-static int CharacterID, DataSize;
+static int CharacterID;
 
 static const char *const MessagePool[] = {"Hello", "A message\nof two lines", "OK",
 	"<font=2>formatted <red=200>text<br=5>break", "Sorry, not possible.", "averylongwordwithoutanyspacesatallinthisline"};
@@ -1400,7 +1400,7 @@ static void RandomArguments()
 	MarkData.Type = Random() % 14;
 	strcpy(MarkData.Text, Random() % 2 ? "depot" : "");
 	CharacterID = Random();
-	DataSize = Random() % 100000;
+	(void)Random(); // the corpus's random stream: this call stays
 	// The VIP dialog asserts a VIP; the move dialog only exists for a pile of 1-100.
 	if (Kind == K_EDITBUDDY && World.BuddyPosition < 0)
 		World.BuddyPosition = 0;

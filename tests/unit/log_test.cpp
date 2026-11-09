@@ -236,7 +236,7 @@ TEST_CASE("Log: the client's log")
 
 TEST_CASE("Log: the stack trace")
 {
-	// Where the standard library has std::stacktrace: MSVC's, and libstdc++'s on Linux (GCC 16, and Clang 22 with
+	// Where the standard library has std::stacktrace: MSVC's, and libstdc++'s on Linux (GCC 16, and Clang 23 with
 	// libstdc++), with libstdc++exp; not mingw-w64's GCC 16, which has no backtrace for Windows.
 #if defined(_MSC_VER) || (defined(__linux__) && defined(__GLIBCXX__))
 	CHECK(PATELLA_HAS_STACKTRACE == 1);

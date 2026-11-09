@@ -20,7 +20,7 @@
 // -freflection, with -DPATELLA_NO_REFLECTION, with clang++, or with MSVC (`python -I tools/build.py --env windows-x64
 // cl /std:c++latest /EHsc /W4 /WX /O2 /Isrc <the two files>`). Prints "same bytes" and exits 0, or the first
 // difference and 1. clang-format 22 does not know the expansion statement (`template for`): it puts its brace on a
-// line of its own; clang-tidy (Clang 22, no -freflection) never sees the reflection part.
+// line of its own; clang-tidy (Clang 23, no -freflection) never sees the reflection part.
 
 #include "testmode/StateDump.h"
 

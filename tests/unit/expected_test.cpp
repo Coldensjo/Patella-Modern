@@ -45,7 +45,7 @@ TEST_CASE("expected.h selects the expected path")
 #if defined(PATELLA_EXPECTED_STANDIN)
 	CHECK(PATELLA_HAS_EXPECTED == 0);
 #else
-	// Every product preset has std::expected (MSVC /std:c++latest, GCC 16, Clang 22).
+	// Every product preset has std::expected (MSVC /std:c++latest, GCC 16, Clang 23).
 	CHECK(PATELLA_HAS_EXPECTED == 1);
 #endif
 }

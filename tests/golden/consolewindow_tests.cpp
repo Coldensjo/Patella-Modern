@@ -144,7 +144,6 @@ static int ScrollMinimumHeight;
 // image's TWindow or TElement code for what they do not override (imageeh.h,
 // ImageSideVtable), named like ours.
 static TErrorRound *ConsoleRound;
-static void *OurWindowVtable, *OurElementVtable;
 static void *FakeVtable(void *Ours, bool Window)
 {
 	if (ConsoleRound == NULL || Side != ORIGINAL)
@@ -2180,10 +2179,8 @@ void TestConsoleWindow()
 		DeleteComponent(M);
 		TWindow *W = new TWindow;
 		Kinds[OURS][VtableOf(W)] = "Window";
-		OurWindowVtable = VtableOf(W);
 		DeleteComponent(W);
 		TElement *E2 = new TElement;
-		OurElementVtable = VtableOf(E2);
 		DeleteComponent(E2);
 	}
 	for (int s = 0; s < 2; s++) {

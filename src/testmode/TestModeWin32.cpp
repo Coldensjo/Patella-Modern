@@ -646,7 +646,7 @@ void Deliver(TState &State, HWND Window, const TInputEvent &Event)
 	case TEventKind::Wheel: {
 		// WM_MOUSEWHEEL: the flags and the distance (120 per notch) in wParam, the screen point.
 		const POINT Screen = ScreenCursor(State, Window);
-		auto Distance = static_cast<WORD>(static_cast<short>(Event.Delta * WHEEL_DELTA));
+		const auto Distance = static_cast<WORD>(static_cast<short>(Event.Delta * WHEEL_DELTA));
 		Dispatch(State, Window, WM_MOUSEWHEEL, MAKEWPARAM(static_cast<WORD>(MouseFlags), Distance),
 			MAKELPARAM(Screen.x, Screen.y));
 		break;
@@ -892,7 +892,7 @@ bool ReplayHold(TState &State)
 {
 	TReplayState &Replay = State.Replay;
 	const std::string Reason = ReplayBusy(State);
-	auto Now = std::chrono::steady_clock::now();
+	const auto Now = std::chrono::steady_clock::now();
 	if (Reason.empty()) {
 		if (Replay.Holding)
 			State.RealStart += Now - Replay.HoldStart; // the wait does not count for the pace
@@ -1175,7 +1175,7 @@ void Idle()
 		Stop = ReplayTime;
 	// Now again: a state dump's wait for the checker moved RealStart.
 	Now = std::chrono::steady_clock::now();
-	auto Real = std::chrono::duration_cast<std::chrono::milliseconds>(Now - Current.RealStart).count();
+	const auto Real = std::chrono::duration_cast<std::chrono::milliseconds>(Now - Current.RealStart).count();
 	if (Real < 0 || static_cast<std::uint64_t>(Real) < Current.Scheduler.RealDeadline(Stop))
 		return;
 	Current.Virtual.AdvanceTo(Stop);
@@ -1194,7 +1194,7 @@ std::uint32_t PacketTime(TState &State)
 {
 	if (State.Scripted)
 		return State.Virtual.Elapsed();
-	auto Now = std::chrono::steady_clock::now();
+	const auto Now = std::chrono::steady_clock::now();
 	if (!State.PacketClockStarted) {
 		State.PacketClockStarted = true;
 		State.PacketClockStart = Now;
@@ -1356,10 +1356,10 @@ int ShowMessageBox([[maybe_unused]] HWND Window, const char *Text, const char *C
 	// ShutdownConnection: the server's close comes, the client leaves the game and saves Tibia.cfg).
 	// The same here, until the queue and the replay have been quiet for BoxQuietMilliseconds (at most
 	// BoxMilliseconds).
-	auto Start = std::chrono::steady_clock::now();
+	const auto Start = std::chrono::steady_clock::now();
 	auto LastActivity = Start;
 	while (true) {
-		auto Now = std::chrono::steady_clock::now();
+		const auto Now = std::chrono::steady_clock::now();
 		if (Now - LastActivity > std::chrono::milliseconds(BoxQuietMilliseconds) || Now - Start > std::chrono::milliseconds(BoxMilliseconds))
 			break;
 		bool Activity = false;
