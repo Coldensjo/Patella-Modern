@@ -43,6 +43,8 @@ if(PATELLA_CAPTURE)
 	return()
 endif()
 
+# Reproducible Release builds, for every target below, FetchContent's included (issue #136).
+include(cmake/Reproducible.cmake)
 enable_testing()
 patella_import_std_check()
 include(cmake/Core.cmake)
