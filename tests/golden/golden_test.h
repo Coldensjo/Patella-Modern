@@ -128,7 +128,6 @@ void TestObjects(const char *ExePath);
 void TestMap(const char *ExePath);
 void TestCreatures(const char *ExePath);
 // Issue #54: the first test with an error round.
-void TestMainFrm();
 // Issue #30.
 void TestNetwork();
 // Issue #28 (ExePath as TestObjects').

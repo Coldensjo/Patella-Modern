@@ -18033,6 +18033,38 @@ tell in a minute.
 Comments of tools/sandbox.py (the limit's source; the error window), notes/testserver.md, this file's #147 entry,
 CLAUDE.md. No behaviour changed. The probe's scripts and logs are local, in build\logs\issue-154\.
 
+## The golden MainFrm checks retired (the owner's decision after #127, branch golden-drop-mainframe)
+
+Done by Claude Opus 5.5, November 8, 2026. #127 left the golden MainFrm test and the TranslateKey loop of player_tests.cpp
+running against a copy of the original's MFC frame in tests/golden/mfc ("#127": "The golden corpus's MainFrm test"). The
+owner chose to delete them: they could not catch a bug in code the client runs.
+
+### What went (high: the code)
+
+tests/golden/mainfrm_tests.cpp, tests/golden/mfc/MainFrm.cpp and MainFrm.h, and the frame half of mfc_standin.h, whose
+socket half the golden Network test still needs.
+
+### The counts (high: measured)
+
+The corpus is frozen and its manifest lists these tests and files, so the checks are counted as retired and the total
+stays the oracle's: **15,739,165 replayed + 1,576,875 retired = 17,316,040, 0 failures** (before: 15,803,218 +
+1,512,822). The 64,053 that moved are MainFrm's 45,621 and TranslateKey's 18,432.
+
+MainFrm joins runner.cpp's RetiredTests, as #29's engine tests did. TranslateKey is part of the Player test, and the
+recording has no "retired" markers around it, so TestPlayer reads the 18,432 recorded values without comparing them and
+calls the new golden::RetireChecks; the other Player checks and the record count still match the recording.
+
+### What covers the window now
+
+The reference compare, compare_traffic and compare_rendering, and the key rules in tests/unit/core_key_input_test.cpp.
+No check compares src/SdlFrame.cpp's window rules (resizing, styles) function by function; none did after #127 either.
+
+### Compiler options on Linux
+
+-Wno-nonnull-compare (GCC) and -Wno-tautological-undefined-compare (Clang) went with the stand-in's GetSafeHwnd.
+-fno-delete-null-pointer-checks stays although GetSafeHwnd was its documented reason: without it GCC removes the null
+comparison in network_tests.cpp's SocketIndex (69 Network failures, Connect-2 for the original's Connect-1).
+
 ## #131: the Linux client (Patella-Modern issue #131, M8)
 
 M8's exit, the Linux half. The Linux presets (linux-x64-gcc, linux-x64-clang) now build the client: `Patella` and its

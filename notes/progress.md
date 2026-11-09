@@ -777,11 +777,15 @@ A recording replays wherever it was made (Patella-Modern issue #157, branch issu
 server plays in compare_rendering and compare_network without a hand-edited copy, and 7272 recordings byte for byte.
 `python -I tools/proxy.py --self-test`. notes/traffic.md; notes/decisions.md, "#157".
 
+Golden MainFrm checks retired (the owner's decision after #127, branch golden-drop-mainframe, November 8, 2026): the MainFrm
+test, Player's TranslateKey loop and the frozen MFC frame are gone; golden is 15,739,165 replayed + 1,576,875 retired =
+17,316,040, 0 failures. notes/decisions.md, "The golden MainFrm checks retired".
+
 MFC removed (Patella-Modern issue #127, branch issue-127, November 8, 2026; M8): no source includes MFC; the SDL3
 window is the client's only one (PATELLA_WINDOW and platform/WindowChoice.h gone, the Win32 window system gone with it),
 CPlayerApp derives from nothing, WinMain is platform/EntryWin32.cpp. The original's CMainFrame and the MFC declarations
-the frozen golden corpus's calls are named after moved to tests/golden/mfc (test code; the MainFrm cases replay against
-it, not against src/SdlFrame.cpp). Patella.rc has only the client's own resources. Hosted CI builds and tests the full
+the frozen golden corpus's calls are named after moved to tests/golden/mfc (test code; the frame and its golden checks
+were retired right after, notes/decisions.md, "The golden MainFrm checks retired"). Patella.rc has only the client's own resources. Hosted CI builds and tests the full
 client and test build with neutral placeholder pictures (PATELLA_PLACEHOLDER_RESOURCES, tools/placeholder_resources.py;
 refused where a Tibia.exe exists); the compile-only targets of #25/#46 are gone. notes/decisions.md, "#127".
 

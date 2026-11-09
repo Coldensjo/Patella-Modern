@@ -79,8 +79,9 @@ and `python -I tools/linux_live.py [--windowed] [--product]` runs the live login
 server from the container (host.docker.internal, no firewall change), or the product under Xvfb. The login server and RSA
 modulus come from the environment there (`PATELLA_LOGIN_SERVER`, `PATELLA_RSA_MODULUS`). Not run yet: Linux hardware
 Vulkan drivers, a real X11 or Wayland desktop. MFC is gone (issue #127): no source includes it and Visual Studio's
-MFC component is not needed; the original's frame and the MFC declarations the golden corpus's calls are named after are
-test code in `tests/golden/mfc` (the MainFrm test), and WinMain is `src/platform/EntryWin32.cpp`. On Windows the keys,
+MFC component is not needed; the MFC socket declarations the golden corpus's Network calls are named after are test code
+in `tests/golden/mfc` (the original's frame and its golden checks are retired: notes/decisions.md, "The golden MainFrm
+checks retired"), and WinMain is `src/platform/EntryWin32.cpp`. On Windows the keys,
 characters and buttons still arrive as window messages (issue #123) and the display modes are Win32's. Since issue #124 the
 SDL3 path's clipboard, message boxes and URLs are SDL3's (src/platform/SdlPlatform.cpp); the display modes stay Win32's
 on Windows behind IWindow (SDL3's list differs; notes/decisions.md, "#124").
@@ -138,7 +139,7 @@ The golden corpus (issue #24): the 32-bit oracle recorded it until issue #94 (th
 only, never committed, pushed or uploaded; read only); `golden_runner` (CTest test `golden`, skipped without a corpus) replays it without Tibia.exe,
 in windows-x64 and since issue #91 in linux-x64-gcc and linux-x64-clang: build.py mounts the corpus read-only at
 `/golden` of the image (PATELLA_GOLDEN_DIR of the environment, else the repository's `build/golden`; `none`: no
-corpus) and passes the corpus manifest's time zone as TZ (issue #93: UTC0; Windows' zone for a corpus without one). Details: `notes/reconstruction.md`, "Checking", "The golden corpus".
+corpus) and passes the corpus manifest's time zone as TZ (issue #93: UTC0; Windows' zone for a corpus without one). Its expected result: 15,739,165 checks replayed + 1,576,875 retired = 17,316,040, 0 failures. Details: `notes/reconstruction.md`, "Checking", "The golden corpus".
 
 The fuzz targets (issue #132, M9; tests/fuzz, notes/reconstruction.md "Fuzzing"): the packet parser (fuzz_network:
 TNetwork's frames; fuzz_packets: ReceivePackets and Communication.cpp in the golden Communication test's world) and the

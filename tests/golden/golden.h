@@ -210,6 +210,9 @@ void RetiredEnd(int Checks);
 // The checks the runner skipped so far (all tests; 0 in the oracle). EndReplay expects the oracle's checks
 // of a test to be the replayed ones plus the test's retired ones.
 long long RetiredChecks();
+// Count checks of the running test retired after the corpus was frozen (issue #127): the recording has no "retired"
+// markers around them, so the test reads their recorded values itself and calls this instead of comparing them.
+void RetireChecks(long long Count);
 
 // A deliberate difference (Patella-Modern issue #72; notes/decisions.md, "#72 and #86"): a part of a test from the
 // point where our side differs from the original on purpose to the point where both sides are in step again. The
