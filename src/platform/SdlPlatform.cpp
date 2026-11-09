@@ -12,6 +12,7 @@
 
 #if defined(_WIN32)
 #include "platform/Win32Platform.h"
+#include <SDL3/SDL_properties.h>
 #endif
 
 #if !defined(_WIN32)
@@ -23,7 +24,6 @@
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_messagebox.h>
 #include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_video.h>
 
@@ -61,7 +61,7 @@ SDL_Window *SdlWindowOf(TWindowHandle Handle)
 			Found = Windows[i];
 #endif
 	}
-	SDL_free(static_cast<void *>(Windows));
+	SDL_free(static_cast<void *>(Windows)); // NOLINT(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory): SDL_GetWindows' array
 	return Found;
 }
 
@@ -91,7 +91,7 @@ bool AnotherClientRuns()
 		const char *const Runtime = std::getenv("XDG_RUNTIME_DIR");
 		std::string Path = Runtime != nullptr && Runtime[0] == '/' ? std::string(Runtime) : "/tmp";
 		Path += "/patella-client-" + std::to_string(::getuid()) + ".lock";
-		const int File = ::open(Path.c_str(), O_CREAT | O_RDWR | O_CLOEXEC, 0600);
+		const int File = ::open(Path.c_str(), O_CREAT | O_RDWR | O_CLOEXEC, 0600); // NOLINT(cppcoreguidelines-pro-type-vararg): open's mode argument
 		if (File < 0)
 			return false;
 		return ::flock(File, LOCK_EX | LOCK_NB) != 0; // the descriptor stays open: the lock lasts as long as the process
@@ -109,7 +109,7 @@ void TSdlWindow::VisitOwnWindows(TWindowVisitor Visit)
 		const char *const Title = SDL_GetWindowTitle(Windows[i]);
 		Visit(Title, Title != nullptr ? static_cast<int>(std::strlen(Title)) : 0, "", 0);
 	}
-	SDL_free(static_cast<void *>(Windows));
+	SDL_free(static_cast<void *>(Windows)); // NOLINT(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory): SDL_GetWindows' array
 }
 #endif
 
@@ -168,7 +168,7 @@ bool SdlDisplayMode(unsigned int Index, TDisplayMode &Mode)
 	const bool Found = ListedModeIndex(static_cast<std::size_t>(Count), Index, SdlIndex);
 	if (Found)
 		Mode = ModeOf(*Modes[SdlIndex]);
-	SDL_free(static_cast<void *>(Modes));
+	SDL_free(static_cast<void *>(Modes)); // NOLINT(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory): SDL_GetFullscreenDisplayModes' array
 	return Found;
 }
 
@@ -211,7 +211,7 @@ bool ReturnToDesktopMode(SDL_Window *Window)
 				break;
 			}
 		}
-		SDL_free(static_cast<void *>(Modes));
+		SDL_free(static_cast<void *>(Modes)); // NOLINT(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory): SDL_GetFullscreenDisplayModes' array
 	}
 	const bool Done = SDL_SetWindowFullscreenMode(Window, nullptr);
 	SDL_SyncWindow(Window);
@@ -258,7 +258,7 @@ bool SdlSetFullscreenMode(TWindowHandle Window, const TDisplayMode *Mode)
 			Done = false;
 		}
 	}
-	SDL_free(static_cast<void *>(Modes));
+	SDL_free(static_cast<void *>(Modes)); // NOLINT(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory): SDL_GetFullscreenDisplayModes' array
 	return Done;
 }
 

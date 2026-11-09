@@ -104,20 +104,28 @@ endfunction()
 function(patella_client target)
 	add_executable(${target} ${patella_cpp_sources} ${patella_c_sources} ${patella_linux_client_sources} ${ARGN})
 	patella_client_compile_settings(${target})
-	# The client's shared sources are not in compile_commands.json through these two targets (tools/tidy.py --all checks every
-	# src/ file of the database: they compile the client's code that the Windows presets' runs check, with the Windows
-	# headers); the sources only it compiles are, through patella_tidy_linux_client below (issue #160).
+	# The client's sources are not in compile_commands.json through these two targets (tools/tidy.py --all checks every
+	# src/ file of the database, once per command): those patella_core has not are, through patella_tidy_linux_client and
+	# patella_tidy_linux_test below (issues #160, #164).
 	set_property(TARGET ${target} PROPERTY EXPORT_COMPILE_COMMANDS OFF)
 	target_link_libraries(${target} PRIVATE
 		$<IF:$<TARGET_EXISTS:SDL3::SDL3-static>,SDL3::SDL3-static,SDL3::SDL3> Threads::Threads ${CMAKE_DL_LIBS})
 endfunction()
 
-# The sources only the Linux client compiles (src/platform/*Linux*.cpp) in compile_commands.json for tools/tidy.py (issue
-# #160; notes/decisions.md, "#160"), with the client's settings: the database's only commands for them. Never built (not
-# in `all`, nothing depends on it), so the client, its objects and the reproducible builds are as before; hosted.yml's
-# clang-tidy job fails when one of these files is not in the database (tools/tidy.py --require).
+# The sources of the Linux client that patella_core and the unit tests do not put in compile_commands.json, for tools/tidy.py,
+# with the client's settings (notes/decisions.md, "#160" and "#164"): those only the Linux client compiles
+# (src/platform/*Linux*.cpp, issue #160) and those both systems compile, whose Linux branches no other command analyses
+# (issue #164; the other shared sources are in the database through patella_core). Never built (not in `all`, nothing
+# depends on it), so the client, its objects and the reproducible builds are as before; hosted.yml's clang-tidy job
+# fails when one of these files is not in the database (tools/tidy.py --require). The Vulkan engine's two sources of
+# patella_render_vulkan are in cmake/Vulkan.cmake's patella_tidy_linux_render, the test build's below.
 set(patella_tidy_linux_sources ${patella_linux_client_sources})
-list(FILTER patella_tidy_linux_sources INCLUDE REGEX "/src/platform/[^/]*Linux[^/]*\\.cpp$")
+list(FILTER patella_tidy_linux_sources INCLUDE REGEX
+	"/src/(platform/([^/]*Linux[^/]*|SdlPlatform)|vulkan/(SurfaceVulkan|WindowSystemSdl|DeviceSettings))\\.cpp$")
+list(APPEND patella_tidy_linux_sources
+	"${PROJECT_SOURCE_DIR}/src/SdlFrame.cpp"
+	"${PROJECT_SOURCE_DIR}/src/Player.cpp"
+	"${PROJECT_SOURCE_DIR}/src/Surface.cpp")
 add_library(patella_tidy_linux_client OBJECT EXCLUDE_FROM_ALL ${patella_tidy_linux_sources})
 patella_client_compile_settings(patella_tidy_linux_client)
 
@@ -129,6 +137,17 @@ set(patella_test_build_sources
 	"${PROJECT_SOURCE_DIR}/src/testmode/SdlInputWin32.cpp"
 	"${PROJECT_SOURCE_DIR}/src/testmode/ProfileWin32.cpp" # issue #134's; on Linux its stubs
 	${patella_testmode_sources})
+
+# The test build's own sources on Linux (issue #164), and the two that have test-mode branches for Linux, with the test
+# build's settings. Never built, as patella_tidy_linux_client.
+set(patella_tidy_linux_test_sources ${patella_test_build_sources})
+list(FILTER patella_tidy_linux_test_sources INCLUDE REGEX "/src/testmode/[^/]*Win32\\.cpp$")
+list(APPEND patella_tidy_linux_test_sources
+	"${PROJECT_SOURCE_DIR}/src/SdlFrame.cpp"
+	"${PROJECT_SOURCE_DIR}/src/platform/LinuxPlatform.cpp")
+add_library(patella_tidy_linux_test OBJECT EXCLUDE_FROM_ALL ${patella_tidy_linux_test_sources})
+patella_client_compile_settings(patella_tidy_linux_test)
+target_compile_definitions(patella_tidy_linux_test PRIVATE PATELLA_TEST_MODE)
 
 patella_client(Patella)
 

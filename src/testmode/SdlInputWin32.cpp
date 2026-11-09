@@ -5,8 +5,13 @@
 
 #include "SdlFrame.h"
 
-#include <SDL3/SDL.h>
+#if !defined(_WIN32)
+#include "compat/win32_types.h"
+#endif
 
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_timer.h>
 
 namespace patella::testmode {
 
@@ -25,16 +30,16 @@ bool DeliverToSdlWindow(UINT Message, WPARAM WParam, LPARAM LParam)
 	case WM_RBUTTONDOWN:
 	case WM_RBUTTONUP:
 	case WM_RBUTTONDBLCLK:
+#if !defined(_WIN32)
+	case WM_TIMER:
+	case WM_CLOSE:
+#endif
 #if defined(_WIN32)
 		// The SDL3 window takes the keys, the characters and the buttons as window messages on Windows (SdlFrame.cpp
 		// OnKeyMessage, OnWindowChar, OnButtonMessage): dispatched, as the desktop's come.
 		return false;
 #else
 		sdlframe::WindowMessage(Message, WParam, LParam); // issue #131: the same handlers
-		return true;
-	case WM_TIMER:
-	case WM_CLOSE:
-		sdlframe::WindowMessage(Message, WParam, LParam);
 		return true;
 #endif
 	case WM_MOUSEWHEEL:

@@ -418,7 +418,7 @@ void OpenReplay(TState &State, const std::filesystem::path &Path)
 		State.Replay.Pipes->Network().Listen("127.0.0.1", Listen.Port, Listen.Kind);
 		WriteLog(State, "testmode: replay: " + Listen.Kind + " listens on 127.0.0.1:" + std::to_string(Listen.Port) + " in the process (no port)");
 	}
-	std::size_t Connections = Parsed.File.Connections.size();
+	const std::size_t Connections = Parsed.File.Connections.size();
 	State.Replay.Schedule = TServerReplay(std::move(Parsed.File.Connections));
 	State.Replay.Active = true;
 	WriteLog(State, "testmode: replay " + Narrow(Path) + ", " + std::to_string(Connections) + " connections");
@@ -490,7 +490,7 @@ void Initialize(TState &State)
 TState &State()
 {
 	static TState *const Instance = [] {
-		auto *Created = new TState;
+		auto *Created = new TState; // NOLINT(cppcoreguidelines-owning-memory): never destroyed (above)
 		Initialize(*Created);
 		return Created;
 	}();
@@ -556,7 +556,7 @@ LPARAM KeyLParam(const TInputEvent &Event, bool Up, bool Alt)
 std::string Numbered(const char *Prefix, int Step, const char *Suffix)
 {
 	std::array<char, 64> Name{};
-	std::snprintf(Name.data(), Name.size(), "%s-%03d%s", Prefix, Step, Suffix);
+	std::snprintf(Name.data(), Name.size(), "%s-%03d%s", Prefix, Step, Suffix); // NOLINT(cppcoreguidelines-pro-type-vararg): a name into a fixed buffer
 	return Name.data();
 }
 
@@ -842,7 +842,7 @@ void PumpReplay(TState &State)
 			Socket.In.insert(Socket.In.end(), Buffer.begin(), Buffer.begin() + Received.Count);
 		}
 		while (Socket.In.size() >= 2) {
-			std::size_t Size = Socket.In[0] | (static_cast<std::size_t>(Socket.In[1]) << 8U);
+			const std::size_t Size = Socket.In[0] | (static_cast<std::size_t>(Socket.In[1]) << 8U);
 			if (Socket.In.size() < Size + 2)
 				break;
 			if (Socket.Frames == 0) {
@@ -1241,7 +1241,7 @@ void PacketSent(patella::TSpan<const unsigned char> Data, int Size, int Padded)
 		WritePacket(Current, Current.Connections.Sent(PacketTime(Current), true, Plain, {}));
 		return;
 	}
-	std::size_t Padding = Padded >= Size + 2 ? static_cast<std::size_t>(Padded - Size - 2) : 0;
+	const std::size_t Padding = Padded >= Size + 2 ? static_cast<std::size_t>(Padded - Size - 2) : 0;
 	const std::span<const unsigned char> Pad = Data.subspan(4 + static_cast<std::size_t>(Size), Padding);
 	WritePacket(Current, Current.Connections.Sent(PacketTime(Current), false, Payload, Pad));
 }

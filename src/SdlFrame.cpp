@@ -39,7 +39,19 @@
 #include "types/Cp1252.h"
 
 #define SDL_MAIN_HANDLED // NOLINT(cppcoreguidelines-macro-usage): SDL_main.h's switch; WinMain (platform/EntryWin32.cpp), main (EntryLinux.cpp) are the entries
-#include <SDL3/SDL.h>
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_hints.h>
+#include <SDL3/SDL_init.h>
+#include <SDL3/SDL_keyboard.h>
+#include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_misc.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_scancode.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_version.h>
+#include <SDL3/SDL_video.h>
 #include <SDL3/SDL_main.h>
 
 #if defined(_WIN32)
@@ -824,6 +836,7 @@ void OnHostResolved(int Error)
 			SetConnectionTimeout(0);
 			SetConnectionState(0);
 			Disconnect(true);
+			// NOLINTNEXTLINE(cppcoreguidelines-owning-memory): a block of the message queue, freed with its message
 			char *Text = new char[1024];
 			GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Text, ERROR_MESSAGE_SIZE), -1, 1);
 			AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Text));

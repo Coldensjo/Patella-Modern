@@ -18,7 +18,9 @@
 
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_init.h>
+#if defined(_WIN32)
 #include <SDL3/SDL_properties.h>
+#endif
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_video.h>
