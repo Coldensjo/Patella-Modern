@@ -857,6 +857,8 @@ x64 and Linux x64 against the reference recordings; the Vulkan engine passes the
   it found are #155 (heap allocations per frame) and #156 (the title screen's work before Present).
 - **Packages** through CPack: a Windows zip (and optionally an installer), a Linux tarball and AppImage or
   Flatpak (D4). The packages contain no CipSoft files: the user points the client at their own data files.
+  Done in #135 (notes/decisions.md, "#135"): the presets package-windows-x64 and package-linux-x64 (cmake/Package.cmake),
+  only from a build with the placeholder pictures; `tools/package_check.py` proves each package has no CipSoft file, in hosted CI.
 - Reproducible builds, a changelog, a release checklist.
 
 ---

@@ -153,6 +153,70 @@ jobs:
       - name: Debug
         run: docker run --rm -e PATELLA_PLACEHOLDER_RESOURCES=1 -v "$GITHUB_WORKSPACE:/work" -w /work "$IMAGE" python3 -I tools/build.py ${{ matrix.preset }}-debug
 
+  # The packages (issue #135, cmake/Package.cmake): the zip, the tarball and the AppImage, each only from a build of the
+  # generated placeholder pictures (these runners have no Tibia.exe and never get one). The run's artifact holds them
+  # and nothing else: no release, no tag, no upload elsewhere. tools/package_check.py proves each package has no CipSoft
+  # file and carries the placeholders, then that it starts and ends at the original's error for a missing Tibia.dat.
+  package-windows:
+    name: package (Windows zip)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: CMake 4.4.5 (Kitware's release, SHA-256 checked)
+        shell: pwsh
+        run: |
+          python -I tools/build.py --install-cmake "$env:RUNNER_TEMP\cmake"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "PATELLA_CMAKE_DIR=$env:RUNNER_TEMP\cmake" >> $env:GITHUB_ENV
+      - name: The check's own test
+        run: python -I tools/package_check.py --self-test
+      - name: Configure, build Patella.exe, CPack (preset package-windows-x64)
+        run: python -I tools/build.py package-windows-x64
+      - name: tools/package_check.py on the zip
+        shell: bash
+        run: python -I tools/package_check.py build/package-windows-x64/packages/*.zip
+      - name: The zip starts and ends at the original's error (no data files)
+        shell: bash
+        run: python -I tools/package_check.py --run build/package-windows-x64/packages/*.zip
+      - name: The artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: package-windows-x64
+          path: build/package-windows-x64/packages/*.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  package-linux:
+    name: package (Linux tarball and AppImage)
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the image (docker/linux-x64)
+        run: docker build -t "$IMAGE" docker/linux-x64
+      - name: The check's own test
+        run: docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work "$IMAGE" python3 -I tools/package_check.py --self-test
+      - name: Configure, build Patella, CPack (preset package-linux-x64)
+        run: docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work "$IMAGE" python3 -I tools/build.py package-linux-x64
+      - name: tools/package_check.py on the tarball and the AppImage
+        run: docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work "$IMAGE" bash -c 'python3 -I tools/package_check.py build/package-linux-x64/packages/*.tar.gz build/package-linux-x64/packages/*.AppImage'
+      - name: They start and end at the original's error (no data files, Xvfb)
+        run: docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work "$IMAGE" bash -c 'python3 -I tools/package_check.py --run build/package-linux-x64/packages/*.tar.gz build/package-linux-x64/packages/*.AppImage'
+      - name: The artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: package-linux-x64
+          path: |
+            build/package-linux-x64/packages/*.tar.gz
+            build/package-linux-x64/packages/*.AppImage
+          if-no-files-found: error
+          retention-days: 14
+
   clang-format:
     name: clang-format
     runs-on: ubuntu-latest
