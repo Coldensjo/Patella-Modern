@@ -7,12 +7,11 @@
 // own, CreateSurfaces' depth check, issue #138; the fullscreen mode's change, CreateSurfaces and ExitDisplay, issue
 // #124). Each goes through the process's IWindow (platform/Platform.h):
 //
-//	TWin32Window     MessageBoxA, EnumWindows with GetWindowTextA and GetClassNameA, EnumDisplaySettingsA,
-//	                 ChangeDisplaySettingsA (platform/Win32Platform.h): the golden runner's, and on Windows the
-//	                 SDL3 window's display modes (TSdlWindow)
+//	TWin32Window     MessageBoxA, EnumWindows with GetWindowTextA and GetClassNameA (platform/Win32Platform.h): the
+//	                 golden runner's, which asks no display modes (issue #152)
 //	TSdlWindow       SDL3's (issue #124; platform/SdlPlatform.h): SDL_ShowSimpleMessageBox; the display's modes
-//	                 SDL3's off Windows, Win32's on Windows (SDL3's list differs there); the other windows Win32's
-//	                 EnumWindows (SDL3 has no such call): Patella.exe's on the SDL3 window
+//	                 SDL3's on every system (issue #152); the other windows Win32's EnumWindows on Windows (SDL3
+//	                 has no such call): Patella.exe's on the SDL3 window
 //	TTestWindow      the test mode's (testmode/TestModeWin32.cpp): with a script a box is not shown (messages.txt);
 //	                 only the process's own windows are visited (issue #96); with --test-display-modes the file's
 //	                 modes (issue #48); the rest the window's (TSdlWindow, as Patella.exe's; the desktop's mode too:
@@ -56,14 +55,13 @@ public:
 	virtual void ShowMessageBox(TWindowHandle Owner, const char *Text, const char *Caption, TMessageBoxIcon Icon) = 0;
 	// Visit for every top-level window of the desktop, in the platform's order (EnumWindows).
 	virtual void VisitWindows(TWindowVisitor Visit) = 0;
-	// The display's Index-th mode (EnumDisplaySettingsA(nullptr, Index)): false past the last one.
+	// The display's Index-th mode: false past the last one.
 	[[nodiscard]] virtual bool DisplayMode(unsigned int Index, TDisplayMode &Mode) = 0;
-	// The display's current mode, the desktop's (EnumDisplaySettingsA(nullptr, ENUM_CURRENT_SETTINGS); issue #138):
-	// false when it cannot be read.
+	// The display's current mode, the desktop's (issue #138): false when it cannot be read.
 	[[nodiscard]] virtual bool DesktopMode(TDisplayMode &Mode) = 0;
-	// Issue #124: switches the display to Mode for the fullscreen window Window (ChangeDisplaySettingsA(&Mode,
-	// CDS_FULLSCREEN) with its width, height and bits per pixel): false where the display has no such mode or the
-	// change failed. With Mode null the display goes back to the desktop's mode (ChangeDisplaySettingsA(nullptr, 0)).
+	// Issue #124: switches the display to Mode (width, height, bits per pixel) for the fullscreen window Window: false
+	// where the display has no such mode or the change failed. With Mode null the display goes back to the desktop's
+	// mode. Since issue #152 SDL3's on every system.
 	virtual bool SetFullscreenMode(TWindowHandle Window, const TDisplayMode *Mode) = 0;
 	// True when the client runs without a desktop (the test build's --test-headless, issue #145; Patella.exe's
 	// false): its main window is never shown (it exists, hidden, for its messages), the Vulkan engine renders without

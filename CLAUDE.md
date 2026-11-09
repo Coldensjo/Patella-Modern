@@ -82,9 +82,9 @@ Vulkan drivers, a real X11 or Wayland desktop. MFC is gone (issue #127): no sour
 MFC component is not needed; the MFC socket declarations the golden corpus's Network calls are named after are test code
 in `tests/golden/mfc` (the original's frame and its golden checks are retired: notes/decisions.md, "The golden MainFrm
 checks retired"), and WinMain is `src/platform/EntryWin32.cpp`. On Windows the keys,
-characters and buttons still arrive as window messages (issue #123) and the display modes are Win32's. Since issue #124 the
-SDL3 path's clipboard, message boxes and URLs are SDL3's (src/platform/SdlPlatform.cpp); the display modes stay Win32's
-on Windows behind IWindow (SDL3's list differs; notes/decisions.md, "#124").
+characters and buttons still arrive as window messages (issue #123). Since issue #124 the
+SDL3 path's clipboard, message boxes and URLs are SDL3's (src/platform/SdlPlatform.cpp), and since issue #152 the display
+modes too, on every system (notes/decisions.md, "#152": SDL's list and order are deliberate differences from the original).
 The developer log (issue #77, D16; `src/log/`, every preset): lines `[<level>] <message>` on stderr;
 Patella.ini's `LogLevel` (error, warn, info: the default, debug) and `LogFile` (also appended to; none by default) set
 it in the x64 client. A fatal error's box text goes there at error, error.txt's old diagnostics at debug, and Debug

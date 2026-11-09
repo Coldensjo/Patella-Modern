@@ -25,9 +25,7 @@ public:
 };
 
 // SDL_ShowSimpleMessageBox; the other top-level windows Win32's EnumWindows (TWin32Window's), which SDL3 has no call
-// for. The display's modes: on Windows Win32's (TWin32Window's EnumDisplaySettingsA and ChangeDisplaySettingsA: SDL3's
-// list has a mode Windows does not enumerate where the desktop's is a custom one, and other refresh rates;
-// notes/decisions.md, "#124"), elsewhere SDL3's (SdlDisplayMode, below).
+// for. The display's modes SDL3's on every system (SdlDisplayMode, below; issue #152).
 class TSdlWindow final : public IWindow {
 public:
 	void ShowMessageBox(TWindowHandle Owner, const char *Text, const char *Caption, TMessageBoxIcon Icon) override;
@@ -44,10 +42,9 @@ public:
 };
 
 // SDL3's display modes, as IWindow's DisplayMode, DesktopMode and SetFullscreenMode (platform/DisplayModeList.h's
-// rules): the primary display's SDL_GetFullscreenDisplayModes in EnumDisplaySettings' order, SDL_GetCurrentDisplayMode,
-// SDL_SetWindowFullscreenMode on SDL's fullscreen window of that handle (the mode of that size and depth at the
-// desktop's refresh rate where it has one, else the highest; null: back to the desktop's mode). TSdlWindow's off
-// Windows; compiled on Windows too.
+// rules): the primary display's SDL_GetFullscreenDisplayModes backwards, SDL_GetCurrentDisplayMode,
+// SDL_SetWindowFullscreenMode on SDL's fullscreen window of that handle (the mode of that size and depth at the rate
+// closest to the desktop's; null: back to the desktop's mode). TSdlWindow's on every system (issue #152).
 [[nodiscard]] bool SdlDisplayMode(unsigned int Index, TDisplayMode &Mode);
 [[nodiscard]] bool SdlDesktopMode(TDisplayMode &Mode);
 bool SdlSetFullscreenMode(TWindowHandle Window, const TDisplayMode *Mode);

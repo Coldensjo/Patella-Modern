@@ -264,8 +264,8 @@ surface function: TSurfaceVulkan::Request). Which one it asks follows the client
   watch ignores.
 Still Win32 (since issue #127 the only path is SDL3's; `Win32WindowSystem()` went with the MFC window): the devices' own windows and the main window's erase (PresentWindow.h; Windows-only by
 their nature: issue #52 is a Windows driver's leftover, issue #71 Windows' modal size loop). The fullscreen display
-mode is the platform's IWindow::SetFullscreenMode since issue #124 (on Windows still ChangeDisplaySettingsA;
-SDL_SetWindowFullscreenMode on the other systems). The engine's rectangles are TEdgeRects
+mode is the platform's IWindow::SetFullscreenMode since issue #124 (SDL_SetWindowFullscreenMode on every system since
+issue #152). The engine's rectangles are TEdgeRects
 (platform/Surface.h) since issue #126; the client area's rectangle starts at 0, 0 (only its size was ever read).
 
 ## How it works
@@ -317,10 +317,10 @@ width, height and depth once, with the same filter and frequency 0: on this mach
 both lists are the same 24 modes in the same order (a probe that asks both, build\logs\issue-20\display-modes-probe.log),
 so the graphics options show the same list and compare_files.py's next resolution is the same. The desktop's depth
 check (DirectDraw's GetDisplayMode, PROGRAM_ERROR 8 below 16 bits) is EnumDisplaySettings' current mode. Since issue
-#124 both are the platform's (IWindow::DisplayMode, DesktopMode): Win32's on Windows on both window paths (SDL3 lists
-one mode more here, the desktop's custom 5120x1440, and other refresh rates: notes/decisions.md, "#124"), and for the
-other systems SDL_GetFullscreenDisplayModes in EnumDisplaySettings' order (SDL's backwards, its four-byte formats as
-32 bits; platform/DisplayModeList.h) and SDL_GetCurrentDisplayMode.
+#124 both are the platform's (IWindow::DisplayMode, DesktopMode): since issue #152 on every system
+SDL_GetFullscreenDisplayModes backwards (its four-byte formats as 32 bits; platform/DisplayModeList.h) and
+SDL_GetCurrentDisplayMode. SDL's list may have one line more than Windows' (the desktop's own mode, where Windows does not
+enumerate it) and is sorted by size, which is not always Windows' order: deliberate differences, notes/decisions.md "#152".
 CanStretch (DirectDraw's four stretch and shrink capabilities, which set the default of "Don't stretch/shrink
 the Map") is true: Vulkan stretches on every device, and DirectDraw reports all four here too.
 

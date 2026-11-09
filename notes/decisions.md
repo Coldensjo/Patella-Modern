@@ -18229,6 +18229,89 @@ the known flake #161, the helper (an unchanged Tibia.exe that logs in as the tra
 for an established game connection while another agent's builds loaded the machine: run 1 in the orig session, TCP state 1, PatellaTest not
 started; run 2 in the patella session, TCP state 2, PatellaTest not logged in yet. #161 was thought to hit only the second live session.
 
+## #152: the display modes through SDL3 on Windows too (Patella-Modern issue #152, M8)
+
+The owner's choice (November 8, 2026), after #124 kept Win32's calls on Windows: one code path on both systems. Done by
+Claude Opus 5.5, November 9, 2026. TSdlWindow's DisplayMode, DesktopMode and SetFullscreenMode are SDL3's on every system
+(SdlDisplayMode, SdlDesktopMode, SdlSetFullscreenMode in platform/SdlPlatform.cpp); no EnumDisplaySettings or
+ChangeDisplaySettings call is left in src/. TWin32Window, the golden runner's, answers no display mode (the corpus asks
+none); the Linux golden stand-ins and win32_types.h's DEVMODEA went with the calls.
+
+### Why SDL3 reported 59.99 Hz (high for the mechanism; the number itself was not reproduced)
+
+- **SDL's refresh rate is not Windows' number.** SDL_windowsmodes.c (SDL 3.4.18) WIN_GetRefreshRate takes
+  dmDisplayFrequency, asks DXGI's IDXGIOutput::FindClosestMatchingMode for that size and rate in R8G8B8A8_UNORM, and keeps
+  **only the answer's RefreshRate**, without looking at the answer's size. SDL_FinalizeDisplayMode then rounds it to two
+  decimals (239997/1000 reads 240.00).
+- **A read-only probe on this machine (November 9; build\logs\issue-152\display-probe-host.log; the probe, which only lists
+  modes, is not committed)**: EnumDisplaySettings says 5120x1440 at 240 Hz and lists it, DXGI lists it at 239997/1000,
+  QueryDisplayConfig's signal is 239.997 Hz, and SDL's desktop mode reads 240.00. **59.99 did not appear: the machine is not
+  in #124's state**, when Windows' list had 24 lines and no 5120x1440 (today 27 lines, with it).
+- **The same mechanism gives #124's kind of answer when the size is not in DXGI's list.** Asking DXGI for 6000x1440 at 240 Hz
+  returns 3840x2160 at 60.000: another size's rate, which SDL would keep. So with the desktop's mode missing from DXGI's list,
+  as on #124's day, SDL reports some other mode's rate. Why the list differed that day (the monitor's state, its link, a
+  driver's custom mode) was not established.
+
+### Why a wrong rate cannot reach the display, and what was still wrong
+
+- **The float is never passed to Windows.** Each SDL mode carries its own DEVMODE from EnumDisplaySettingsW (WIN_GetDisplayMode),
+  and WIN_SetDisplayMode hands exactly that to ChangeDisplaySettingsExW. The probe printed both for all 106 of SDL's modes: each
+  entry's DEVMODE has its true Windows frequency (desktop: 240). So the mode set is always one Windows itself listed.
+- **The way back does not use a rate at all.** SDL's return to the desktop's mode is ChangeDisplaySettingsExW(name, NULL, NULL,
+  CDS_FULLSCREEN, NULL), Windows' saved settings, as the original's ChangeDisplaySettingsA(nullptr, 0). The registry says
+  5120x1440 at 240 Hz here.
+- **The choice among a size's rates did depend on SDL's numbers.** #124's rule took the desktop's exact rate, else the highest.
+  The same nominal rate differs from size to size (measured: 59.81, 59.95, 60.00, 60.02, 60.32 for "60 Hz"), so a 60 Hz desktop
+  would have gone to 240 Hz at most sizes. Now the closest to the desktop's rate, lower at equal distance
+  (platform/DisplayModeList.h ChooseFullscreenMode; the unit tests hold this machine's measured rates). The original left the rate
+  to Windows; SDL cannot (SDL_SetWindowFullscreenMode takes only one of its listed modes), so this is a deliberate difference.
+- **If SDL misreports again** (the desktop at 59.99 while Windows says 240), a size other than the desktop's would be set at about
+  60 Hz during fullscreen: a rate the monitor lists, and the display still returns to 240 Hz afterwards. The desktop's own size
+  matches exactly and keeps its true DEVMODE.
+
+### SDL can forget that it changed the mode (high: read from SDL's source; not reproduced)
+
+WIN_AddDisplay, on a WM_DISPLAYCHANGE outside SDL's own change (setting_display_mode false), resets the mode list and makes the
+desktop's entry current. SDL_SetDisplayModeForDisplay(display, NULL) would then see "already the desktop's" and do nothing, and
+the display would stay in the fullscreen mode until the client exits (Windows undoes a CDS_FULLSCREEN change then). It should
+take a display change during the fullscreen mode, such as a monitor plugged in or woken. So SdlSetFullscreenMode(null) detects it
+(the window has a fullscreen mode, SDL's current entry is the desktop's) and first gives SDL the desktop's own list entry; and
+SdlFrame.cpp's SetDisplayMode(1) returns to the desktop's mode through that call before it leaves fullscreen, so focus loss and
+closing take the same path as ExitDisplay. This path has not run: no available display can produce it.
+
+### Deliberate differences from the original (the owner's choice)
+
+- **One line more in Graphics Options, where Windows does not enumerate the desktop's mode.** SDL adds the current mode on purpose
+  ("in case it's a custom mode that doesn't enumerate"). On #124's day that was 5120x1440; today Windows lists it too and both
+  lists have the same 27 lines.
+- **The order is SDL's**, sizes rising. Windows' own list is not sorted: today 1440x900 comes last, after 5120x1440, and SDL has it
+  between 1366x768 and 1440x1080. Tibia.cfg stores the mode's numbers, not its line.
+- **A refresh rate is chosen by the client** (above).
+
+The reference recordings' frames are unaffected: `--test-display-modes` keeps answering from each recording's own list.
+
+### What was and was not checked
+
+Enumeration on the host, read-only. No program of this issue changed the host's display or took it fullscreen. The Sandbox's
+display has exactly one mode (1024x768 at "32 Hz"), so compare_rendering's fullscreen runs do go through
+SDL_SetWindowFullscreenMode but ask for the mode the display already has: no resolution or rate really changes there, and
+another size cannot be asked for (a probe found one list entry; build\logs\issue-152\sandbox-mode-change-probe.log).
+**A real mode change and the return from it on the owner's 240 Hz monitor have not been run.** To try it at the PC: Options,
+Graphics, Fullscreen on with another resolution than the desktop's, then Alt-Tab or back out to windowed, and read Windows' Settings,
+Display, Advanced display: it should say 5120x1440 at 240 Hz again.
+
+### A tool fixed on the way
+
+tools/testserver.py refused every private copy while a server ran from the master (data\\log\\lag.log changes every few seconds),
+though no copy has data\\log. state_changes no longer counts that folder.
+
+### Checks (logs in build\\logs\\issue-152)
+
+Golden 15,739,165 + 1,576,875 = 17,316,040, 0 failures, no compiler warnings on windows-x64, windows-x64-debug, windows-x64-asan,
+linux-x64-gcc, linux-x64-clang; windows-x64-gcc 14/14. Reference compare: every session matches, its fixed mode lists included.
+compare_rendering (windowed and fullscreen, Sandbox, GPU and CPU driver): all scenes identical, the display mode 1024x768x32 before
+and after each run. compare_traffic (Sandbox): no differences. tidy_ci baseline 3, 0 new; banned_calls and clang-format clean.
+
 ## #159: an empty clipboard text and the out-of-memory error's words as in the original (Patella-Modern issue #159, M8)
 
 Done by Claude Opus 5.5, November 9, 2026 (branch issue-159). The owner's choice of November 8, after #124 and #127: both

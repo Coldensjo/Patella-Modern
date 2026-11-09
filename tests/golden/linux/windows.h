@@ -169,8 +169,6 @@ BOOL EmptyClipboard();
 HANDLE GetClipboardData(UINT Format);
 HANDLE SetClipboardData(UINT Format, HANDLE Memory);
 BOOL IsClipboardFormatAvailable(UINT Format);
-BOOL EnumDisplaySettingsA(LPCSTR Device, DWORD Index, DEVMODEA *Mode);
-LONG ChangeDisplaySettingsA(DEVMODEA *Mode, DWORD Flags);
 SHORT GetKeyState(int Key);
 SHORT GetAsyncKeyState(int Key);
 HWND GetForegroundWindow();
@@ -191,8 +189,6 @@ HINSTANCE ShellExecuteA(HWND Window, LPCSTR Operation, LPCSTR File, LPCSTR Param
 #define GetModuleFileName GetModuleFileNameA
 #define GetWindowText GetWindowTextA
 #define GetClassName GetClassNameA
-#define EnumDisplaySettings EnumDisplaySettingsA
-#define ChangeDisplaySettings ChangeDisplaySettingsA
 #define ShellExecute ShellExecuteA
 
 // A structured exception of RaiseException (and the tests' __try/__except, in their Linux forms): a C++

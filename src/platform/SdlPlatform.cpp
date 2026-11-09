@@ -1,10 +1,11 @@
 // SdlPlatform.cpp: the SDL3 implementations of the platform's desktop and, since #159 in SdlClipboard.cpp, clipboard
 // (Patella-Modern issue #124; platform/SdlPlatform.h). Not part of the original source: each function does with SDL3
 // what Win32Platform.cpp's TWin32Window does with Win32's calls, for the SDL3 window's client (SdlFrame.cpp). The
-// display's modes are SDL3's off Windows only (TSdlWindow, below).
+// display's modes are SDL3's on every system since issue #152 (TSdlWindow, below).
 
 #include "platform/SdlPlatform.h"
 
+#include "log/Log.h"
 #include "platform/DisplayModeList.h"
 #include "platform/Platform.h"
 #include "types/Cp1252.h"
@@ -141,8 +142,8 @@ int Millihertz(float Refresh)
 	return static_cast<int>(std::lround(static_cast<double>(Refresh) * 1000.0));
 }
 
-// The primary display's fullscreen modes, SDL's list (EnumDisplaySettingsA(nullptr, ...)'s display: the primary one).
-// Null where SDL's video subsystem is not started or the list cannot be read; SDL_free it.
+// The primary display's fullscreen modes, SDL's list (the original asked the primary display too). Null where SDL's
+// video subsystem is not started or the list cannot be read; SDL_free it.
 SDL_DisplayMode **FullscreenModes(int &Count)
 {
 	Count = 0;
@@ -156,7 +157,7 @@ SDL_DisplayMode **FullscreenModes(int &Count)
 
 } // namespace
 
-// EnumDisplaySettingsA(nullptr, Index) in SDL3: SDL's list in Windows' order (DisplayModeList.h).
+// The display's Index-th mode, SDL's list backwards (DisplayModeList.h).
 bool SdlDisplayMode(unsigned int Index, TDisplayMode &Mode)
 {
 	int Count = 0;
@@ -171,7 +172,7 @@ bool SdlDisplayMode(unsigned int Index, TDisplayMode &Mode)
 	return Found;
 }
 
-// EnumDisplaySettingsA(nullptr, ENUM_CURRENT_SETTINGS) in SDL3: the display's mode now.
+// The display's mode now.
 bool SdlDesktopMode(TDisplayMode &Mode)
 {
 	if (!VideoStarted())
@@ -183,22 +184,56 @@ bool SdlDesktopMode(TDisplayMode &Mode)
 	return true;
 }
 
-// ChangeDisplaySettingsA in SDL3, on SDL's fullscreen window (SdlFrame.cpp SetDisplayMode
-// made it a fullscreen desktop window): SDL_SetWindowFullscreenMode with the primary display's mode of that size and
-// depth (DisplayModeList.h ChooseFullscreenMode), which makes it an exclusive fullscreen window and SDL switch the
-// display; null back to the fullscreen desktop window and the desktop's mode. False where SDL has no window of that
-// handle (with a mode), no such mode, or the display did not take it.
+namespace {
+
+// Back to the desktop's mode, with Window still fullscreen (null: the fullscreen desktop window). SDL decides whether
+// the display needs changing from its own record of the current mode, and a display change that reaches SDL outside its
+// own mode change (a monitor plugged in during the fullscreen mode) resets that record to the desktop's mode
+// (SDL_windowsmodes.c WIN_AddDisplay: SDL_ResetFullscreenDisplayModes), after which SDL would leave the display in the
+// fullscreen mode. Issue #152: with the window still in a mode of its own and SDL's record the desktop's, SDL is given
+// the desktop's own entry of its list first, so that the change back really happens (SDL_SetDisplayModeForDisplay with
+// that entry, then with none: ChangeDisplaySettingsExW with the desktop's mode, then with no mode, Windows' own return
+// to the saved mode, the same as the original's ChangeDisplaySettingsA(nullptr, 0)).
+bool ReturnToDesktopMode(SDL_Window *Window)
+{
+	const SDL_DisplayID Display = SDL_GetPrimaryDisplay();
+	const SDL_DisplayMode *const Desktop = SDL_GetDesktopDisplayMode(Display);
+	if (Desktop != nullptr && SDL_GetWindowFullscreenMode(Window) != nullptr && SDL_GetCurrentDisplayMode(Display) == Desktop) {
+		int Count = 0;
+		SDL_DisplayMode **const Modes = FullscreenModes(Count);
+		for (int i = 0; Modes != nullptr && i < Count; i++) {
+			if (Modes[i]->w == Desktop->w && Modes[i]->h == Desktop->h && Modes[i]->format == Desktop->format
+				&& Modes[i]->refresh_rate == Desktop->refresh_rate) {
+				const SDL_DisplayMode Entry = *Modes[i];
+				log::Warn("SDL lost the fullscreen mode (a display change during it): setting the desktop's mode again");
+				SDL_SetWindowFullscreenMode(Window, &Entry);
+				SDL_SyncWindow(Window);
+				break;
+			}
+		}
+		SDL_free(static_cast<void *>(Modes));
+	}
+	const bool Done = SDL_SetWindowFullscreenMode(Window, nullptr);
+	SDL_SyncWindow(Window);
+	return Done;
+}
+
+} // namespace
+
+// The display's mode for SDL's fullscreen window (SdlFrame.cpp SetDisplayMode made it a fullscreen desktop window):
+// SDL_SetWindowFullscreenMode with the primary display's mode of that size and depth (DisplayModeList.h
+// ChooseFullscreenMode), which makes it an exclusive fullscreen window and SDL switch the display; null back to the
+// fullscreen desktop window and the desktop's mode. False where SDL has no window of that handle (with a mode), no such
+// mode, or the display did not take it. SDL's refresh_rate is only compared here: on Windows the mode set is the entry's
+// own Windows DEVMODE (notes/decisions.md, "#152").
 bool SdlSetFullscreenMode(TWindowHandle Window, const TDisplayMode *Mode)
 {
 	SDL_Window *const Found = SdlWindowOf(Window);
 	// A window SDL no longer has (destroyed: SDL gave the display its desktop mode back then) needs nothing undone.
 	if (Found == nullptr)
 		return Mode == nullptr;
-	if (Mode == nullptr) {
-		const bool Done = SDL_SetWindowFullscreenMode(Found, nullptr);
-		SDL_SyncWindow(Found);
-		return Done;
-	}
+	if (Mode == nullptr)
+		return ReturnToDesktopMode(Found);
 	int ModeCount = 0;
 	SDL_DisplayMode **const Modes = FullscreenModes(ModeCount);
 	if (Modes == nullptr)
@@ -227,35 +262,20 @@ bool SdlSetFullscreenMode(TWindowHandle Window, const TDisplayMode *Mode)
 	return Done;
 }
 
-// On Windows the display's modes stay Win32's (notes/decisions.md, "#124"): SDL3 lists the desktop's current mode
-// where Windows does not enumerate it (a custom mode: the Graphics Options dialog would gain a line) and reports other
-// refresh rates than Windows (so the mode it sets could differ from ChangeDisplaySettingsA's choice). SDL3's above are
-// the other systems'.
+// The display's modes are SDL3's on every system since issue #152 (notes/decisions.md, "#152").
 bool TSdlWindow::DisplayMode(unsigned int Index, TDisplayMode &Mode)
 {
-#if defined(_WIN32)
-	return Win32Window().DisplayMode(Index, Mode);
-#else
 	return SdlDisplayMode(Index, Mode);
-#endif
 }
 
 bool TSdlWindow::DesktopMode(TDisplayMode &Mode)
 {
-#if defined(_WIN32)
-	return Win32Window().DesktopMode(Mode);
-#else
 	return SdlDesktopMode(Mode);
-#endif
 }
 
 bool TSdlWindow::SetFullscreenMode(TWindowHandle Window, const TDisplayMode *Mode)
 {
-#if defined(_WIN32)
-	return Win32Window().SetFullscreenMode(Window, Mode);
-#else
 	return SdlSetFullscreenMode(Window, Mode);
-#endif
 }
 
 namespace {
