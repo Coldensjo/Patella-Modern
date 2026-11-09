@@ -3,7 +3,7 @@
 // libraries without std::format and tests/unit's stand-in build. Patella-Modern issue #57. Not part of the original.
 //
 // After this header PATELLA_HAS_FORMAT is 1 where the library has std::format (the product presets: MSVC
-// /std:c++latest, GCC 16, Clang 22) and 0 elsewhere (a C++17 library) or with PATELLA_FORMAT_STANDIN, which
+// /std:c++latest, GCC 16, Clang 23) and 0 elsewhere (a C++17 library) or with PATELLA_FORMAT_STANDIN, which
 // tests/unit's stand-in build defines for a whole target (never for one file), so that the stand-in runs the
 // tests std::format passes, on the same compiler.
 //

@@ -129,7 +129,6 @@ template <class R, class... A> static R CallI(uint32, const void *, A...)
 
 static std::map<const void *, std::string> Roles[2];
 static std::map<void *, std::string> Kinds[2];
-static void *OurElementVtable, *OurWindowVtable; // (the error round's image-side objects)
 static std::string KindOf(int s, const void *Object)
 {
 	auto K = Kinds[s].find(VtableOf(Object));
@@ -1593,10 +1592,8 @@ static void FindVtables()
 	Receiver[OURS] = new TDEReceiver;
 	TWindow *W = new TWindow;
 	Kinds[OURS][VtableOf(W)] = "Window";
-	OurWindowVtable = VtableOf(W);
 	DeleteComponent(W);
 	TElement *E = new TElement;
-	OurElementVtable = VtableOf(E);
 	DeleteComponent(E);
 	for (int s = 0; s < 2; s++)
 		Kinds[s][VtableOf(Receiver[OURS])] = "Receiver";

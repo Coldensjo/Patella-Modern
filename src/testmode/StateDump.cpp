@@ -107,7 +107,7 @@ void WriteObjects(TJsonWriter &Json, const std::vector<TObjectValue> &Objects)
 template <class TList> void WriteInts(TJsonWriter &Json, const TList &Values)
 {
 	Json.BeginArray();
-	for (auto Value : Values)
+	for (const auto Value : Values)
 		Json.Int(Value);
 	Json.EndArray();
 }
@@ -272,7 +272,7 @@ std::string JsonString(std::string_view Latin1)
 	static constexpr std::string_view Hex = "0123456789abcdef";
 	std::string Out = "\"";
 	for (const char c : Latin1) {
-		auto Byte = static_cast<unsigned char>(c);
+		const auto Byte = static_cast<unsigned char>(c);
 		switch (Byte) {
 		case '"': Out += "\\\""; break;
 		case '\\': Out += "\\\\"; break;

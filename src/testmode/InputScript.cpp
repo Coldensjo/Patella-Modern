@@ -306,7 +306,7 @@ bool TParser::String(std::string_view Word, std::string *Value)
 	std::string Latin1;
 	std::size_t i = 0;
 	while (i < Word.size()) {
-		auto Byte = static_cast<unsigned char>(Word[i]);
+		const auto Byte = static_cast<unsigned char>(Word[i]);
 		if (Byte == '\\') {
 			if (i + 1 >= Word.size())
 				return Fail("the string ends with a backslash");
@@ -620,12 +620,12 @@ bool FindKey(std::string_view Name, TKeyInfo *Info)
 	if (Name.size() == 1) {
 		const char c = Lower(Name[0]);
 		if (c >= 'a' && c <= 'z') {
-			auto Index = static_cast<std::size_t>(c - 'a');
+			const auto Index = static_cast<std::size_t>(c - 'a');
 			*Info = TKeyInfo{static_cast<std::uint32_t>('A' + Index), LetterScan.at(Index), false};
 			return true;
 		}
 		if (c >= '0' && c <= '9') {
-			auto Index = static_cast<std::size_t>(c - '0');
+			const auto Index = static_cast<std::size_t>(c - '0');
 			*Info = TKeyInfo{static_cast<std::uint32_t>('0' + Index), DigitScan.at(Index), false};
 			return true;
 		}
@@ -675,18 +675,18 @@ int KeyCharacter(std::uint32_t Key, std::uint32_t Modifiers)
 
 std::string Describe(const TInputEvent &Event)
 {
-	auto Hex = [](std::uint32_t Value) {
+	const auto Hex = [](std::uint32_t Value) {
 		std::array<char, 8> Digits{};
 		auto [End, Error] = std::to_chars(Digits.data(), Digits.data() + Digits.size(), Value, 16);
 		const std::string Text = Error == std::errc() ? std::string(Digits.data(), End) : std::string("?");
 		return (Text.size() < 2 ? "0x0" : "0x") + Text;
 	};
-	auto Hex64 = [](std::uint64_t Value) {
+	const auto Hex64 = [](std::uint64_t Value) {
 		std::array<char, 24> Digits{};
 		auto [End, Error] = std::to_chars(Digits.data(), Digits.data() + Digits.size(), Value, 16);
 		return "0x" + (Error == std::errc() ? std::string(Digits.data(), End) : std::string("?"));
 	};
-	auto Point = [&Event] {
+	const auto Point = [&Event] {
 		return std::string(Event.X.FromEnd ? "R-" : "") + std::to_string(Event.X.Value) + " "
 			+ (Event.Y.FromEnd ? "B-" : "") + std::to_string(Event.Y.Value);
 	};

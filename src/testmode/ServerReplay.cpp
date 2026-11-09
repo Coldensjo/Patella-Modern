@@ -99,7 +99,7 @@ TReplayParseResult ParseReplay(std::string_view Text)
 	TReplayParseResult Result;
 	int LineNumber = 0;
 	bool HeaderSeen = false;
-	auto Fail = [&Result, &LineNumber](std::string Message) {
+	const auto Fail = [&Result, &LineNumber](std::string Message) {
 		Result.Ok = false;
 		Result.ErrorLine = LineNumber;
 		Result.Error = std::move(Message);
@@ -196,7 +196,7 @@ int TServerReplay::Open(std::string_view Kind)
 
 void TServerReplay::Settle(int Index)
 {
-	auto i = static_cast<std::size_t>(Index);
+	const auto i = static_cast<std::size_t>(Index);
 	const std::vector<TReplayEvent> &Events = Recorded[i].Events;
 	while (Next[i] < Events.size()) {
 		const TReplayKind Kind = Events[Next[i]].Kind;
@@ -241,7 +241,7 @@ bool TServerReplay::NextTime(int Index, std::uint32_t *Time)
 	if (Index < 0 || static_cast<std::size_t>(Index) >= Recorded.size())
 		return false;
 	Settle(Index);
-	auto i = static_cast<std::size_t>(Index);
+	const auto i = static_cast<std::size_t>(Index);
 	if (Next[i] >= Recorded[i].Events.size())
 		return false;
 	const TReplayEvent &Event = Recorded[i].Events[Next[i]];
@@ -256,7 +256,7 @@ const TReplayEvent *TServerReplay::Due(int Index, std::uint32_t Elapsed)
 	std::uint32_t Time = 0;
 	if (!NextTime(Index, &Time) || Time > Elapsed)
 		return nullptr;
-	auto i = static_cast<std::size_t>(Index);
+	const auto i = static_cast<std::size_t>(Index);
 	return &Recorded[i].Events[Next[i]];
 }
 
@@ -264,7 +264,7 @@ void TServerReplay::Take(int Index)
 {
 	if (Index < 0 || static_cast<std::size_t>(Index) >= Recorded.size())
 		return;
-	auto i = static_cast<std::size_t>(Index);
+	const auto i = static_cast<std::size_t>(Index);
 	if (Next[i] < Recorded[i].Events.size())
 		Next[i]++;
 	Settle(Index);
@@ -274,7 +274,7 @@ bool TServerReplay::Finished(int Index) const
 {
 	if (Index < 0 || static_cast<std::size_t>(Index) >= Recorded.size())
 		return true;
-	auto i = static_cast<std::size_t>(Index);
+	const auto i = static_cast<std::size_t>(Index);
 	return Next[i] >= Recorded[i].Events.size();
 }
 

@@ -52,7 +52,7 @@ TDisplayModesParseResult ParseDisplayModes(std::string_view Text)
 	TDisplayModesParseResult Result;
 	int LineNumber = 0;
 	bool HeaderSeen = false;
-	auto Fail = [&Result, &LineNumber](std::string Message) {
+	const auto Fail = [&Result, &LineNumber](std::string Message) {
 		Result.Ok = false;
 		Result.Modes.clear();
 		Result.ErrorLine = LineNumber;

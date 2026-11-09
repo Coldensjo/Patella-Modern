@@ -299,7 +299,6 @@ static void *ElementVtable, *ScrollVtable, *LabelVtable;
 // In the error round the image side's test objects call the image's TElement
 // or TWindow code for what they do not override (imageeh.h, ImageSideVtable).
 static TErrorRound *ContentRound;
-static void *OurElementBase, *OurWindowBase;
 static void *TestVtable(void *Ours)
 {
 	if (ContentRound == NULL || Side != ORIGINAL)
@@ -2907,10 +2906,8 @@ void TestContentWindows()
 	memcpy(SavedCounts, ActionCount, sizeof(SavedCounts));
 	{
 		TWindow *W = new TWindow;
-		OurWindowBase = VtableOf(W);
 		DeleteComponent(W);
 		TElement *E = new TElement;
-		OurElementBase = VtableOf(E);
 		DeleteComponent(E);
 	}
 	TestContentWindowsErrors();

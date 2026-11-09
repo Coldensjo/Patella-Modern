@@ -206,8 +206,8 @@ private:
 
 	static std::string Describe(std::string_view Pattern)
 	{
-		auto Name = [](char c) { return c == 'f' ? "yes or no" : c == 't' ? "a quoted text"
-																		  : "a number"; };
+		const auto Name = [](char c) { return c == 'f' ? "yes or no" : c == 't' ? "a quoted text"
+																				: "a number"; };
 		if (Pattern.starts_with('*'))
 			return std::string("a list of ") + (Pattern[1] == 't' ? "quoted texts" : "numbers");
 		std::string Result;

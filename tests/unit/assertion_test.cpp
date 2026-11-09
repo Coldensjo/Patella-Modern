@@ -86,7 +86,7 @@ TEST_CASE("assertion.h selects the expected source location")
 #if defined(PATELLA_SOURCE_LOCATION_STANDIN)
 	CHECK(PATELLA_HAS_SOURCE_LOCATION == 0);
 #else
-	// Every product preset has std::source_location (MSVC /std:c++latest, GCC 16, Clang 22).
+	// Every product preset has std::source_location (MSVC /std:c++latest, GCC 16, Clang 23).
 	CHECK(PATELLA_HAS_SOURCE_LOCATION == 1);
 #endif
 	const int Line = __LINE__ + 1;

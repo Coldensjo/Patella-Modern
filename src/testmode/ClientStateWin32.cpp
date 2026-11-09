@@ -218,7 +218,7 @@ void SkinRect(std::vector<TProbeSkin> &Skin, const char *Path, const TRect &Rect
 // (client_state.py's LAYOUT_FIELDS names), by its class.
 void Members(TProbeComponent &Out, const TComponent *Component)
 {
-	auto Add = [&Out](const std::string &Path, std::int64_t Value) { Out.Members.push_back(TProbeMember{Path, Value}); };
+	const auto Add = [&Out](const std::string &Path, std::int64_t Value) { Out.Members.push_back(TProbeMember{Path, Value}); };
 	Add("TComponent.Parent", Address(Component->Parent));
 	if (const auto *Window = dynamic_cast<const TSubWindow *>(Component))
 		Add("TSubWindow.CloseButton", Address(Window->CloseButton));

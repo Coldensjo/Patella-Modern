@@ -3,7 +3,7 @@
 // build. Not part of the original source.
 //
 // After this header PATELLA_HAS_EXPECTED is 1 where the library has std::expected (every product preset: MSVC
-// /std:c++latest, GCC 16, Clang 22) and 0 elsewhere (a C++17 library) or with PATELLA_EXPECTED_STANDIN, which
+// /std:c++latest, GCC 16, Clang 23) and 0 elsewhere (a C++17 library) or with PATELLA_EXPECTED_STANDIN, which
 // tests/unit's stand-in build defines for a whole target (never for one file: the two are different types), so that
 // the stand-in runs the tests std::expected passes, on the same compiler.
 //
