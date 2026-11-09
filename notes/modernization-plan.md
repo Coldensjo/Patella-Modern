@@ -863,6 +863,9 @@ x64 and Linux x64 against the reference recordings; the Vulkan engine passes the
   Done in #136 (notes/decisions.md, "#136"): cmake/Reproducible.cmake, `tools/repro_check.py` (two Release builds in different
   folders compared byte for byte: Patella and PatellaTest of windows-x64, linux-x64-gcc and linux-x64-clang are identical; the
   PDBs are not), `CHANGELOG.md`, `notes/release-checklist.md` (with #135's packages step).
+- The Linux-only client sources in the hosted clang-tidy job.
+  Done in #160 (notes/decisions.md, "#160"): src/platform/*Linux*.cpp through the never-built patella_tidy_linux_client, and
+  `tools/tidy.py --require`; the findings fixed or suppressed with their reasons, the baseline still 3.
 
 ---
 
