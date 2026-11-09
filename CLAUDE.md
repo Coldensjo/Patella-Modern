@@ -141,6 +141,16 @@ in windows-x64 and since issue #91 in linux-x64-gcc and linux-x64-clang: build.p
 `/golden` of the image (PATELLA_GOLDEN_DIR of the environment, else the repository's `build/golden`; `none`: no
 corpus) and passes the corpus manifest's time zone as TZ (issue #93: UTC0; Windows' zone for a corpus without one). Its expected result: 15,739,165 checks replayed + 1,576,875 retired = 17,316,040, 0 failures. Details: `notes/reconstruction.md`, "Checking", "The golden corpus".
 
+Reproducible builds (issue #136, M9; cmake/Reproducible.cmake, notes/decisions.md "#136", notes/release-checklist.md): `python -I
+tools/repro_check.py <preset> ...` (windows-x64, linux-x64-gcc, linux-x64-clang) builds the client twice, Release, from two
+copies of the repository in folders of different names and depths, and compares: Patella and PatellaTest are byte-identical on
+each; it names the differing files, offsets and sections when they are not (`--show-strings`, local output, adds the text
+there; `--keep` leaves the trees). The PDBs differ between builds and are reported, not required (they record the build's
+folders; the exe keeps the PDB's name and a GUID). /Brepro and /d1trimfile on MSVC, -ffile-prefix-map on GCC and Clang, Release
+only; the Clang sanitizer preset also makes its source paths relative (cmake/RelativeSource.sh) and keeps only the file
+name in UBSan's reports. Its output and hashes of the local binaries stay local (they embed Tibia.exe's pictures). A release
+is notes/release-checklist.md's steps; CHANGELOG.md is the plain-words list of what changed.
+
 The fuzz targets (issue #132, M9; tests/fuzz, notes/reconstruction.md "Fuzzing"): the packet parser (fuzz_network:
 TNetwork's frames; fuzz_packets: ReceivePackets and Communication.cpp in the golden Communication test's world) and the
 loaders (fuzz_settings: Patella.ini; fuzz_tibia_cfg: the import of Tibia.cfg; fuzz_map, fuzz_dat, fuzz_sprites,

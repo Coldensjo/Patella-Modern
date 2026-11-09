@@ -18379,6 +18379,85 @@ branches merge). No private copy has data\log, and a server running from the mas
 data\log\lag.log every few seconds, so compare_traffic could not make its private server. data\map, data\usr and the rest still
 count, so a master caught half way through a save is still refused.
 
+## #136: reproducible builds, a changelog, a release checklist (Patella-Modern issue #136, M9)
+
+### What the two builds are
+
+`tools/repro_check.py <preset>` copies the repository's files (git's list: tracked and untracked not ignored) into two folders,
+`<run>/<preset>/a` and `<run>/<preset>/folder of another length/b` (different names, depths and a space), configures and builds
+each through that copy's tools/build.py (Release, Patella and PatellaTest), and compares the binaries byte for byte. Source folder,
+build folder and _deps all differ between the two. A Linux preset runs inside the image with the two trees under
+the bind-mounted build/<preset> (the image's own /work is one fixed path for every build and would not test folders at all;
+a tmpfs needs more memory than the Docker VM reliably has). The two builds also differ in time of day, one following the other.
+
+### What differed, measured before changing anything
+
+Without any change (main 4d5e55f), every pair differed. windows-x64: different sizes, the headers' time stamp and the absolute paths of
+__FILE__ and the PDB. linux-x64-gcc: equal sizes, 11,645 differing ranges, every absolute path of __FILE__ and std::source_location, and the
+layout the paths moved. linux-x64-clang: 115,779 ranges, the same and the two items under Clang below.
+
+### What changed (cmake/Reproducible.cmake, the only place the settings are; included from the root CMakeLists.txt after the capture DLL's return)
+
+- **MSVC, Release:** `/Brepro` (compiler and linker), `/d1trimfile:<source folder>/` (compiler), `/PDBALTPATH:%_PDB%` (linker). The
+  PE's debug directory then names `Patella.pdb` without its folder, with a GUID that /Brepro derives from the content.
+- `/d1trimfile` is an undocumented compiler option and a deliberate choice: the documented `/experimental:deterministic` with
+  `/pathmap:` made the builds identical too, but the link silently lost the objects' debug information. Measured with dbghelp on
+  the linked exe: with `/pathmap`, WinMain is a public symbol of size 0 with no line, and 10,179 symbols in all; with `/d1trimfile` as without
+  either, WinMain has size 76 and `src/platform/EntryWin32.cpp` line 12, 17,227 symbols (17,229 before, two from the disabled PCH).
+  `/experimental:deterministic` alone was not needed either, so it is not used.
+- `/d1trimfile` does not reach `__FILE__` in a source compiled with a precompiled header (a small `/Yu` test). SDL3 compiles with one, so
+  cmake/Sdl3.cmake sets CMAKE_DISABLE_PRECOMPILE_HEADERS for it with MSVC; SDL_assert's file name was what remained (three strings).
+  The flag is spelled with forward slashes, because a trailing backslash escapes the list separator where Sdl3.cmake copies the
+  option list (it swallowed `/utf-8` for SDL).
+- **GCC and Clang, Release:** `-ffile-prefix-map=<source>=.`, on every target through add_compile_options, FetchContent's too. A build
+  folder outside the source folder gets its own map; the presets' is inside.
+- **Clang's sanitizers (linux-x64-clang), two things no prefix map reaches.** ASan records each source's module name as the path given
+  on the command line, so that path must not depend on the folder: cmake/RelativeSource.sh, the compiler launcher, gives `-c` a path
+  relative to the build folder (Ninja's working directory; `../../src/Map.cpp`). UBSan's check locations carry a header's absolute
+  path: `-fsanitize-undefined-strip-path-components=-1` (Release) keeps only the file's name, with its line, in a report. These
+  are the only changes to the sanitizer settings; they do not change what is checked.
+
+Release only, except the launcher, which has no effect on what a debugger sees: Debug keeps absolute paths, so a debugger finds the
+sources. `-fno-delete-null-pointer-checks` and the rest of Hardening.cmake and Warnings.cmake are unchanged.
+
+Consequence for readers of a message: `__FILE__` and std::source_location now give `src/...` or `./src/...` (MSVC, GCC) in Release. The client
+shows only the file's name (patella::ErrorOrigin), so an error text does not change, and golden compares the error paths by
+outcome only. tests/unit's checks use `ends_with`.
+
+### What is and is not identical
+
+| Pair (two builds, different folders) | Identical |
+| --- | --- |
+| windows-x64 Patella.exe, PatellaTest.exe (Release) | yes |
+| linux-x64-gcc Patella, PatellaTest (Release) | yes |
+| linux-x64-clang Patella, PatellaTest (Release, ASan + UBSan) | yes |
+| windows-x64 Patella.pdb, PatellaTest.pdb | **no** |
+| anything else (Debug, windows-x64-asan, windows-x64-gcc, unit tests, static libraries, Linux with -g) | not compared |
+
+The PDBs do not match and that is accepted. A PDB records the absolute paths of the objects and of the compile PDBs, which the
+linker takes from the build folder (the two differ in size by the length of the folder's name), and those are not removed by the options
+above. The executables keep no path and a GUID that is equal in both, so a PDB goes with its executable by name and GUID as ever.
+Measured: a build's Patella.exe with the PDB of the other build, copied next to it, loads in dbghelp with WinMain's source and line (17,235 symbols).
+The executables are what a user runs and what a release would publish.
+
+The local binaries embed pictures of the local Tibia.exe (cmake/Resources.cmake), so the tool prints offsets and sections and never bytes
+or hashes, and its output stays local; the hosted CI's placeholder builds would compare the same way (the tool takes placeholders where
+there is no Tibia.exe). The check is not in the CI: a release gate (notes/release-checklist.md), about 20 minutes for the three presets.
+
+### The packages (issue #135, merged before this one)
+
+The presets package-windows-x64 and package-linux-x64 inherit windows-x64 and linux-x64-gcc, so the settings above reach them (cmake/Reproducible.cmake is
+included before cmake/Package.cmake). Measured on two builds each, from two exports without Tibia.exe (their folders different; each Linux build is
+at the image's fixed /work, as a real one is): **every file in the archive is the same** (Patella.exe, vulkan_lvp.dll, the licences; bin/Patella and the rest in the
+tarball), and the **archives themselves differ**, only because a ZIP and a tar store each file's time (the executable's and the _deps licences' dates are of
+their own build). The AppImage differs too; it was not unpacked, its squashfs stores times as well. A package's own reproducibility is not required here;
+CPack would have to set the times (SOURCE_DATE_EPOCH for tar/squashfs, the ZIP generator has none), and it is not done. The packages' version (`PATELLA_PACKAGE_VERSION`,
+notes/release-checklist.md) was tested on Windows: configuring once with `-DPATELLA_PACKAGE_VERSION=1.2.3` then the workflow produces Patella-Modern-1.2.3-windows-x64.zip.
+
+### Also
+
+CHANGELOG.md (plain words, the last release's section still to come, no version released) and notes/release-checklist.md (the gates, the check above, the changelog, the packages of #135, the tag: the owner's).
+
 ## #135: the packages (Patella-Modern issue #135, M9)
 
 Plan section 7, M9 ("Packages"), D4 (a zip for Windows, an AppImage for Linux), D17 (no CipSoft file in any package). cmake/Package.cmake, cmake/PackagePreBuild.cmake, tools/package_check.py, packaging/, the presets package-windows-x64 and package-linux-x64, the jobs package-windows and package-linux of hosted.yml.

@@ -293,6 +293,12 @@ protocol's unpadded RSA is documented as part of the protocol.
 The 1986 regular-expression code compiles as C17 with zero warnings under strict settings, and a small class owns
 each compiled pattern so nothing is freed by hand.
 
+**Builds anyone can check (#136).**
+Build the same code twice, even in different folders, and the programs come out identical, byte for byte. Times of day and
+the folders the code was built in used to end up inside the program; they no longer do, on Windows and on Linux, and a tool
+checks it. *Why it matters:* anyone can confirm that a published program really came from the published code, which is the
+last thing a release needs before packaging. The project also has a plain-words changelog and a release checklist now.
+
 **The original's out-of-bounds reads closed (#72, #86).**
 A malformed packet or an over-long name in the original made the program read memory past the end of its data.
 These reads are now bounded. This is a deliberate difference, recorded in the tests.

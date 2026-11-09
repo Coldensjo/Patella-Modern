@@ -71,6 +71,11 @@ function(patella_add_sdl3)
 	set(SDL_X11_XTEST OFF)
 	# The client's CRT: the static one (cmake/WindowsX64.cmake); CMake gives it to the targets SDL makes here.
 	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+	# MSVC's /d1trimfile (cmake/Reproducible.cmake, issue #136) does not reach __FILE__ in a source compiled with a precompiled
+	# header, which SDL_assert's file name is.
+	if(MSVC)
+		set(CMAKE_DISABLE_PRECOMPILE_HEADERS ON)
+	endif()
 	FetchContent_MakeAvailable(patella_sdl3)
 endfunction()
 patella_add_sdl3()
