@@ -57,6 +57,25 @@ else next to `Patella.exe`, else in the folder of `--data <folder>` (which comes
 a `Patella.ini`; `Patella.ini` stays next to the data. See "Building" in
 [notes/reconstruction.md](notes/reconstruction.md) for the details and for the tests.
 
+The buttons that open a web page can go somewhere else (issue #169): add these keys to `Patella.ini`, one per line as
+`Key=https://your.address/`. The client never writes them, and without them every button goes where it always did.
+
+| Key | Button |
+| --- | --- |
+| `LinkWebsite` | Info: "www.tibia.com" |
+| `LinkManual` | Help: "Manual" |
+| `LinkFAQ` | Help: "FAQ" |
+| `LinkOptionsHelp` | General Options: "Help" |
+| `LinkGraphicsHelp` | Graphics Options and Advanced Graphics: "Help" |
+| `LinkConsoleHelp` | Console Options: "Help" |
+| `LinkNetworkHelp` | Network Options: "Help" |
+| `LinkAccount` | Title screen: "Access Account" |
+| `LinkSignup` | Login: "Create Account" |
+| `LinkWebsiteLabel` | The caption of Info's button, in place of "www.tibia.com"; cut to fit the button |
+
+An address must start with `http://` or `https://` and hold no spaces or control characters. Any other value is ignored
+with a warning in the log, and the button keeps its original address, so a setting can never start a program.
+
 On Linux there is no client yet: the presets `linux-x64-gcc` and `linux-x64-clang` build `patella_core`, the
 library of the code that is already portable (big numbers and RSA, XTEA, the string helpers and packet
 buffers, the regexp, the container templates), and run its unit tests. They need no CipSoft file. On Linux,

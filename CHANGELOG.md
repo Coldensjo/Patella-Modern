@@ -47,6 +47,10 @@ No version has been released yet. This section is the state of the main branch.
 - A developer log writes errors, and if you ask for it more detail, to standard error and to a file you name (#77): the
   `LogLevel` and `LogFile` keys of `Patella.ini`.
 
+- The buttons that open a web page (Info, Help, the options' Help, Access Account, Create Account) can be pointed at
+  other addresses, and Info's button given another caption, with new keys in `Patella.ini` (#169). Only `http://` and
+  `https://` addresses are accepted. Without the keys every button goes where it always did.
+
 ### Deliberately different from the 2006 client
 
 - The crash report is gone: the client no longer writes `error.txt` or sends it to a game server (#74). An error shows its

@@ -18896,3 +18896,44 @@ tools/package_check.py reads only a package's RT_CURSOR, RT_ICON and RT_BITMAP r
 ### Checks
 
 Logs in build/logs/issue-166 (local). windows-x64: 32 of 32, no compiler warning, header checks built; linux-x64-gcc: 29 of 29, no compiler warning; golden on both 15,739,165 replayed + 1,576,875 retired = 17,316,040, 0 failures, with the line above. Patella.exe's and PatellaTest.exe's version information read back: the values above, and their RT_VERSION blocks hold neither "CipSoft" nor "Tibia". reference.py compare: every session matches. banned_calls and the image's clang-format exit 0. Not run, as a string and a resource block cannot affect them: windows-x64-debug, windows-x64-asan, windows-x64-gcc, linux-x64-clang locally (hosted CI runs the last), tidy_ci, compare_traffic, compare_files, compare_network; compare_rendering, which has no scene with this dialog.banned_calls exit 0. clang-format 23.1 through build.py --env and Visual Studio 18's: clean. The package build package-linux-x64 from a clone without Tibia.exe: exit 0, package_check no CipSoft file.
+
+## #169: where the web links go (Patella-Modern issue #169, after #166)
+
+Done by Claude Opus 5.5, November 9, 2026 (branch issue-169, from main d49c47a). Files: src/settings/LinkSettings.h, LinkSettings.cpp (new, patella_core), src/SdlFrame.cpp, src/Player.cpp, src/Dialogs.cpp, src/DialogElements.cpp, src/TestHooks.h, src/testmode/TestModeWin32.cpp, tests/unit/core_link_settings_test.cpp, tests/fuzz/fuzz_settings.cpp and a seed.
+
+### The decision (the owner's, November 9, 2026)
+
+The client's web links stay, every button stays where it is with the same look, and where each one goes is a key of Patella.ini: LinkWebsite, LinkManual, LinkFAQ, LinkOptionsHelp, LinkGraphicsHelp, LinkConsoleHelp, LinkNetworkHelp, LinkAccount, LinkSignup. LinkWebsiteLabel replaces the caption of Info's button, so a redirected button does not name the wrong site. A user adds the keys; the client never writes them. A client without them does what it did. The reason for the feature: the links name a company's site that this fork has no business sending players to by force, and a community with its own server has its own pages.
+
+#158's decision that the login servers and the RSA key have no Patella.ini key is a different one and stands: a link opens a page in the player's browser, a login server receives the player's account and password. The text that names the site without being a link (the connection errors, one hint, the bug report address) is not part of this either.
+
+### Why only http and https (the safety part)
+
+SDL_OpenURL is ShellExecuteW's "open", the default verb, on Windows (and xdg-open on Linux). Given a program's path or a file: address it starts that program or opens that file. A settings file is plain text that other programs, downloads and instructions can touch, and a button that starts whatever its setting names is not something a user expects of a text file. So a value must start with http:// or https:// (ASCII case-insensitive), have something after that, and hold no space or control character; anything else is ignored with a warning in the log and the button keeps its original address. Spaces and controls count in the Unicode sense (C0, DEL, C1, White_Space), and ill-formed UTF-8 is not an address: the conservative reading of "no space or control character" for a UTF-8 file.
+
+### Where the translation is (high)
+
+Every link ends in one function, patella::sdlframe::OpenURL, the only caller of SDL_OpenURL. The original's address comes in and the configured one goes out (TLinks::Target, patella_core, tested on every preset). The dialogs, TLink, and the golden tests' callbacks need no change and still pass the original's text; the login dialog's literal is the same text as TextSignupURL, and TextAdvancedGraphicsURL the same as TextGraphicsOptionsURL (one key for both, a unit test holds the first to the second). The table of keys reads the original addresses from the object's own copy of Text.h, so the addresses exist in one place. The keys are read once at the start, after the log's (Player.cpp InitInstance), so the warnings follow LogLevel.
+
+### What the code added to the suggested design (high)
+
+- The hover text. TLink gives its button the address as the tooltip (TSkinButton's Tooltip, Control.cpp draws it when the mouse rests on the button; the Info and login links are the only two with one). Translating only in OpenURL would have left the hover text naming the original site, the very thing LinkWebsiteLabel is there to avoid, so TLink asks TLinks::HoverText. Without a key it is the same pointer as before: the golden comparisons of the button and the tooltip cannot tell. Its text is the client's Windows-1252 and at most 255 bytes, because drawing a text costs one blit per character per frame; the address that is opened stays whole.
+- The caption. TTextButton's Text holds 49 bytes (a TFixedString<50>). Its constructor throws from 50 on (PATELLA_ASSERT_VALUES(strlen(_Text)<50)), so the caption does not go through it: SetWebsiteCaption sets it with SetText, which keeps what fits. Configure cuts the value to those 49 bytes of the client's text with a warning, so the limit is in one place and tested on every preset, whatever the fonts. The button itself is a skin of a fixed 86 pixels and TTextButton::Draw prints its text centred and unclipped, so a caption wider than the button would run over the "Official Website" label and out of the 190-pixel dialog. Cutting is chosen over refusing: a refused caption would leave "www.tibia.com" on a button that goes elsewhere. SetWebsiteCaption cuts it to the button's width less 2 pixels at each side with the font's real widths (GetFittingTextLength), with a warning. Without the key that function returns at once: the constructor call and every later call are the original's.
+
+### The encoding (high)
+
+Patella.ini is UTF-8 (issue #117) and OpenURL's argument is the client's Windows-1252, so OpenURL used to convert. A configured address is UTF-8 already and is not converted again: Target returns it as it is and only converts what comes from the client (that is, an address without a key). A file with PreferencesVersion=1 has the client's bytes, so its value is converted to UTF-8 first. The caption and the hover text are shown by the client: ClientText, as every text of the file ('?' for a character the code page does not have).
+
+### The test build
+
+The test build reached SDL_OpenURL like the product: a scripted click on a link would have started the browser. It now writes the address to the log and urls.txt in --test-out and starts nothing (PATELLA_TEST_MODE in OpenURL, patella::testmode::OpenedUrl), with or without a script. The reference recordings click no link, so nothing in them changes.
+
+### Saving the options
+
+The keys are not in the options' lists (settings/PreferenceKeys.cpp), so WritePreferences neither adds nor removes them and a Patella.ini without them comes out as before (a unit test holds this; compare_files.py compares the options' values and cannot see these keys).
+
+### Checks
+
+Logs in build/logs/issue-169 (local). windows-x64 32 of 32, windows-x64-debug and windows-x64-asan 31 of 31, linux-x64-gcc 29 of 29, no compiler warning; golden on all four 15,739,165 replayed + 1,576,875 retired = 17,316,040, 0 failures, and only the deliberate lines #166, #72, #142 and #139. reference.py compare: every session matches. compare_files.py --no-repeat in the Windows Sandbox: no differences. tidy_ci.py --worktree: 3 findings, 0 new. banned_calls.py and clang-format clean.
+
+End to end, by hand (local, build/e2e-169; a headless PatellaTest.exe with a script and a Patella.ini with the keys, so no browser): the clicks on Info's button, Access Account, Create Account and General Options' Help recorded https://example.org/café/ (its é as the two bytes of UTF-8, not converted twice), HTTPS://example.org/account, https://example.org/signup and, for the button without a key, the original address. The refused file: address was reported at the start; LinkWebsiteLabel "Our very own home page out there" came out as "Our very own home" on the button with its warning; the hover box of Info's button measured 166 pixels with LinkWebsite set and 138 without; Patella.ini kept all the keys when the options were saved. A run without the keys has "www.tibia.com" on the button.

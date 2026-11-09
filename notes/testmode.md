@@ -633,6 +633,13 @@ dispatches the thread's messages (after FatalError's ShutdownConnection the serv
 leaves the game and saves Tibia.cfg); the test implementation does the same, with the replay pumped, until both have been quiet
 for 500 ms (at most 5 s).
 
+### Web links (Patella-Modern issue #169)
+
+The test build never starts a browser or any other program for a link, with or without a script: SdlFrame.cpp's OpenURL
+passes the address that SDL_OpenURL would get, in UTF-8 (the setting of Patella.ini where it has one,
+settings/LinkSettings.h), to patella::testmode::OpenedUrl, which writes it to the driver's log and to urls.txt in
+--test-out, one line each. No tool reads the file yet; a reference recording clicks no link.
+
 ### The display modes (Patella-Modern issue #48)
 
 The Graphics Options dialog (the traffic session's frame and state 3; the options session selects its first

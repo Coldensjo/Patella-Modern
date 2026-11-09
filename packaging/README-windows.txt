@@ -11,6 +11,13 @@ The client looks for the data files, in this order:
   4. the DataFolder key of a Patella.ini (the working folder's, then the program's)
 Patella.ini, the settings file, is written next to the data files.
 
+The buttons that open a web page can go somewhere else. Add these keys to Patella.ini, as Key=https://your.address/:
+  LinkWebsite (Info), LinkManual and LinkFAQ (Help), LinkOptionsHelp, LinkGraphicsHelp, LinkConsoleHelp and
+  LinkNetworkHelp (each options dialog's Help), LinkAccount (title screen), LinkSignup (Login);
+  LinkWebsiteLabel is the caption of Info's button.
+The client never writes them. An address must start with http:// or https:// and hold no spaces or control characters;
+any other value is ignored with a warning in the log and the button keeps its original address.
+
 Windows: run Patella.exe. Put your data files next to it, or start it with --data <folder>.
 
 You need a Vulkan 1.3 driver and the Vulkan loader (vulkan-1.dll), which every GPU driver with Vulkan support installs.

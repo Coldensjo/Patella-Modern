@@ -330,3 +330,12 @@ The project now produces a Windows zip, a Linux tarball and a Linux AppImage. Th
 parts: never any of CipSoft's files, and neutral placeholder pictures instead of the original cursors and icon. You point the
 program at your own game data. *Why it matters:* the client can be handed to someone as one download; a build refuses to be
 packaged with the original pictures, and an automatic check proves every package is clean before it is kept.
+
+**Where the web links go is your choice (#169).**
+The client's buttons that open a web page (the website, the manual, the FAQ, the options' help pages, the account pages)
+all pointed at the original company's site. Every one of them can now be sent to another address with a line in the
+settings file, and the Info dialog's button can be given a different caption. The buttons stay where they are and look the
+same, and a client without those lines does exactly what it did. Only `http://` and `https://` addresses are accepted, because
+opening a link hands the text to the operating system, which would otherwise happily start a program named in the
+setting. *Why it matters:* a community running its own server can send its players to its own pages, without a build
+of its own and without weakening the client.
