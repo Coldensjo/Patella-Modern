@@ -74,6 +74,10 @@ No version has been released yet. This section is the state of the main branch.
 
 ### For contributors
 
+- Someone building the client for their own server can change the web links, the Info dialog's website button, the login
+  servers and port, the encryption key's modulus, the test server, the site named in texts and the bug report address in one
+  header, at compile time (#169). A bad value stops the build. Nothing changes for players.
+
 - One command builds and tests on any machine: `python -I tools/build.py <preset>` with `windows-x64`, `windows-x64-debug`,
   `windows-x64-asan`, `windows-x64-gcc`, `linux-x64-gcc` or `linux-x64-clang` (#4, #10, #7). CMake is pinned to 4.4.5
   everywhere (#141), and every downloaded dependency is pinned by SHA-256 and retried when a server fails (#153).
