@@ -10,6 +10,7 @@
 // code kept in this object.
 
 #include "Help.h"
+#include "BuildConfig.h"
 #include "Preferences.h"
 #include "Text.h" // IWYU pragma: keep (the object's own copy of the text table, see Text.h)
 #include "common.h"
@@ -352,13 +353,23 @@ const char *patella::THelp::GetEventHelpTitle(int Number)
 	}
 }
 
+namespace {
+
+// The first hint names the site (BuildConfig.h, issue #169): the original's text with SiteName in place of its site.
+constexpr const char *WelcomeBeforeSite = "<b>Welcome to Tibia!\n<br=7><n>Greetings wanderer! You are about to enter the mysterious world of Tibia. Fight fearsome monsters, find untold treasures and make your character a true hero of the land! There are many different ways to play Tibia, but keep in mind that there are many others players out there who want to enjoy the game just like you, so please play fair and follow the Tibia Rules at all times.\n<br=7>To move your character use the cursor keys or click on a spot on the game window or in the automap. Right-clicking on items, monsters, characters or simply on the map will open context menus in which you can select appropriate actions such as attacking or using things. Items can be moved around by using drag&drop.\n<br=7>If you need assistance, click on the \'Help\' button to the right. There are several help options to choose from. For instance, the \'Client Help\' will provide you with information on important objects on the map or parts of the client program. Also, a flashing exclamation mark will appear in the top right corner from time to time to inform you that further hints like this one you are reading right now are available. To review previous hints click on \'Help\', then \'Hints\'. For detailed information please read the manual and the \'FAQ\' on our offical website ";
+constexpr const char *WelcomeAfterSite = ".";
+constexpr auto WelcomeHelpText = patella::buildconfig::ComposeText<patella::buildconfig::ComposedSize(WelcomeBeforeSite,
+	patella::buildconfig::SiteName, WelcomeAfterSite)>(WelcomeBeforeSite, patella::buildconfig::SiteName, WelcomeAfterSite);
+
+} // namespace
+
 // 0x4a3fd0, lines 610-691
 const char *patella::THelp::GetEventHelpText(int Number)
 {
 	PATELLA_ASSERT_VALUES(In(Number,1,EVENTHELPS), Number);
 	switch (Number) {
 	case 1:
-		return "<b>Welcome to Tibia!\n<br=7><n>Greetings wanderer! You are about to enter the mysterious world of Tibia. Fight fearsome monsters, find untold treasures and make your character a true hero of the land! There are many different ways to play Tibia, but keep in mind that there are many others players out there who want to enjoy the game just like you, so please play fair and follow the Tibia Rules at all times.\n<br=7>To move your character use the cursor keys or click on a spot on the game window or in the automap. Right-clicking on items, monsters, characters or simply on the map will open context menus in which you can select appropriate actions such as attacking or using things. Items can be moved around by using drag&drop.\n<br=7>If you need assistance, click on the \'Help\' button to the right. There are several help options to choose from. For instance, the \'Client Help\' will provide you with information on important objects on the map or parts of the client program. Also, a flashing exclamation mark will appear in the top right corner from time to time to inform you that further hints like this one you are reading right now are available. To review previous hints click on \'Help\', then \'Hints\'. For detailed information please read the manual and the \'FAQ\' on our offical website www.tibia.com.";
+		return WelcomeHelpText.data();
 	case 2:
 		return "You have met an NPC (Non-Player-Character) called Cipfried. To talk to NPCs or other players that are close to you type any text you wish to say on the keyboard and press Enter. You will find your conversations are logged in the lower section of the adventure screen. This section of the screen is called the \'Default Console\'.\n<br=5>To start a conversation with Cipfried say \'hello\'. NPCs react on certain keywords. For example, if you would like to find out more an NPCs you should ask him about his \'job\' or \'name\'.\n<br=5>Note that Cipfried can give you certain \'hints\', and he can \'heal\' you if your are heavily wounded or poisoned. To find out more you should try out further keywords. Conversations are generally ended by saying \'bye\'.";
 	case 3:

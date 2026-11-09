@@ -47,6 +47,7 @@ const char *TextUseCpuDevice = "CPU (compatibility): draw without the graphics c
 #include "Utils.h"
 #include "DialogElements.h"
 #include "GUI.h"
+#include "BuildConfig.h"
 #include "Skins.h"
 #include "common.h"
 #include "compat/span.h"
@@ -158,6 +159,9 @@ TDialog *CreateLogoutDialog(const char *Caption, const char *Text, TComponent *R
 	return Dialog;
 }
 
+// BuildConfig.h's limit for a caption is what TTextButton's text holds.
+static_assert(sizeof(TTextButton::Text) == patella::buildconfig::MaxCaption + 1, "TTextButton::Text and MaxCaption");
+
 // 0x4808b0, line 177. "Info": the client version and a link to the web
 // site, in a frame of skins.
 TDialog *CreateInfoDialog(void (*OpenURL)(const char *URL))
@@ -165,7 +169,7 @@ TDialog *CreateInfoDialog(void (*OpenURL)(const char *URL))
 	TWindow *Window = new TWindow();
 	Window->SetSize(SkinProperties().StyleE68.Data00, SkinProperties().StyleE68.Data04);
 	TLabel *Label = new TLabel(0, 0, SkinProperties().StyleE68.Data08, TextClientVersion);
-	TLink *Link = new TLink(TextOfficialWebsite, "www.tibia.com", TextTibiaURL, OpenURL,
+	TLink *Link = new TLink(TextOfficialWebsite, patella::buildconfig::WebsiteCaption, TextTibiaURL, OpenURL,
 		SkinProperties().StyleE68.Data1C);
 	TSeparator *Separator = new TSeparator(true);
 	Window->InsertChild(Label);
@@ -797,8 +801,7 @@ TLoginDialog::TLoginDialog(void (*OpenURL)(const char *URL))
 	Account->SetFocusGroup(FocusGroup.get());
 	Password = new TPasswordEditLine(29);
 	Password->SetFocusGroup(FocusGroup.get());
-	TLink *Link = new TLink(TextNoAccountYet, "Create Account", "http://www.tibia.com/home/?subtopic=signup",
-		OpenURL, SkinProperties().StyleB08.Data78);
+	TLink *Link = new TLink(TextNoAccountYet, "Create Account", TextSignupURL, OpenURL, SkinProperties().StyleB08.Data78);
 	InsertChild(Account);
 	SetChildArea(Account, SkinProperties().DataBAC);
 	InsertChild(Password);

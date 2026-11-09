@@ -46,6 +46,8 @@ endif()
 
 # Reproducible Release builds, for every target below, FetchContent's included (issue #136).
 include(cmake/Reproducible.cmake)
+# The values a build for another server fixes at compile time, PATELLA_BUILD_CONFIG, and their checks (issue #169).
+include(cmake/BuildConfig.cmake)
 enable_testing()
 patella_import_std_check()
 include(cmake/Core.cmake)

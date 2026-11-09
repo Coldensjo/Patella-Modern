@@ -38,6 +38,7 @@
 #include "common.h"
 #include "log/Log.h"
 #include "types/FixedString.h"
+#include "BuildConfig.h"
 #include "log/LogSettings.h"
 #include "platform/Platform.h"
 #include "platform/Process.h"
@@ -306,7 +307,7 @@ BOOL InitSdlWindow(bool Gamemaster, const char *ClassName)
 // line, creates the frame window and the surfaces, and refuses to run twice
 // (except for gamemasters). Odd behaviour kept: "host" and "port" are
 // recognised but their values are dropped (the test server is always
-// test.cipsoft.com:7172), and after an error InitInstance still returns TRUE.
+// BuildConfig.h's, by default test.cipsoft.com:7172), and after an error InitInstance still returns TRUE.
 // A PROGRAM_ERROR shows its code, any other error is turned into a
 // TMyException for HandleException (patella::ThrowTopLevelError, TMyException.h:
 // the original's handlers). The original read error.txt first and
@@ -335,8 +336,8 @@ BOOL CPlayerApp::InitInstance()
 			const char *Token = strtok(Arguments, " \t\n");
 			int Expected = 0;
 			bool Gamemaster = false;
-			SetTestServerAddress("test.cipsoft.com");
-			SetTestServerPort(7172);
+			SetTestServerAddress(patella::buildconfig::TestServerHost);
+			SetTestServerPort(patella::buildconfig::TestServerPort);
 			while (Token != nullptr) {
 				if (MsvcStricmp(Token, "gamemaster") == 0) {
 					Gamemaster = true;

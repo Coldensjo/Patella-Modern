@@ -14,6 +14,7 @@
 //   encrypted:   [u16 total][XTEA([u16 length][payload][random padding to 8])]
 
 #include "Network.h"
+#include "BuildConfig.h"
 #include "Utils.h"
 #include "TXTEA.h"
 #include "Preferences.h"
@@ -37,19 +38,29 @@ patella::TNetwork::TNetwork(TPreferences &PreferencesRef, TNetworkSession &Sessi
 {
 }
 
+// BuildConfig.h's values fit the fields they go into (issue #169).
+static_assert(patella::buildconfig::LoginServers.size() == NUMBEROFSERVER, "NUMBEROFSERVER and LoginServers");
+static_assert(sizeof(TServer::Address) == patella::buildconfig::MaxHostName + 1, "TServer::Address and MaxHostName");
+
 // 0x4ca0e0
 void patella::TNetwork::InitServerList()
 {
 	memset(Servers.data(), 0, sizeof(Servers));
-	Servers[0].Address.Assign("server.tibia.com");
-	Servers[1].Address.Assign("server2.tibia.com");
-	Servers[2].Address.Assign("tibia1.cipsoft.com");
-	Servers[3].Address.Assign("tibia2.cipsoft.com");
+	// One statement each, with each name a constant here, as the original's: tools/patch_client.py finds this function
+	// by the code's reference to the first name's text (issue #169).
+	constexpr const char *ServerName0 = patella::buildconfig::LoginServers[0];
+	constexpr const char *ServerName1 = patella::buildconfig::LoginServers[1];
+	constexpr const char *ServerName2 = patella::buildconfig::LoginServers[2];
+	constexpr const char *ServerName3 = patella::buildconfig::LoginServers[3];
+	Servers[0].Address.Assign(ServerName0);
+	Servers[1].Address.Assign(ServerName1);
+	Servers[2].Address.Assign(ServerName2);
+	Servers[3].Address.Assign(ServerName3);
 	TestServer.ErrorCode = 0;
 	TestServer.Resolved = false;
 	TestServer.Available = true;
 	for (int i = 0; i < NUMBEROFSERVER; i++) {
-		Servers[i].Port = 7171;
+		Servers[i].Port = patella::buildconfig::LoginPort;
 		Servers[i].Available = true;
 	}
 	PATELLA_TEST_LOGIN_SERVERS(*this)
@@ -434,10 +445,13 @@ void patella::TNetwork::GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>
 		Out.Append("Cannot connect to the test server.\n\nError: ");
 		Out.Append(Text);
 		if (Offline) {
-			Out.Append("\n\nThe test server is offline. Check www.tibia.com");
+			Out.Append("\n\nThe test server is offline. Check ");
+			Out.Append(patella::buildconfig::SiteName);
 			Out.Append("\nfor more information on any current test.");
 		} else {
-			Out.Append("\n\nCheck www.tibia.com for more information on ");
+			Out.Append("\n\nCheck ");
+			Out.Append(patella::buildconfig::SiteName);
+			Out.Append(" for more information on ");
 			Out.Append("\nany current test.");
 		}
 		Out.Append("\nIf you don't want to use the test server go to");
@@ -446,7 +460,8 @@ void patella::TNetwork::GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>
 		Out.Append("Cannot connect to a login server.\n\nError: ");
 		Out.Append(Text);
 		if (Offline) {
-			Out.Append("\n\nAll login server are offline. Check www.tibia.com");
+			Out.Append("\n\nAll login server are offline. Check ");
+			Out.Append(patella::buildconfig::SiteName);
 			Out.Append("\nfor more information.");
 		}
 	} else {
@@ -455,12 +470,15 @@ void patella::TNetwork::GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>
 		Out.Append("Cannot connect to the game server.\n\nError: ");
 		Out.Append(Text);
 		if (Offline) {
-			Out.Append("\n\nThe game server is offline. Check www.tibia.com");
+			Out.Append("\n\nThe game server is offline. Check ");
+			Out.Append(patella::buildconfig::SiteName);
 			Out.Append("\nfor more information.");
 		}
 	}
 	Out.Append("\n\nFor more information take a look at the FAQs in the ");
-	Out.Append("\nguide section at www.tibia.com.");
+	Out.Append("\nguide section at ");
+	Out.Append(patella::buildconfig::SiteName);
+	Out.Append(".");
 }
 
 // 0x4cd9a0, lines 611-625. Starts an asynchronous lookup; NetworkWindow gets
