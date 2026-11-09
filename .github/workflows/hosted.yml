@@ -17,7 +17,6 @@ name: hosted
 
 on:
   push:
-    branches-ignore: [issue-163]
   pull_request:
   workflow_dispatch:
 
@@ -107,13 +106,15 @@ jobs:
           persist-credentials: false
       # Issue #141: CMake 4.4.5 everywhere. Kitware's windows-x86_64 zip, checked against tools/build.py's SHA-256,
       # not the runner's CMake; tools/build.py runs cmake and ctest from PATELLA_CMAKE_DIR and refuses another version.
+      # In the workspace, not RUNNER_TEMP: the tests run at medium integrity (below), and that token did not find it
+      # there (issue #163).
       - name: CMake 4.4.5 (Kitware's release, SHA-256 checked)
         shell: pwsh
         run: |
-          python -I tools/build.py --install-cmake "$env:RUNNER_TEMP\cmake"
+          python -I tools/build.py --install-cmake "$env:GITHUB_WORKSPACE\.cmake-pinned"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          "PATELLA_CMAKE_DIR=$env:RUNNER_TEMP\cmake" >> $env:GITHUB_ENV
-          & "$env:RUNNER_TEMP\cmake\bin\cmake.exe" --version
+          "PATELLA_CMAKE_DIR=$env:GITHUB_WORKSPACE\.cmake-pinned" >> $env:GITHUB_ENV
+          & "$env:GITHUB_WORKSPACE\.cmake-pinned\bin\cmake.exe" --version
       # The whole windows-x64 preset, Patella.exe and PatellaTest.exe linked, with neutral placeholder pictures
       # (issue #127, cmake/WindowsX64.cmake, tools/placeholder_resources.py: this runner has no Tibia.exe and never
       # gets it; the option refuses where a Tibia.exe exists). The configure fetches the pinned Vulkan dependencies and
@@ -124,10 +125,11 @@ jobs:
         run: python -I tools/build.py --env windows-x64 cmake --build --preset windows-x64
       # Only what needs no CipSoft data: the unit tests and start_without_data (a start in an empty folder ends with
       # the original's error box and exit code 1). The golden corpus and the data-file tests skip themselves here (no
-      # corpus, no data files on this machine). tests_vulkan is excluded: the runner has no GPU and the CPU driver
-      # does not load there (issue #127: its Vulkan instance fails, failed_create_instance), so it runs locally only.
+      # corpus, no data files on this machine). tests_vulkan runs on the pinned CPU driver from its own synthetic pictures.
+      # At medium integrity (issue #163): the runner's account is elevated, where the Vulkan loader ignores
+      # VK_DRIVER_FILES, the only way the engine names the CPU driver.
       - name: Tests Release
-        run: python -I tools/build.py --env windows-x64 ctest --preset windows-x64 -E "^tests_vulkan$"
+        run: python -I tools/sandbox.py normal-user -- python -I tools/build.py --env windows-x64 ctest --preset windows-x64
 
   linux:
     name: ${{ matrix.preset }} (Docker), unit tests and the Linux client (placeholders)
