@@ -268,6 +268,13 @@ walking and logging out. *Why it matters:* this is the point of the whole modern
 Windows. Graphics cards under Linux and a real Linux desktop have not been tried yet, because this machine has neither;
 those are the steps left before calling the Linux client finished.
 
+**The login can no longer be redirected from outside (#158).**
+To let the Linux test client reach a private test server, two settings read from the program's surroundings (its
+environment) could replace the login servers and the login's encryption key. They were also in the program players use,
+so anyone able to change a player's environment could have sent that player's login somewhere else. The two settings now
+exist only in the test version of the client; the program players use always has the original servers and key. *Why it
+matters:* a tool for testing no longer weakens the real client.
+
 ## M8 and M9, started early
 
 **Big-number maths fully unit-tested (#128).**

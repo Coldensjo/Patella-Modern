@@ -435,7 +435,8 @@ above holds; what differs:
 - The control channel's events are files in --test-out: the tool creates `control-command` after writing control.txt, the
   client removes it, answers in control-reply.txt and creates `control-done` (tools/testmode_client.py).
 - The login server and the RSA modulus come from the environment, `PATELLA_LOGIN_SERVER=<host>[:<port>]` and
-  `PATELLA_RSA_MODULUS=<decimal>` (patch_client.py patches a PE, not an ELF).
+  `PATELLA_RSA_MODULUS=<decimal>` (patch_client.py patches a PE, not an ELF). The test build's only, on both systems,
+  since issue #158 (src/TestHooks.h); the product `Patella` reads neither.
 - The CPU driver is the image's Mesa lavapipe; the tools pin the loader to `/usr/share/vulkan/icd.d/lvp_icd.json`.
 
 On Windows, from any shell (the folders mounted read-only; CipSoft's data never enters the image):

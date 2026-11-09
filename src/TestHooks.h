@@ -62,6 +62,18 @@
 //	                                   window open (the control channel's "profile start", testmode/ProfileWin32.h)
 //	                                   the frame's times and heap calls are recorded; nothing otherwise
 //
+// Issue #158 (issue #131's two login overrides, the test build's only, so that nobody able to set a user's environment
+// can point the product at another login server or key):
+//
+//	PATELLA_TEST_LOGIN_SERVERS(Network)
+//	                                   Network.cpp InitServerList, the list complete (a statement without a
+//	                                   semicolon, nothing at all outside the test build): with
+//	                                   PATELLA_LOGIN_SERVER=<host>[:<port>] in the environment every login
+//	                                   server is that one
+//	PATELLA_TEST_RSA_MODULUS(Modulus)  Communication.cpp SendLogin, SendGameLogin (an expression, outside the
+//	                                   test build Modulus itself): PATELLA_RSA_MODULUS (decimal) in the
+//	                                   environment replaces Modulus
+//
 // The state dump reads the client's data through the View functions at the end of Creatures.cpp,
 // Inventory.cpp, Map.cpp and Status.cpp (src/testmode/ClientView.h; test build only).
 //
@@ -85,6 +97,10 @@
 #include "compat/span.h"
 #include "testmode/ClientView.h" // IWYU pragma: export
 
+namespace patella {
+class TNetwork;
+}
+
 namespace patella::vulkan {
 class TRenderer;
 }
@@ -107,6 +123,9 @@ void FrameObservers(int(PATELLA_CDECL **Frame)(int, int), void(PATELLA_CDECL **P
 bool PresentFails();
 // True: PATELLA_TEST_FAIL_INIT is Step (issue #90), InitControl fails there.
 bool InitFails(int Step);
+// Issue #158: the environment's login overrides (TestModeWin32.cpp).
+void LoginServers(patella::TNetwork &Network);
+[[nodiscard]] const char *RsaModulus(const char *Original);
 } // namespace patella::testmode
 
 #define PATELLA_TEST_RSA_BLOCK(Block) patella::testmode::RsaBlock(Block);
@@ -120,6 +139,8 @@ bool InitFails(int Step);
 #define PATELLA_TEST_PROFILE_PRESENT_END(Renderer) patella::testmode::ProfilePresentEnd(Renderer);
 #define PATELLA_TEST_INIT_FAILURE(Step) \
 	if (patella::testmode::InitFails(Step)) { throw TProgramError{PROGRAM_ERROR::SOCKET_INIT}; }
+#define PATELLA_TEST_LOGIN_SERVERS(Network) patella::testmode::LoginServers(Network);
+#define PATELLA_TEST_RSA_MODULUS(Modulus) patella::testmode::RsaModulus(Modulus)
 
 #else
 
@@ -133,5 +154,7 @@ bool InitFails(int Step);
 #define PATELLA_TEST_PROFILE_PRESENT_BEGIN(Renderer)
 #define PATELLA_TEST_PROFILE_PRESENT_END(Renderer)
 #define PATELLA_TEST_INIT_FAILURE(Step)
+#define PATELLA_TEST_LOGIN_SERVERS(Network)
+#define PATELLA_TEST_RSA_MODULUS(Modulus) Modulus
 
 #endif

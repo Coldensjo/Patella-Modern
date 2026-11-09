@@ -108,7 +108,6 @@ public:
 	void SetConnectionTimeout(int Timeout);
 	void SetNetworkWindow(platform::TWindowHandle Window);
 	void SetTestServerAddress(const char *Address);
-	void ApplyLoginServerOverride(); // issue #131: the environment's PATELLA_LOGIN_SERVER (Network.cpp)
 	void SetServerError(int errorcode);
 	void SetServerIPAddress(const char *ipaddress);
 	bool GetCurrentServer(TServer **Server);
