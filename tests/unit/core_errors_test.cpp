@@ -8,6 +8,8 @@
 #include "common.h"
 
 #include <cstdint>
+#include <new>
+#include <stdexcept>
 #include <string>
 #include <type_traits>
 
@@ -100,6 +102,35 @@ TEST_CASE("TMYEXCEPTION wraps a caught TMyException: its message becomes the rea
 	CHECK(Exception.GetMessage()
 		== At(Line) + ": exception occurred, reason:\n" + At(FailsLine) + ": unknown packet type during game (Value = 7)");
 	CHECK(patella::ErrorOrigin(Exception) == At(Line));
+}
+
+namespace {
+
+// What Player.cpp's handlers (patella::ThrowTopLevelError) report for an exception, without the "<file> <line>: ".
+template <class T> std::string TopLevelText(T Thrown)
+{
+	const TMyException Exception = CaughtError([&] {
+		try {
+			throw Thrown;
+		} catch (...) {
+			patella::ThrowTopLevelError(PATELLA_SOURCE_LOCATION());
+		}
+	});
+	const std::string Message = Exception.GetMessage();
+	return Message.substr(Message.find(": ") + 2);
+}
+
+} // namespace
+
+TEST_CASE("ThrowTopLevelError: the original's texts; out of memory is \"unknown exception occurred\"")
+{
+	CHECK(TopLevelText(std::bad_alloc()) == "unknown exception occurred"); // MFC's operator new: not a std::bad_alloc there
+	CHECK(TopLevelText(std::bad_array_new_length()) == "unknown exception occurred");
+	CHECK(TopLevelText(std::out_of_range("x")) == "out_of_range_exception occurred");
+	CHECK(TopLevelText(std::runtime_error("x")) == "exception occurred");
+	CHECK(TopLevelText("x") == "const char* exception occurred");
+	CHECK(TopLevelText(7) == "unknown exception occurred");
+	CHECK(TopLevelText(TMyException("inner", PATELLA_SOURCE_LOCATION())) == "exception occurred, reason:\ninner");
 }
 
 TEST_CASE("PROGRAM_ERROR: an enum class of int, thrown inside TProgramError")

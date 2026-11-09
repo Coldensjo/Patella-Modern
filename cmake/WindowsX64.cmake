@@ -93,7 +93,7 @@ set(patella_vulkan_client_sources "${PROJECT_SOURCE_DIR}/src/vulkan/SurfaceVulka
 	"${PROJECT_SOURCE_DIR}/src/settings/PreferenceKeys.cpp" "${PROJECT_SOURCE_DIR}/src/log/LogSettings.cpp"
 	"${PROJECT_SOURCE_DIR}/src/platform/Win32Platform.cpp"
 	# Issue #124: the SDL3 window's clipboard and desktop (message boxes, display modes).
-	"${PROJECT_SOURCE_DIR}/src/platform/SdlPlatform.cpp"
+	"${PROJECT_SOURCE_DIR}/src/platform/SdlPlatform.cpp" "${PROJECT_SOURCE_DIR}/src/platform/SdlClipboard.cpp"
 	# Issue #125: the network, TPortableSocket (patella_platform's source, compiled here again for the static CRT) and
 	# the Windows client's glue (the lookups' replies to the window, the modal loops' polling).
 	"${PROJECT_SOURCE_DIR}/src/platform/PortableSocket.cpp" "${PROJECT_SOURCE_DIR}/src/platform/NetworkWin32.cpp"

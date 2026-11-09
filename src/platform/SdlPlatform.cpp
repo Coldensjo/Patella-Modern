@@ -1,7 +1,7 @@
-// SdlPlatform.cpp: the SDL3 implementations of the platform's clipboard and desktop (Patella-Modern issue #124;
-// platform/SdlPlatform.h). Not part of the original source: each function does with SDL3 what Win32Platform.cpp's
-// TWin32Clipboard and TWin32Window do with Win32's calls, for the SDL3 window's client (SdlFrame.cpp). The display's
-// modes are SDL3's on every system since issue #152 (TSdlWindow, below).
+// SdlPlatform.cpp: the SDL3 implementations of the platform's desktop and, since #159 in SdlClipboard.cpp, clipboard
+// (Patella-Modern issue #124; platform/SdlPlatform.h). Not part of the original source: each function does with SDL3
+// what Win32Platform.cpp's TWin32Window does with Win32's calls, for the SDL3 window's client (SdlFrame.cpp). The
+// display's modes are SDL3's on every system since issue #152 (TSdlWindow, below).
 
 #include "platform/SdlPlatform.h"
 
@@ -20,7 +20,6 @@
 #include <unistd.h>
 #endif
 
-#include <SDL3/SDL_clipboard.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_messagebox.h>
 #include <SDL3/SDL_pixels.h>
@@ -32,7 +31,6 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -68,37 +66,6 @@ SDL_Window *SdlWindowOf(TWindowHandle Handle)
 }
 
 } // namespace
-
-// TWin32Clipboard::HasText's IsClipboardFormatAvailable(CF_UNICODETEXT): on Windows SDL asks the same.
-bool TSdlClipboard::HasText()
-{
-	return VideoStarted() && SDL_HasClipboardText();
-}
-
-// TWin32Clipboard::Text: the text up to its first NUL (SDL's is a C string), converted to the client's. SDL gives an
-// empty text where the clipboard cannot be opened (Win32's nullopt): the paste then has nothing, as with no text.
-std::optional<std::string> TSdlClipboard::Text()
-{
-	if (!VideoStarted())
-		return std::nullopt;
-	char *const Utf8 = SDL_GetClipboardText();
-	if (Utf8 == nullptr)
-		return std::nullopt;
-	std::string Text = patella::text::Utf8ToCp1252(Utf8);
-	SDL_free(Utf8);
-	return Text;
-}
-
-// TWin32Clipboard::SetText. Two differences of SDL's (notes/decisions.md, "#124"): on Windows it writes each line
-// feed without a carriage return before it as CR LF (the console's selection of several lines), and an empty text
-// empties the clipboard instead of putting an empty text there.
-bool TSdlClipboard::SetText(const char *Text)
-{
-	if (!VideoStarted())
-		return false;
-	const std::string Utf8 = patella::text::Cp1252ToUtf8(Text);
-	return SDL_SetClipboardText(Utf8.c_str());
-}
 
 // TWin32Window::ShowMessageBox's MessageBoxA(Owner, Text, Caption, MB_ICONHAND or MB_ICONEXCLAMATION): one OK button,
 // modal, the thread's messages dispatched while it is open. Every box of the client has no owner (Player.cpp), so

@@ -809,6 +809,8 @@ to and from Windows-1252), message boxes (SDL_ShowSimpleMessageBox; the tools re
 URLs (SDL_OpenURL) are SDL3's (src/platform/SdlPlatform.cpp); the fullscreen mode change is IWindow::SetFullscreenMode.
 The display modes stayed EnumDisplaySettingsA/ChangeDisplaySettingsA on Windows until #152. The Win32 calls were left
 only in the Win32 implementation (Win32Platform.cpp, and the MFC path's MainFrm.cpp and WindowSystemWin32.cpp).
+Done in #159 (notes/decisions.md, "#159"): copying an empty text puts an empty text on the clipboard again, as the original did, and
+an out-of-memory error reports "unknown exception occurred" again (the owner's choice after #124 and #127).
 
 Done in #152 (notes/decisions.md, "#152"), the owner's choice of November 8: the display modes are SDL3's on Windows too
 (SDL_GetFullscreenDisplayModes, SDL_GetCurrentDisplayMode, SDL_SetWindowFullscreenMode; platform/DisplayModeList.h), no

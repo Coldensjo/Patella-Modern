@@ -17631,7 +17631,7 @@ display's mode checked after it): TSdlWindow's off Windows, for the Linux client
   issue's ask, and CR LF is Windows' own line end; the alternative is TWin32Clipboard on Windows (one line in
   WindowClipboard). Needs the user.
 - **Clipboard, an empty text**: SDL_SetClipboardText("") empties the clipboard; the original put an empty text there.
-  Both paste nothing. No caller copies an empty text in practice (names, a selection).
+  Both paste nothing. No caller copies an empty text in practice (names, a selection). Restored in #159 (below).
 - **Clipboard, a clipboard that cannot be opened**: SDL gives an empty text (Win32's: no text, GetClipboardText's
   null); both paste nothing.
 - **Message boxes**: SDL's box is its own dialog (SDL_windowsmessagebox.c: the process has no common-controls 6
@@ -17814,6 +17814,7 @@ One small difference only MFC's own handler could cause: MFC installed a new han
 Player.cpp's `catch (...)` reported as "unknown exception occurred"; with MFC gone an out-of-memory `new` is
 std::bad_alloc, which its existing `catch (std::bad_alloc &)` reports as "bad_alloc_exception occurred". Both end at
 the same box; no test gets there. Not reproduced (a `new` handler of our own would only preserve a wrong message).
+The wording is restored in #159 (below), the owner's choice of November 8.
 
 ### The golden corpus's MainFrm test (medium: the owner may prefer another way)
 
@@ -18310,3 +18311,70 @@ Golden 15,739,165 + 1,576,875 = 17,316,040, 0 failures, no compiler warnings on 
 linux-x64-gcc, linux-x64-clang; windows-x64-gcc 14/14. Reference compare: every session matches, its fixed mode lists included.
 compare_rendering (windowed and fullscreen, Sandbox, GPU and CPU driver): all scenes identical, the display mode 1024x768x32 before
 and after each run. compare_traffic (Sandbox): no differences. tidy_ci baseline 3, 0 new; banned_calls and clang-format clean.
+
+## #159: an empty clipboard text and the out-of-memory error's words as in the original (Patella-Modern issue #159, M8)
+
+Done by Claude Opus 5.5, November 9, 2026 (branch issue-159). The owner's choice of November 8, after #124 and #127: both
+differences go back to the original's behaviour. SDL3's message-box look and sound and CR LF when copying several console
+lines stay.
+
+### An empty text on the clipboard (high: SDL3's sources and its real drivers)
+
+**The original** (upstream Patella `src/sysinc.cpp`, SetClipboardText 0x4fd1b0): OpenClipboard, EmptyClipboard, GlobalAlloc of
+Length + 1 bytes, the text with its terminator, SetClipboardData(CF_TEXT). An empty text is one NUL byte in CF_TEXT, so
+IsClipboardEmpty (0x4fcbe0, IsClipboardFormatAvailable) answers "has text" and the context menu's Paste stays (ContextMenus.cpp,
+`!IsClipboardEmpty()`); the paste inserts nothing. TWin32Clipboard does the same with CF_UNICODETEXT.
+
+**SDL 3.4.18** (the pinned archive; measured below):
+
+- SDL_SetClipboardText(""): `SDL_ClearClipboardData()` (src/video/SDL_clipboard.c), so no text at all on any driver.
+- SDL_SetClipboardData with a callback that returns a size of 0: Windows' driver writes no CF_UNICODETEXT (WIN_SetClipboardText's
+  `clipboard_data_size > 0`), and X11's says it has none (X11_HasClipboardData's `length > 0`, CloneDataBuffer's NULL).
+- SDL_SetClipboardData with a callback that returns one NUL byte, size 1: Windows' driver converts it to UTF-16 and stores a lone
+  terminator as CF_UNICODETEXT, an empty text, the original's on Windows. X11: SDL has the text and reads "".
+
+So TSdlClipboard::SetText (now src/platform/SdlClipboard.cpp) calls SDL_SetClipboardData with one NUL byte for an empty text, and
+SDL_SetClipboardText otherwise. It offers the five text types SDL's drivers use for a text.
+
+**On Linux** the text is held as the same one byte, and the client's own HasText and Text are the original's (a text, empty); X11's
+size-0 alternative is not (its HasText would be false). What is left: another X11 or Wayland program asking for the selection
+reads one NUL byte instead of nothing, which a C string sees as empty and a byte reader as one byte. The original has no Linux to
+match; a Windows program reading CF_UNICODETEXT sees exactly a terminator.
+
+Measured (tests/unit/sdl_clipboard_test.cpp, tests_sdl_clipboard, CTest on SDL3's dummy driver, every client preset): the empty
+text's HasText and Text, a non-empty text's round trip in the client's code page, and SDL_SetClipboardText("") leaving no text.
+The same executable with `SDL_VIDEO_DRIVER` set to the real drivers (one-off, logs in build\logs\issue-159): windows, in Windows
+Sandbox (its clipboard is its own, ClipboardRedirection off), 12 of 12 assertions; x11 under Xvfb in the image, 12 of 12. Not
+run: Wayland (no compositor in the image); from its driver's source, Wayland_HasClipboardData answers from SDL's own data while
+the client owns the selection, and the empty text's internal read gives "".
+
+### The out-of-memory error's words (high: the image's names and the code)
+
+**The original** (upstream Patella `src/Player.cpp`, InitInstance lines 358-367, Run lines 389-398) has `catch (std::bad_alloc &)` with
+"bad_alloc_exception occurred" before `catch (...)` with "unknown exception occurred". But its operator new was MFC's (names.tsv:
+operator_new 0x5237e7, nafxcw.lib, `_nh_malloc` with AfxNewHandler 0x5237d0, which calls AfxThrowMemoryException 0x523098; the
+RTTI name `.?AVCMemoryException@@` is in Tibia.exe), which throws a `CMemoryException *`, caught only by `catch (...)`. So
+"unknown exception occurred" was an out-of-memory error's real text, and the bad_alloc text was never that error's. The original's
+per-function wrappers (gone in #78) said "unknown exception occurred" at the innermost one as well.
+
+**Since #127** a failing `new` is std::bad_alloc, so the handler chain gave the other text. `std::bad_alloc` keeps its own handler
+(without it the next would be `catch (std::exception &)`, "exception occurred"), now with the original's text. A
+std::bad_array_new_length (a `new T[]` of a bad size) is the same: the original's size overflowed into MFC's new and its handler.
+Nothing else in the client's code raises std::bad_alloc on its own (TStaticVector's explicit throw beyond its capacity did not
+exist in the original). The other texts are unchanged.
+
+The two handler chains of Player.cpp are one function, patella::ThrowTopLevelError (src/TMyException.h, .cpp; a TProgramError is
+still Player.cpp's first handler), so the mapping is unit-tested (core_errors_test.cpp, tests_core, every preset) and cannot
+differ between InitInstance and Run. The function takes the site's location (PATELLA_SOURCE_LOCATION of Player.cpp), so the
+message still names Player.cpp. Only the developer log's error line changes; the box does not.
+
+Not reachable in a test without running out of memory in the client: the two call sites themselves; the function is what is tested.
+
+### Also
+
+tools/compare_files.py's docstring named src/MainFrm.cpp (gone in #127): it is src/SdlFrame.cpp's window placement now.
+
+tools/testserver.py's `state_changes` leaves out data\log, taken unchanged from issue #152's worktree (identical text, so the two
+branches merge). No private copy has data\log, and a server running from the master folder (the owner's, here) writes
+data\log\lag.log every few seconds, so compare_traffic could not make its private server. data\map, data\usr and the rest still
+count, so a master caught half way through a save is still refused.
