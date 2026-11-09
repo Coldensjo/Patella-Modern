@@ -858,6 +858,9 @@ x64 and Linux x64 against the reference recordings; the Vulkan engine passes the
 - **Packages** through CPack: a Windows zip (and optionally an installer), a Linux tarball and AppImage or
   Flatpak (D4). The packages contain no CipSoft files: the user points the client at their own data files.
 - Reproducible builds, a changelog, a release checklist.
+  Done in #136 (notes/decisions.md, "#136"): cmake/Reproducible.cmake, `tools/repro_check.py` (two Release builds in different
+  folders compared byte for byte: Patella and PatellaTest of windows-x64, linux-x64-gcc and linux-x64-clang are identical; the
+  PDBs are not), `CHANGELOG.md`, `notes/release-checklist.md` (its packages step pending #135).
 
 ---
 

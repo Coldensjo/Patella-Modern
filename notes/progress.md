@@ -899,6 +899,12 @@ after #124 and #127): copying an empty text keeps an empty text on the clipboard
 SDL_SetClipboardText("") empties it; src/platform/SdlClipboard.cpp, tests_sdl_clipboard) and an out-of-memory error reports
 "unknown exception occurred" (patella::ThrowTopLevelError, tests_core). notes/decisions.md, "#159".
 
+Reproducible builds, a changelog, a release checklist (Patella-Modern issue #136, branch issue-136, November 9, 2026; M9): two
+Release builds of one commit in different folders give byte-identical Patella.exe and PatellaTest.exe (windows-x64), Patella and
+PatellaTest (linux-x64-gcc, linux-x64-clang): `python -I tools/repro_check.py <preset>`. cmake/Reproducible.cmake, CHANGELOG.md,
+notes/release-checklist.md. The PDBs are not identical (they record the build's folders), which the tool reports and does not
+fail on; packages are pending #135. notes/decisions.md, "#136".
+
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
