@@ -18290,3 +18290,8 @@ Not reachable in a test without running out of memory in the client: the two cal
 ### Also
 
 tools/compare_files.py's docstring named src/MainFrm.cpp (gone in #127): it is src/SdlFrame.cpp's window placement now.
+
+tools/testserver.py's `state_changes` leaves out data\log, taken unchanged from issue #152's worktree (identical text, so the two
+branches merge). No private copy has data\log, and a server running from the master folder (the owner's, here) writes
+data\log\lag.log every few seconds, so compare_traffic could not make its private server. data\map, data\usr and the rest still
+count, so a master caught half way through a save is still refused.
