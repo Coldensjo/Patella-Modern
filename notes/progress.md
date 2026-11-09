@@ -2235,3 +2235,5 @@ no total. Full build.cmd, November 2, 2026).
 - Communication.cpp keeps the original's heap overflow: ReceivePatch and ReceiveWholeFile store the new size before
   they assert that no transfer is running; a later block writes past the old buffer. Any test that feeds patch
   messages must not send a block after a second start (communicationtest.cpp Mutate).
+
+tests_vulkan on GitHub's Windows runner (Patella-Modern issue #163, branch issue-163, November 9, 2026; M9): the runner is elevated, where the Vulkan loader ignores VK_DRIVER_FILES, so the hosted job's ctest runs at medium integrity (`tools/sandbox.py normal-user`) and the `-E` is gone. `Automatic` on a machine with a loader and no system driver now goes on to the CPU driver instead of throwing (Renderer.cpp `Open`, a new tests_vulkan case). notes/decisions.md, "#163".

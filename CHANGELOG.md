@@ -32,7 +32,8 @@ No version has been released yet. This section is the state of the main branch.
   your own `Tibia.exe` in a local build, a plain square in the packages (#162).
 - Graphics are drawn with Vulkan (#19, #20) instead of DirectX and old OpenGL. A computer without a suitable graphics card
   uses a software renderer (Mesa's lavapipe) that comes with the client on Windows and from the system on Linux. The
-  graphics options offer "Automatic", "GPU" and "CPU" (#31).
+  graphics options offer "Automatic", "GPU" and "CPU" (#31). "Automatic" also takes the software renderer on a machine that has the Vulkan
+  loader but no graphics driver for it (#163).
 - The window, its events, the keyboard and mouse handling that needs it, the clipboard, the message boxes and web links
   come from SDL3 (#122 to #124, #126), and Microsoft's MFC is gone (#127).
 - Server addresses can be IPv6 (#125).

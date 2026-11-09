@@ -917,7 +917,15 @@ struct TRenderer::TState {
 		vkb::InstanceBuilder Builder = NewInstanceBuilder(Request.SurfaceExtension);
 		if (Request.Validation)
 			Builder.request_validation_layers(true).use_default_debug_messenger();
-		Instance = Value(Builder.build(), "creating the Vulkan instance");
+		auto Built = Builder.build();
+		// A loader with no system driver at all (issue #163: GitHub's runner, measured: failed_create_instance headless,
+		// requested_extensions_not_present for a window, the loader listing no surface extension) has no device of a
+		// system driver to offer, which is no error: the caller goes on to the CPU driver, as ListDevices' empty list.
+		if (!Cpu && !Built
+			&& (Built.error() == vkb::InstanceError::failed_create_instance
+				|| Built.error() == vkb::InstanceError::requested_extensions_not_present))
+			return false;
+		Instance = Value(std::move(Built), "creating the Vulkan instance");
 		volkLoadInstanceOnly(Instance.instance);
 		if (Request.CreateSurface)
 			Surface = Request.CreateSurface(Instance.instance);

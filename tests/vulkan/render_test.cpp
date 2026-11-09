@@ -34,9 +34,11 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <memory>
 #include <optional>
 #include <string>
@@ -390,6 +392,73 @@ TEST_CASE("the device choice: GPUs, the best one, the CPU driver")
 		Request.GpuIndex = static_cast<int>(Gpus.size());
 		pv::TRenderer Renderer;
 		CHECK_THROWS_AS(Renderer.Create(Request), pv::TVulkanError);
+		CHECK_FALSE(Renderer.Created());
+	}
+}
+
+// A machine with a Vulkan loader and no system driver at all (issue #163: GitHub's runner). VK_DRIVER_FILES naming a file
+// that does not exist gives any machine the same state: the loader finds no driver, listing no surface extension, until
+// the engine names the CPU driver's manifest for its own instance.
+TEST_CASE("the automatic choice without any system driver opens the CPU driver (issue #163)")
+{
+	class TNoSystemDriver {
+	public:
+		TNoSystemDriver()
+		{
+			for (size_t i = 0; i < Names.size(); i++) {
+				char *Value = nullptr;
+				size_t Length = 0;
+				if (_dupenv_s(&Value, &Length, Names[i]) == 0 && Value != nullptr) {
+					Saved[i] = Value;
+					std::free(Value);
+				}
+				_putenv_s(Names[i], (CpuManifest() + ".missing").c_str());
+			}
+		}
+		~TNoSystemDriver()
+		{
+			for (size_t i = 0; i < Names.size(); i++)
+				_putenv_s(Names[i], Saved[i].c_str()); // an empty value removes the variable
+		}
+		TNoSystemDriver(const TNoSystemDriver &) = delete;
+		TNoSystemDriver &operator=(const TNoSystemDriver &) = delete;
+
+	private:
+		const std::array<const char *, 2> Names = {"VK_DRIVER_FILES", "VK_ICD_FILENAMES"};
+		std::array<std::string, 2> Saved;
+	};
+	const TNoSystemDriver NoSystemDriver;
+	CHECK(pv::ListGpus().empty());
+
+	pv::TDeviceRequest Automatic;
+	Automatic.Kind = pv::TDeviceKind::Automatic;
+	Automatic.CpuDriverManifest = CpuManifest();
+	// Headless (the system drivers' instance fails: failed_create_instance) ...
+	{
+		pv::TRenderer Renderer;
+		REQUIRE_NOTHROW(Renderer.Create(Automatic));
+		CHECK(Renderer.Device().CpuDriver);
+	}
+	// ... for a window (it fails sooner: requested_extensions_not_present) ...
+	{
+		const TSdlMainWindow Main(160, 120);
+		REQUIRE(Main.Handle != nullptr);
+		pv::TPresentWindows Windows;
+		HWND Window = Windows.Open(Main.Handle);
+		REQUIRE(Window != nullptr);
+		{
+			pv::TRenderer Renderer;
+			REQUIRE_NOTHROW(Renderer.Create(OnWindow(Automatic, Window, pv::SdlWindowSystem())));
+			CHECK(Renderer.Device().CpuDriver);
+		}
+		Windows.Close();
+	}
+	// ... and a GPU asked for by name still opens nothing (the client then falls back to Automatic).
+	{
+		pv::TDeviceRequest Gpu;
+		Gpu.Kind = pv::TDeviceKind::Gpu;
+		pv::TRenderer Renderer;
+		CHECK_THROWS_AS(Renderer.Create(Gpu), pv::TVulkanError);
 		CHECK_FALSE(Renderer.Created());
 	}
 }

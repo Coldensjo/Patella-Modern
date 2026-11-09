@@ -18621,6 +18621,58 @@ On an ELF the placeholder icon's bytes (the RT_ICON DIB, exactly as embedded) mu
 
 The icon has not been seen on a real X11 or Wayland desktop. Xvfb has no window manager, so what was proven is the property on the window, not that a desktop draws it. The Wayland path has not run at all.
 
+## #163: tests_vulkan on GitHub's Windows runner (Patella-Modern issue #163, M9)
+
+Settled by Claude Opus 5.5, November 9, 2026. Hosted CI left tests_vulkan out since #127 (`-E`, "the CPU driver does not load
+there"). It runs there again, and it found a real bug on the way.
+
+### What the runner showed (high)
+
+A temporary job on this branch (hosted run 42599134555, windows-latest image 20261103.298.1), since removed:
+
+- **The loader is there.** `C:\Windows\System32\vulkan-1.dll`, 1.3.301. tests_vulkan did not exit 77, the skip for a missing
+  loader. So #135's remark (a Windows machine needs a loader) was not this failure, and no loader is downloaded.
+- **No system driver.** A Hyper-V video adapter, and neither the adapter's registry entries nor
+  `HKLM\SOFTWARE\Khronos\Vulkan\Drivers` name a Vulkan driver.
+- **The process is elevated.** `whoami /groups`: High Mandatory Level, BUILTIN\Administrators enabled. The loader ignores
+  VK_DRIVER_FILES at high integrity, and that variable is how the engine names lavapipe. No driver was left, so every instance
+  failed. This is what stopped the test: the same cause as the Sandbox's account (#147, tools/sandbox.py).
+- **At medium integrity lavapipe loads**, same exe: `CPU driver: llvmpipe (LLVM 23.1.4, 256 bits)`, 15 of 17 cases.
+
+### The other two cases: a bug in the engine (high)
+
+`Automatic` on a machine with a loader and no system driver threw instead of going on to the CPU driver: `Open` turned the
+failed instance of the system-driver attempt into an exception (`failed_create_instance` headless,
+`requested_extensions_not_present` for a window, as the loader then lists no surface extension). The test already expected the
+CPU driver there, and the notes promised it. `Open` now returns false for those two errors, on the system attempt only, as
+`ListDevices` returns an empty list. It reaches only machines with no system driver: where one exists the instance is created,
+as before. A GPU asked for by name still fails with TVulkanError (the message is "no GPU with Vulkan 1.3"), and the client's
+fall-back to Automatic is unchanged.
+
+New case: "the automatic choice without any system driver opens the CPU driver (issue #163)", which makes that state on any
+machine with VK_DRIVER_FILES naming a file that does not exist. Without the fix it fails with the runner's error (checked by
+disabling the fix and rebuilding).
+
+### The hosted job (high)
+
+`python -I tools/sandbox.py normal-user -- <command>` (new; `call_as_normal_user`, the Sandbox guest's helper) runs the job's whole
+ctest at medium integrity, and the `-E` is gone. Alternatives not taken: registering lavapipe under HKLM on the runner (then
+"none for a missing manifest" no longer holds, and the test would not see what a user's machine has); only tests_vulkan at
+medium integrity (it would have kept the exclusion).
+
+The job's CMake gets `icacls ... /grant *S-1-5-32-545:(OI)(CI)RX` (BUILTIN\Users) after --install-cmake. build.py unpacks it in a
+`tempfile.mkdtemp` folder and moves that into place; since Python 3.12.4 such a folder's ACL on Windows is SYSTEM, Administrators and
+OWNER RIGHTS only (measured here on 3.13.15), and the move keeps it. On the elevated runner the owner is Administrators, which the
+normal-user token holds as deny-only, so at medium integrity `ctest.exe` could not be seen, in RUNNER_TEMP and in the workspace alike.
+
+tests_vulkan reads no Tibia file: its pictures are generated in render_test.cpp, and the temporary job's search for `Tibia.*` in
+the checkout and build tree found none.
+
+### Checks
+
+Local: `python -I tools/build.py windows-x64` with the frozen corpus, exit 0, 32/32, tests_vulkan 18 cases and 1,607 assertions, golden
+15,739,165 + 1,576,875 = 17,316,040, 0 failures, 0 compiler warnings. clang-format and banned_calls exit 0. Logs: build\logs\issue-163\.
+
 ## #161: the helper's login and Tibia.exe's first frame in Windows Sandbox (Patella-Modern issue #161, M9)
 
 Done by Claude Opus 5.5, November 9, 2026 (branch issue-161, from main 7e03302). Tools only: tools/session_client.py,
