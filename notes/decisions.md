@@ -18622,8 +18622,10 @@ ctest at medium integrity, and the `-E` is gone. Alternatives not taken: registe
 "none for a missing manifest" no longer holds, and the test would not see what a user's machine has); only tests_vulkan at
 medium integrity (it would have kept the exclusion).
 
-The job's CMake moved from RUNNER_TEMP to the workspace: at medium integrity build.py did not find `D:\a\_temp\cmake\bin\ctest.exe`
-(`os.path.isfile` false, the reason not looked into), and the workspace is readable there.
+The job's CMake gets `icacls ... /grant *S-1-5-32-545:(OI)(CI)RX` (BUILTIN\Users) after --install-cmake. build.py unpacks it in a
+`tempfile.mkdtemp` folder and moves that into place; since Python 3.12.4 such a folder's ACL on Windows is SYSTEM, Administrators and
+OWNER RIGHTS only (measured here on 3.13.15), and the move keeps it. On the elevated runner the owner is Administrators, which the
+normal-user token holds as deny-only, so at medium integrity `ctest.exe` could not be seen, in RUNNER_TEMP and in the workspace alike.
 
 tests_vulkan reads no Tibia file: its pictures are generated in render_test.cpp, and the temporary job's search for `Tibia.*` in
 the checkout and build tree found none.

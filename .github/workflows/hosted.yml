@@ -106,15 +106,17 @@ jobs:
           persist-credentials: false
       # Issue #141: CMake 4.4.5 everywhere. Kitware's windows-x86_64 zip, checked against tools/build.py's SHA-256,
       # not the runner's CMake; tools/build.py runs cmake and ctest from PATELLA_CMAKE_DIR and refuses another version.
-      # In the workspace, not RUNNER_TEMP: the tests run at medium integrity (below), and that token did not find it
-      # there (issue #163).
+      # icacls (issue #163): the tests run at medium integrity (below), and Python's mkdtemp, where build.py unpacks it,
+      # leaves a folder only SYSTEM, Administrators and its owner can open; S-1-5-32-545 is BUILTIN\Users.
       - name: CMake 4.4.5 (Kitware's release, SHA-256 checked)
         shell: pwsh
         run: |
-          python -I tools/build.py --install-cmake "$env:GITHUB_WORKSPACE\.cmake-pinned"
+          python -I tools/build.py --install-cmake "$env:RUNNER_TEMP\cmake"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          "PATELLA_CMAKE_DIR=$env:GITHUB_WORKSPACE\.cmake-pinned" >> $env:GITHUB_ENV
-          & "$env:GITHUB_WORKSPACE\.cmake-pinned\bin\cmake.exe" --version
+          icacls "$env:RUNNER_TEMP\cmake" /grant "*S-1-5-32-545:(OI)(CI)RX" /T /Q
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "PATELLA_CMAKE_DIR=$env:RUNNER_TEMP\cmake" >> $env:GITHUB_ENV
+          & "$env:RUNNER_TEMP\cmake\bin\cmake.exe" --version
       # The whole windows-x64 preset, Patella.exe and PatellaTest.exe linked, with neutral placeholder pictures
       # (issue #127, cmake/WindowsX64.cmake, tools/placeholder_resources.py: this runner has no Tibia.exe and never
       # gets it; the option refuses where a Tibia.exe exists). The configure fetches the pinned Vulkan dependencies and
