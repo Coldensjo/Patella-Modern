@@ -18510,6 +18510,44 @@ CPack's own AppImage generator (CMake 4.2+). It needs appimagetool and patchelf,
 - The AppImage has not run on a real desktop: Xvfb only, as the Linux client (#131).
 - The tarball and AppImage need glibc 2.38: built on Debian 13's. Older distributions would need an older build image, which GCC 16 in the image rules out for now.
 - Not packaged: the Windows installer the plan calls optional; a Flatpak (D4 chose AppImage).
+## #155: no heap call per frame (Patella-Modern issue #155, M9)
+
+Done by Claude Opus 5.5, November 9, 2026 (branch issue-155, from main af28b22). src/vulkan/Renderer.cpp, src/platform/PortableSocket.cpp, a test in tests/vulkan/render_test.cpp; the numbers are in notes/progress.md, "Profiling".
+
+### What allocated, measured (high)
+
+A temporary patch, never committed, made each "allocs" window of `tools/profiling.py` also record the call stack of each heap call (RtlCaptureStackBackTrace in ProfileWin32.cpp's heap hooks, resolved with llvm-symbolizer against PatellaTest.pdb). Per frame, on the GPU, in the Sandbox:
+
+| Where | title screen | standing | walking |
+| :--- | :--- | :--- | :--- |
+| `TRenderer::Draw`, the vertices' vector | 4 | 43.0 | 39.3 |
+| `TRenderer::Draw`, the samplers' vector | 4 | 43.0 | 39.3 |
+| `TPortableSocket::Poll`, the connection numbers | 0 | 1.09 | 1.08 |
+| everything else together | under 0.001 | 0.02 | 0.02 |
+
+So the lead in the issue (`TSurfaceVulkan::WriteImage`'s vector) was not it: `WriteImage` and `WriteMaskedImage` allocate only on a sprite cache miss, about 0.003 times per frame. All of the bytes are Draw's vertex vector.
+
+### The changes (high)
+
+- **`TRenderer::Draw`:** the two vectors are now members of `TRenderer::TState` (`QuadVertices`, `QuadSamplers`). Draw empties them with `clear()`, reserves what the batch needs and refills them. A vector keeps its capacity, so only a batch larger than any before it allocates; the largest is 1,600 quads from `FlushVertices`, or the light's rectangles. The buffers live as long as the device. Nothing can come through from an earlier frame: Draw fills exactly `Count * 6` vertices and `Count` samplers and reads only those, and the new test in tests_vulkan draws batches of 400, 1, 3, 0, 50 and 2 quads in turn and compares every picture with the model.
+- **`TPortableSocket::Poll`:** the sorted list of connection numbers is now on the stack, for up to 8 connections (the client has at most a few), and in a vector beyond that. It stays local to the call and is not a reused member, because `Poll` can be re-entered: on Windows it also runs from the poll window's WM_TIMER (NetworkWin32.cpp), which a handler's modal loop can dispatch while an outer `Poll` is walking the list.
+- Not changed: `WriteImage` and `WriteMaskedImage`, which are not per-frame work, and `TSurfaceVulkan`'s `Vertices` and `Shade`, which already keep their capacity.
+
+### What remains (high)
+
+After the change the heap calls of the x64 client are at Tibia.exe's level: on the GPU 0.00 on the title screen, 0.005 standing, 0.007 walking; Tibia.exe's 0.00, 0.003, 0.004 (notes/progress.md, on the merged code). None of the rest happens every frame, and none is removable without changing what it does (the same recording on the fixed build, each under 0.004 per frame):
+
+- A sprite cache miss: `WriteImage` and `WriteMaskedImage`, and `TGraphics::LoadSprite`'s file opening and reading (`TReadBinaryFile`, `Cp1252ToWide` for the file name). They come with new sprites on the screen.
+- The test build only, not in Patella.exe: the packet log (PacketLog.cpp), the control channel (TestModeWin32.cpp) and its dumps.
+- One-off growth: the first frames, and a batch larger than any before it (`QuadVertices`, `QuadSamplers`); then none.
+- Not counted by this measurement, in either client: what the Vulkan driver, Direct3D 9, SDL's own allocator and the system's DLLs allocate.
+
+On the CPU driver the rest is 0.03 to 0.06 per frame, higher only because that device has about a tenth of the frames: the same calls per second.
+
+### #156's figure (for the owner's decision)
+
+The title screen's work before Present, median of 5 runs (Sandbox numbers), the same runs as the counts, on the merged code with #136's Release flags, "before" with the fix reverted: before the change the x64 client 0.060 ms on the GPU (0.059-0.064) and 0.067 ms on the CPU driver (0.066-0.076), Tibia.exe 0.040 ms (0.039-0.040); after it 0.058 ms on the GPU (0.057-0.083) and 0.063 ms on the CPU driver (0.058-0.066), Tibia.exe 0.041 ms (0.040-0.070). The eight allocations were worth about 0.002 ms; the rest of the gap, 0.017 ms, stays (1.41 times Tibia.exe's). The spreads overlap only because of one slow Tibia.exe run (0.070 ms): its other four are at most 0.041 ms, and the x64 client's lowest is 0.057 ms. #156 is not touched here.
+
 
 ## #160: the Linux-only client sources in the hosted clang-tidy job (Patella-Modern issue #160, M9)
 
@@ -18634,3 +18672,87 @@ the checkout and build tree found none.
 
 Local: `python -I tools/build.py windows-x64` with the frozen corpus, exit 0, 32/32, tests_vulkan 18 cases and 1,607 assertions, golden
 15,739,165 + 1,576,875 = 17,316,040, 0 failures, 0 compiler warnings. clang-format and banned_calls exit 0. Logs: build\logs\issue-163\.
+
+## #161: the helper's login and Tibia.exe's first frame in Windows Sandbox (Patella-Modern issue #161, M9)
+
+Done by Claude Opus 5.5, November 9, 2026 (branch issue-161, from main 7e03302). Tools only: tools/session_client.py,
+tools/login_client.py, tools/capture/patcap.c, tools/compare_rendering.py, and the new tools/sandbox_trial.py; no change
+in src/. Logs: build\logs\issue-161 (local).
+
+### The helper's login: the TCP table's state, not the login (high)
+
+Measured with `python -I tools/sandbox_trial.py login`: the helper's start, login and game entry in the Sandbox, the TCP
+table read every 20 ms. A login takes 0.30 to 0.36 s from the character's Return (22 logins), against a 10 s limit, so
+neither load nor the limit is the cause. Before the fix 2 of 14 logins failed. In both the helper's game connection had a
+row with the right ports and PID from the first reading, and its state read wrong and stayed wrong for the row's whole
+life: 0 for one, FIN_WAIT1 (6) for 15 s for the other, where tonight's runs had shown CLOSED (1) and LISTEN (2). The
+client meanwhile showed connection state 8 and its player in the game, 5 s later too. The tunnel is not involved: the
+wrong row is the client's own, and the connection worked.
+
+Python's own sockets read correctly in the same Sandbox (500 of 500 ESTABLISHED, both ends), so this is not the reader;
+the wrong state was seen on Tibia.exe's rows in the Sandbox, and has not been seen on the host (#147 on). A listener's row reads 0 on the host and in the Sandbox alike, which is not what this wait reads. Why is not known, and Windows' side of it was not
+looked into. The tunnel's listener's own row flickers between readings too (0, 1, 2, 6).
+
+- **session_client.wait_game_connection** (login's wait, now on its own): the game connection is made when the table says
+  ESTABLISHED, when the proxy has the client's game login (#21), or, new, when the client has a row to the game port (any
+  state) and shows its player in the game. The player exists only after the server's game login answer, so a broken login
+  cannot pass this way. The 10 s stays: the measured time is 30 times shorter.
+- **login_client.wait_connection(present=False)** waits for the row to go, not for "not ESTABLISHED": with a wrong state
+  that read as closed at once, while the connection lived (helper_logout, session_client.logout). `holds_connection` is
+  the new reading.
+
+The proof that a real failure still fails: `sandbox_trial.py login --broken --count 3`, Tibia.exe logging in through a
+proxy that does not listen on its game port (the connection refused): 3 of 3 failed with "no game connection" after 14.5 s
+(the start, the login, the 10 s). `sandbox_trial.py self-test` covers the rest on made-up clients: no row and no player, a
+row without the player (a connection that never got the game answer), the player unreadable, the player without a row (left
+from an earlier session) all fail; a row in a wrong state with the player passes.
+
+### The first frame: a stale hook in patcap.dll (high), and a second kind of start (medium)
+
+In the failing start the client was fine and drawing: its main thread sat in TSurfaceDX9::FinishFrame's wait (Tibia.exe
++0xf05a3, under +0xf0f93), its window answered, frames were being drawn. What was missing was the hook. patcap.log stops
+after the second Direct3DCreate9, without "CreateDevice called (call 2)": the second IDirect3D9 object's vtable, at the
+same address as the first's, had its original CreateDevice slot again, and PatchVtable took the address for already patched
+and left it. No CreateDevice hook means no Present hook, so patcap counted no frame.
+
+- **patcap.c PatchVtable** compares the slot as well: a known vtable whose slot is not the hook is patched again, and the
+  log says so ("is unpatched again"). With it: 12 of 12 first starts showed a frame (3.75 to 4.3 s; before: 3 of 12 failed, 1
+  of this kind), and the re-patch fired in exactly the starts that used to fail.
+- **Why the vtable is back at its original slot** is not known. It is not an unload of d3d9.dll, which was the first
+  explanation (ExitDisplay's FreeLibrary): pinning the module with GET_MODULE_HANDLE_EX_FLAG_PIN changed nothing (still 1 of 12,
+  and both windowed GPU passes), so the pin was taken out. It happened at the first start of every Sandbox, and at the
+  windowed GPU pass's orig-repeat, after a Vulkan run on the GPU; never in the CPU passes or the fullscreen ones.
+- **Such a start is another start** (high). Each one lists "1024x768, 16 Bits" in the graphics options besides the 32-bit
+  mode (2 of 2 in two rendering runs, against 0 of 2 starts without it in the CPU pass), so with the hook fixed
+  compare_rendering failed at graphics-options, 445 pixels. Those starts used to be killed by the 30 s wait and never
+  compared. compare_rendering.Driver.other_start reads this start's own lines of patcap.log and takes the one more start of
+  Driver.start (session_client.START_ATTEMPTS), at once instead of after 30 s; a client that started that way twice still
+  ends the run. No mask was added: Tibia.exe's mode list in the ordinary start stays compared.
+
+### Found, not done
+
+- **A start that is just slow** (medium): in the baseline trial two starts in a row (4 and 5 of 12, about two minutes)
+  showed no TibiaClient window within session_client's 30 s. One made its first Direct3DCreate9 18.3 s after its start, the
+  other had made none by 30 s; the next start took 13 s, and later ones 4.2 to 5.9 s. In login trial 1 two starts in a row
+  failed the same way and ended the run (StartError). Not seen again in later trials. A raised limit was not the fix the issue asks for (normal
+  is 4 to 6 s against 30 s), and the trial's diagnosis of it (added after those failures) has no sample yet: where such a
+  start is stuck is not known. The load of other agents' builds may be the cause (not shown).
+
+### The checks (high)
+
+`python -I tools/sandbox_trial.py ...`, in Windows Sandbox, on the worktree's windows-x64 Release:
+
+| Trial | Result |
+| :--- | :--- |
+| login, before the fix | 2 of 14 failed (wrong state); 1 further stop by the slow start above |
+| login, after | 10 of 10, 2 of them through the new path (states 2 and 1), 0.30-0.36 s |
+| login --broken | 3 of 3 failed as they must, 14.5 s each |
+| frame, before | 3 of 12 failed: start 1 (the hook), 4 and 5 (slow) |
+| frame, re-patch | 12 of 12, 3.75-4.3 s, start 1 re-patched |
+| frame, re-patch and pin | 12 of 12, 4.0-4.8 s, start 1 re-patched (the pin did nothing) |
+| compare_traffic.py, twice | no differences, exit 0, 239 s and 213 s; one login through the new path (state 6) |
+| compare_rendering.py, windowed and fullscreen | all scenes identical, exit 0; two starts retried at once as "another start" |
+
+Ten runs of the whole of compare_traffic did not fit beside #155's Sandbox runs; the trials above stand in for them, as the
+issue's brief allowed. tools' self-tests (sandbox_trial, sandbox, client_start, compare_rendering, compare_files) and
+banned_calls pass.

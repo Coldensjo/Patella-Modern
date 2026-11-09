@@ -3,6 +3,7 @@
 
 #include "platform/PortableSocket.h"
 
+#include "compat/span.h"
 #include "platform/Socket.h"
 
 #if defined(_WIN32)
@@ -587,12 +588,18 @@ const char *TPortableSocket::ResolvedAddress(const char *Buffer)
 
 void TPortableSocket::Poll()
 {
-	// The connections in the order they were made; an event's handler may close or make any of them.
-	std::vector<std::uint64_t> Ids;
-	Ids.reserve(Connections.size());
+	// The connections in the order they were made; an event's handler may close or make any of them. The numbers are
+	// this call's own, because a handler's modal loop can reach Poll again. The client's few connections fit on the
+	// stack, so a turn of the loop does not allocate (issue #155); more than that go in a vector.
+	std::array<std::uint64_t, 8> Inline{};
+	std::vector<std::uint64_t> Many;
+	if (Connections.size() > Inline.size())
+		Many.resize(Connections.size());
+	const patella::TSpan<std::uint64_t> Ids(Many.empty() ? Inline.data() : Many.data(), Connections.size());
+	std::size_t Count = 0;
 	for (const auto &Entry : Connections)
-		Ids.push_back(Entry.first);
-	std::ranges::sort(Ids);
+		Ids[Count++] = Entry.first;
+	std::ranges::sort(Ids.begin(), Ids.end());
 	for (const std::uint64_t Id : Ids)
 		PollConnection(Id);
 	PollLookups();

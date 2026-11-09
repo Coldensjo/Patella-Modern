@@ -79,6 +79,7 @@ STEP_TIMEOUT = 10.0  # seconds a step's condition (Driver.wait_until) may take (
 START_TIMEOUT = 30.0  # seconds from the window to the start screen (TStartWindow in the window tree)
 START_ATTEMPTS = 2  # starts of a client before StartError (issue #148: one more after a failed one)
 POLL = 0.05  # seconds between two readings of a condition
+GAME_CONNECTION_TIMEOUT = 10  # seconds from the character's Return to the game connection (0.3 s normally, issue #161)
 # The player's direction (TCreature.Direction): north, east, south, west.
 NORTH, EAST, SOUTH, WEST = 0, 1, 2, 3
 
@@ -246,6 +247,10 @@ class Driver:
 
 	def connected(self, port):
 		return (port, 5) in lc.tcp_connections(self.proc.pid)
+
+	def holds(self, port):
+		"""Whether the client has a TCP row to the port, in any state (issue #161)."""
+		return lc.holds_connection(self.proc.pid, port)
 
 	def wait_connected(self, port, present, seconds):
 		return lc.wait_connection(self.proc.pid, port, present, seconds)
@@ -532,7 +537,26 @@ def login(driver, wait, character, proxy=None):
 		driver.key(VK_DOWN)
 	before = game_connections(proxy) if proxy is not None else 0
 	driver.char(13)
-	deadline = time.time() + 10
+	wait_game_connection(driver, proxy, before)
+
+
+def client_in_game(driver):
+	"""Whether the client shows its player (its own creature in its table): only the server's game login answer puts
+	it there. A reading that fails (the client is changing what it reads) counts as not yet."""
+	try:
+		return bool(driver.player())
+	except Exception:  # noqa: BLE001 - client_state.ReadError, testmode_client.ControlError: not yet
+		return False
+
+
+def wait_game_connection(driver, proxy=None, before=0, timeout=GAME_CONNECTION_TIMEOUT):
+	"""After the character's Return: the game connection, within timeout seconds, or SessionError. Made means the TCP
+	table shows it established, the proxy got the client's game login packet (issue #21), or (issue #161) the client
+	has a row to the game port and shows its player in the game. Inside Windows Sandbox a game connection's row now
+	and then shows a wrong state from its first reading on, for as long as it lives (seen: 0, 1, 2, 6, with the client
+	in the game after 0.3 s; notes/decisions.md, "#161"), so the state alone failed logins that had worked. A client
+	that has no row, or a row and no player (a closed port, a refused or dropped connection), still fails here."""
+	deadline = time.time() + timeout
 	while time.time() < deadline:
 		if driver.connected(driver.game_port):
 			return
@@ -540,9 +564,13 @@ def login(driver, wait, character, proxy=None):
 			driver.log("login: the proxy has the game connection (the TCP table shows %s)"
 				% lc.tcp_connections(driver.proc.pid))
 			return
+		if driver.holds(driver.game_port) and client_in_game(driver):
+			driver.log("login: the client is in the game (the TCP table shows %s, not ESTABLISHED: issue #161)"
+				% lc.tcp_connections(driver.proc.pid))
+			return
 		time.sleep(0.2)
-	raise SessionError("no game connection (port %d) within 10 s; the client's TCP connections: %s"
-		% (driver.game_port, lc.tcp_connections(driver.proc.pid)))
+	raise SessionError("no game connection (port %d) within %d s; the client's TCP connections: %s"
+		% (driver.game_port, timeout, lc.tcp_connections(driver.proc.pid)))
 
 
 def logout(driver):

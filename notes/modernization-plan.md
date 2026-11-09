@@ -855,11 +855,15 @@ x64 and Linux x64 against the reference recordings; the Vulkan engine passes the
   Done in #134 (notes/decisions.md, "#134"): `tools/profiling.py` runs both clients in Windows Sandbox on the same live
   session (notes/testmode.md, "Profile windows"); the numbers are in notes/progress.md, "Profiling"; the regressions
   it found are #155 (heap allocations per frame) and #156 (the title screen's work before Present).
+  Done in #155 (notes/decisions.md, "#155"): the x64 client's heap calls per frame are at Tibia.exe's level (0.00, 0.005 and
+  0.007 against 8, 71 and 68 before), by reusing `TRenderer::Draw`'s buffers and keeping `TPortableSocket::Poll`'s list on the stack.
 - **Packages** through CPack: a Windows zip (and optionally an installer), a Linux tarball and AppImage or
   Flatpak (D4). The packages contain no CipSoft files: the user points the client at their own data files.
   Done in #135 (notes/decisions.md, "#135"): the presets package-windows-x64 and package-linux-x64 (cmake/Package.cmake),
   only from a build with the placeholder pictures; `tools/package_check.py` proves each package has no CipSoft file, in hosted CI.
 - Reproducible builds, a changelog, a release checklist.
+  Done in #161 (notes/decisions.md, "#161"): the Sandbox's helper login and first-frame failures, found and fixed in the tools;
+  `tools/sandbox_trial.py` repeats them.
   Done in #136 (notes/decisions.md, "#136"): cmake/Reproducible.cmake, `tools/repro_check.py` (two Release builds in different
   folders compared byte for byte: Patella and PatellaTest of windows-x64, linux-x64-gcc and linux-x64-clang are identical; the
   PDBs are not), `CHANGELOG.md`, `notes/release-checklist.md` (with #135's packages step).

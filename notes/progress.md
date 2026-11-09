@@ -903,6 +903,12 @@ The Linux-only client sources in the hosted clang-tidy job (Patella-Modern issue
 
 The Linux client's window icon (Patella-Modern issue #162, branch issue-162, November 9, 2026; M9): SDL_SetWindowIcon on Linux only (src/platform/WindowIconLinux.cpp, the portable decoder src/platform/WindowIcon.h), the icon built in by tools/embed_cursors.py from the local Tibia.exe's or the placeholder; tools/package_check.py's Linux marker has the icon too; tools/linux_live.py --product reads `_NET_WM_ICON`. Seen under Xvfb only. notes/decisions.md, "#162".
 
+The Sandbox's two flakes (Patella-Modern issue #161, branch issue-161, November 9, 2026; M9): the helper's login failed on a wrong
+state in the TCP table, the client being in the game after 0.3 s (login now also takes a row to the game port and the player;
+a logout waits for the row to go), and Tibia.exe's "no first frame" was patcap.dll's stale vtable entry (patched again; such a
+start lists a 16-bit mode, so compare_rendering takes one more start at once). A real login failure still fails.
+tools/sandbox_trial.py; notes/decisions.md, "#161".
+
 Reproducible builds, a changelog, a release checklist (Patella-Modern issue #136, branch issue-136, November 9, 2026; M9): two
 Release builds of one commit in different folders give byte-identical Patella.exe and PatellaTest.exe (windows-x64), Patella and
 PatellaTest (linux-x64-gcc, linux-x64-clang): `python -I tools/repro_check.py <preset>`. cmake/Reproducible.cmake, CHANGELOG.md,
@@ -1079,6 +1085,22 @@ heap calls come through patcap.dll (the D3D9 Present hook and its imports); its 
 original program). Heap counts are the client's own HeapAlloc/HeapReAlloc/HeapFree calls; drivers and system DLLs (and
 any allocator with its own arena) are in neither. A bare-metal run was not made (Tibia.exe's runs stay off the owner's
 desktop); run the tool in a second session or on another machine for that.
+
+### After #155 (November 9, 2026)
+
+The same tool and windows (`--reps 5 --variants gpu,cpu`, Windows Sandbox), on the merged code with #136's Release flags: "before" with #155's fix reverted, "after" with it. **The heap counts do not depend on the environment, the timings do.** `TRenderer::Draw`'s two vectors and `TPortableSocket::Poll`'s are gone (`notes/decisions.md`, "#155"); what remains comes with a sprite cache miss, or is the test build's only.
+
+| | title screen | in the game, standing | walking |
+| :--- | :--- | :--- | :--- |
+| Heap allocations per frame, Tibia.exe | 0.00 | 0.003 | 0.004 |
+| Heap allocations per frame, x64 client, GPU, before | 8.00 (8.00-8.00) | 71.4 (68.3-85.1) | 67.6 (67.2-78.1) |
+| Heap allocations per frame, x64 client, GPU, after | 0.00 (0.00-0.00) | 0.005 (0.003-0.006) | 0.007 (0.007-0.017) |
+| Heap allocations per frame, x64 client, CPU driver, after | 0.00 | 0.033 (0.017-0.036) | 0.064 (0.046-0.070) |
+| Bytes asked for per frame, x64 client, GPU, before / after | 93,609 / 0 | 277,531 / 31 | 281,431 / 44 |
+| Work before Present, ms, Tibia.exe, before / after | 0.040 / 0.041 | 0.284 / 0.299 | 0.293 / 0.319 |
+| Work before Present, ms, x64 client, GPU, before / after | 0.060 / 0.058 | 0.307 / 0.309 | 0.319 / 0.311 |
+
+The CPU driver's rest is higher only because it shows about a tenth of the frames (the same calls per second). The title screen's work before Present (#156) goes from 0.060 to 0.058 ms against Tibia.exe's 0.041 ms, 1.41 times; #155 took about 0.002 ms of the 0.02 ms gap.
 
 ## Packages (issue #135, November 9, 2026)
 
