@@ -200,7 +200,7 @@ def cfg_window(cfg=ct.TIBIA_CFG):
 
 def window_placement(hwnd):
 	"""(x, y, width, height, showCmd) of a window's normal (restored) place: what the client's OnDestroy
-	writes to Tibia.cfg's WindowedMode (GetWindowPlacement's rcNormalPosition, src/MainFrm.cpp)."""
+	writes to Tibia.cfg's WindowedMode (GetWindowPlacement's rcNormalPosition, src/SdlFrame.cpp)."""
 	placement = WINDOWPLACEMENT()
 	placement.length = ctypes.sizeof(WINDOWPLACEMENT)
 	if not user32.GetWindowPlacement(hwnd, ctypes.byref(placement)):

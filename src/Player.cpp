@@ -44,13 +44,10 @@
 #include <array>
 #include <sstream>
 #include <string>
-#include <new>
-#include <stdexcept>
 #include "compat/msvc.h"
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
-#include <exception>
 
 namespace {
 
@@ -311,7 +308,8 @@ BOOL InitSdlWindow(bool Gamemaster, const char *ClassName)
 // recognised but their values are dropped (the test server is always
 // test.cipsoft.com:7172), and after an error InitInstance still returns TRUE.
 // A PROGRAM_ERROR shows its code, any other error is turned into a
-// TMyException for HandleException. The original read error.txt first and
+// TMyException for HandleException (patella::ThrowTopLevelError, TMyException.h:
+// the original's handlers). The original read error.txt first and
 // posted event 0x2a at the end (the error report dialog); both are gone
 // since issue #74.
 BOOL CPlayerApp::InitInstance()
@@ -368,18 +366,8 @@ BOOL CPlayerApp::InitInstance()
 			return InitSdlWindow(Gamemaster, ClassName);
 		} catch (const TProgramError &Error) {
 			HandleProgramError(Error.Code);
-		} catch (TMyException &Exception_) {
-			throw TMYEXCEPTION("exception occurred", "", 0, "", 0, Exception_);
-		} catch (std::bad_alloc &) {
-			TERROR("bad_alloc_exception occurred");
-		} catch (std::out_of_range &) {
-			TERROR("out_of_range_exception occurred");
-		} catch (std::exception &) {
-			TERROR("exception occurred");
-		} catch (const char *) {
-			TERROR("const char* exception occurred");
 		} catch (...) {
-			TERROR("unknown exception occurred");
+			patella::ThrowTopLevelError(PATELLA_SOURCE_LOCATION());
 		}
 	} catch (TMyException &Exception) {
 		HandleException(Exception);
@@ -400,18 +388,8 @@ int CPlayerApp::Run()
 			patella::sdlframe::Run([] { theApp.OnIdle(); });
 		} catch (const TProgramError &Error) {
 			HandleProgramError(Error.Code);
-		} catch (TMyException &Exception_) {
-			throw TMYEXCEPTION("exception occurred", "", 0, "", 0, Exception_);
-		} catch (std::bad_alloc &) {
-			TERROR("bad_alloc_exception occurred");
-		} catch (std::out_of_range &) {
-			TERROR("out_of_range_exception occurred");
-		} catch (std::exception &) {
-			TERROR("exception occurred");
-		} catch (const char *) {
-			TERROR("const char* exception occurred");
 		} catch (...) {
-			TERROR("unknown exception occurred");
+			patella::ThrowTopLevelError(PATELLA_SOURCE_LOCATION());
 		}
 	} catch (TMyException &Exception) {
 		HandleException(Exception);

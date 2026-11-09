@@ -6,8 +6,11 @@
 
 #include "TMyException.h"
 #include "compat/assertion.h"
-#include <sstream>
+#include <exception>
+#include <new>
 #include <ostream>
+#include <sstream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -157,6 +160,25 @@ void AssertionFailed(const char *Expression, const TSourceLocation &Location, co
 void DivisionByZero(const char *Expression, const TSourceLocation &Location)
 {
 	throw MakeError(Location, "integer division by zero", "", 0, "", 0, Expression);
+}
+
+void ThrowTopLevelError(const TSourceLocation &Location)
+{
+	try {
+		throw;
+	} catch (const TMyException &Exception) {
+		throw MakeError(Location, "exception occurred", "", 0, "", 0, Exception);
+	} catch (const std::bad_alloc &) {
+		throw MakeError(Location, "unknown exception occurred", "", 0, "", 0, "");
+	} catch (const std::out_of_range &) {
+		throw MakeError(Location, "out_of_range_exception occurred", "", 0, "", 0, "");
+	} catch (const std::exception &) {
+		throw MakeError(Location, "exception occurred", "", 0, "", 0, "");
+	} catch (const char *) {
+		throw MakeError(Location, "const char* exception occurred", "", 0, "", 0, "");
+	} catch (...) {
+		throw MakeError(Location, "unknown exception occurred", "", 0, "", 0, "");
+	}
 }
 
 } // namespace patella
