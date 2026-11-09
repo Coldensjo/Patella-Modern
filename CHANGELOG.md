@@ -81,6 +81,8 @@ No version has been released yet. This section is the state of the main branch.
 - Tests: a test build of the client with a fake clock, scripted input and dumps (#21, #22), headless (#145); frozen
   reference recordings and a corpus of about 17 million checks (#23, #24, #93), which are local and never published; live
   comparisons with the original in Windows Sandbox on a private test server per run (#146, #147).
+- Packages for Windows (a zip) and Linux (a tarball and an AppImage), with stand-in pictures and without the test build, built by
+  `python -I tools/build.py package-windows-x64` and `package-linux-x64` in a checkout without `Tibia.exe` (#135).
 - Builds are reproducible: two Release builds of one commit in different folders give the same `Patella` and
   `PatellaTest` binaries, on Windows and Linux (#136). `python -I tools/repro_check.py <preset>` checks it, and
   `notes/release-checklist.md` lists what to do for a release.

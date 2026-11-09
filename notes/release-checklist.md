@@ -34,15 +34,30 @@ the last release in plain words, and start a new empty "Unreleased".
 
 ## 3. The packages
 
-**Pending #135 (M9, CPack packages): nothing to run yet.** The step will be a Windows zip, a Linux tarball and AppImage or Flatpak
-(plan M9, D4), built from the commit with neutral placeholder pictures or none, the user pointing the client at their own data
-files. Before a package goes anywhere, list its contents and check that no CipSoft file or picture derived from one is inside
-(the local builds embed pictures from the local `Tibia.exe`, cmake/Resources.cmake: such a binary is never published).
+The packages are a Windows zip, a Linux tarball and a Linux AppImage (issue #135; cmake/Package.cmake, notes/decisions.md "#135"), with
+placeholder pictures only and without the test build: the user points the client at their own data files. A build that embeds the
+local `Tibia.exe`'s pictures (cmake/Resources.cmake) is refused for packaging, and is never published.
+
+Hosted CI's jobs "package (Windows zip)" and "package (Linux tarball and AppImage)" make them on the commit, on runners without
+`Tibia.exe`, and leave the run's artifacts `package-windows-x64` and `package-linux-x64` (kept 14 days). Those are named
+`Patella-Modern-dev-*`: a run makes no release or tag, and it is the owner who downloads or publishes anything.
+
+To build the packages of a release, in a checkout that has no `Tibia.exe` (the presets refuse the placeholders otherwise):
+
+1. The version, in the first configure of the folder (`PATELLA_PACKAGE_VERSION`, default `dev`, stays in the cache): `python -I
+   tools/build.py --env package-windows-x64 cmake --preset package-windows-x64 -DPATELLA_PACKAGE_VERSION=<version>`, and the same for
+   `package-linux-x64` (the Linux preset in the Docker image).
+2. `python -I tools/build.py package-windows-x64` and `python -I tools/build.py package-linux-x64`. The packages appear in
+   `build/package-<platform>-x64/packages/` as `Patella-Modern-<version>-windows-x64.zip`, and for Linux the `.tar.gz` and `.AppImage`.
+3. `python -I tools/package_check.py <package>` on each: no CipSoft file, the placeholders inside, only the expected files.
+
+A package's file list and its program are the same between two builds of a commit, but the archive files are not byte-identical,
+because they store the time each file was made: notes/decisions.md, "#136".
 
 ## 4. The tag
 
-The owner creates the annotated tag on the commit and pushes it. Only after every step above: tags are not moved or re-used
-once pushed.
+The tag is the owner's: the owner creates the annotated tag on the commit and pushes it, after every step above. No tool here and
+nobody else makes one. Tags are not moved or re-used once pushed.
 
 ## 5. Afterwards
 

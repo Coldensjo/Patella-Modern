@@ -18437,16 +18437,26 @@ outcome only. tests/unit's checks use `ends_with`.
 The PDBs do not match and that is accepted. A PDB records the absolute paths of the objects and of the compile PDBs, which the
 linker takes from the build folder (the two differ in size by the length of the folder's name), and those are not removed by the options
 above. The executables keep no path and a GUID that is equal in both, so a PDB goes with its executable by name and GUID as ever.
-The executables are what a user runs and what a release would publish. Should a matching PDB ever be needed, it is one more `/pdbaltpath`-class
-problem to solve then.
+Measured: a build's Patella.exe with the PDB of the other build, copied next to it, loads in dbghelp with WinMain's source and line (17,235 symbols).
+The executables are what a user runs and what a release would publish.
 
 The local binaries embed pictures of the local Tibia.exe (cmake/Resources.cmake), so the tool prints offsets and sections and never bytes
 or hashes, and its output stays local; the hosted CI's placeholder builds would compare the same way (the tool takes placeholders where
 there is no Tibia.exe). The check is not in the CI: a release gate (notes/release-checklist.md), about 20 minutes for the three presets.
 
+### The packages (issue #135, merged before this one)
+
+The presets package-windows-x64 and package-linux-x64 inherit windows-x64 and linux-x64-gcc, so the settings above reach them (cmake/Reproducible.cmake is
+included before cmake/Package.cmake). Measured on two builds each, from two exports without Tibia.exe (their folders different; each Linux build is
+at the image's fixed /work, as a real one is): **every file in the archive is the same** (Patella.exe, vulkan_lvp.dll, the licences; bin/Patella and the rest in the
+tarball), and the **archives themselves differ**, only because a ZIP and a tar store each file's time (the executable's and the _deps licences' dates are of
+their own build). The AppImage differs too; it was not unpacked, its squashfs stores times as well. A package's own reproducibility is not required here;
+CPack would have to set the times (SOURCE_DATE_EPOCH for tar/squashfs, the ZIP generator has none), and it is not done. The packages' version (`PATELLA_PACKAGE_VERSION`,
+notes/release-checklist.md) was tested on Windows: configuring once with `-DPATELLA_PACKAGE_VERSION=1.2.3` then the workflow produces Patella-Modern-1.2.3-windows-x64.zip.
+
 ### Also
 
-CHANGELOG.md (plain words, the last release's section still to come, no version released) and notes/release-checklist.md (the gates, the check above, the changelog, packages pending #135, the tag: the owner's).
+CHANGELOG.md (plain words, the last release's section still to come, no version released) and notes/release-checklist.md (the gates, the check above, the changelog, the packages of #135, the tag: the owner's).
 
 ## #135: the packages (Patella-Modern issue #135, M9)
 

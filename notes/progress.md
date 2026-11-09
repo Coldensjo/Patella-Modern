@@ -903,7 +903,7 @@ Reproducible builds, a changelog, a release checklist (Patella-Modern issue #136
 Release builds of one commit in different folders give byte-identical Patella.exe and PatellaTest.exe (windows-x64), Patella and
 PatellaTest (linux-x64-gcc, linux-x64-clang): `python -I tools/repro_check.py <preset>`. cmake/Reproducible.cmake, CHANGELOG.md,
 notes/release-checklist.md. The PDBs are not identical (they record the build's folders), which the tool reports and does not
-fail on; packages are pending #135. notes/decisions.md, "#136".
+fail on; the packages reach the same settings (the program inside is identical, the archives are not: file times). notes/decisions.md, "#136".
 
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
