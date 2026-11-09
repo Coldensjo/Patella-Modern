@@ -227,6 +227,8 @@ void RetireChecks(long long Count);
 //	     part runs to the end of the round (ResetSides).
 //	#139 network_tests.cpp: the same for a frame whose size is no multiple of 8 (item 7; none in the corpus) and the
 //	     part's name for any other drop of TNetwork's (TFrameDrop).
+//	#166 dialogs_tests.cpp: the Info dialog's text, the fork's two lines where the corpus has the original's five (the
+//	     owner's choice); a part around one check, opened only when the text explains its difference.
 // A check's result: true when it is a failure (Same false, outside a deliberate part).
 void BeginDeliberate(const char *Issue);
 void EndDeliberate();

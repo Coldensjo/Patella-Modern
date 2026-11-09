@@ -28,8 +28,9 @@
 //
 // An entry of a copy is at the copy's address plus four times its number.
 // The pointers are not const (the copies are in .data and the code reads
-// them from memory). The texts are the image's; the header's file name and
-// every entry name are ours. Include this header only in .cpp files.
+// them from memory). The texts are the image's, except 97 (the fork's own, the
+// owner's choice, Patella-Modern issue #166) and 116 (below); the header's file
+// name and every entry name are ours. Include this header only in .cpp files.
 
 #pragma once
 
@@ -116,49 +117,49 @@ const char *TextStateRuleViolation =                                            
 	"from a gamemaster.\n"
 	"Please note that your message will\n"
 	"disappear if you close this channel.";
-const char *TextReportBugsOnly = "Please use this dialog only to report bugs.\nDo not report rule violations here!";        // 69
-const char *TextSelectType = "Select a type:";                                                                              // 70
-const char *TextEnterCharacterName2 = "Please enter a character name:";                                                     // 71
-const char *TextEnterShortDescription = "Enter a short description:";                                                       // 72
-const char *TextEnterFilename = "Please enter a filename:";                                                                 // 73
-const char *TextClientInfo = "Click here to get\ninfo on the client.";                                                      // 77
-const char *TextShowPreviousHints = "Show previous hints";                                                                  // 78
-const char *TextAskTutor = "Ask a tutor for help";                                                                          // 79
-const char *TextReportRuleViolations = "Report rule violations";                                                            // 80
-const char *TextReadManual = "Read the manual on\nthe website";                                                             // 81
-const char *TextReadFAQ = "Read the FAQ on\nthe website.";                                                                  // 82
-const char *TextAvailableHints = "Available hints:";                                                                        // 83
-const char *TextChangeGeneralOptions = "Change general\ngame options";                                                      // 84
-const char *TextChangeGraphicsOptions = "Change graphics and\nperformance settings";                                        // 85
-const char *TextCustomiseConsole = "Customise the console";                                                                 // 86
-const char *TextChangeNetworkSettings = "Change network settings";                                                          // 87
-const char *TextEditHotkeys = "Edit your hotkey texts";                                                                     // 88
-const char *TextShowMotD = "Show the most recent\nMessage of the Day";                                                      // 89
-const char *TextServerAddress = "Server address:";                                                                          // 90
-const char *TextServerPort = "Server port:";                                                                                // 91
-const char *TextAdvancedSettings = "Advanced settings";                                                                     // 92
-const char *TextAvailableResolutions = "Available resolutions:";                                                            // 93
-const char *TextSelectEngine = "Select graphics engine:";                                                                   // 94
-const char *TextAvailableHotkeys = "Available hotkeys:";                                                                    // 95
-const char *TextEditHotkeyText = "Edit hotkey text:";                                                                       // 96
-const char *TextClientVersion = "Tibia Client\nVersion 7.72 \nCopyright (C) 2002-2006\nCipSoft GmbH\nAll rights reserved."; // 97
-const char *TextOfficialWebsite = "Official Website";                                                                       // 98
-const char *TextCharactersToIgnore = "Characters you wish to ignore:";                                                      // 99
-const char *TextGlobalIgnoreSettings = "Global settings for ignoring messages:";                                            // 100
-const char *TextCharactersToAllow = "Characters you allow to message you:";                                                 // 101
-const char *TextGlobalAllowSettings = "Global settings for allowing messages:";                                             // 102
-const char *TextEnterOneNamePerLine = "Enter one name per line.";                                                           // 103
-const char *TextItIsEmpty = "It is empty.";                                                                                 // 104
-const char *TextItIsCurrentlyEmpty = "It is currently empty.";                                                              // 105
-const char *TextYouReadTheFollowing = "You read the following.";                                                            // 106
-const char *TextYouCanEnterNewText = "You can enter new text.";                                                             // 107
-const char *TextYouReadWrittenBy = "You read the following, written by";                                                    // 108
-const char *TextCharacterListLoading = "Your character list is being loaded. Please wait.";                                 // 109
-const char *TextConnectingGameWorld = "Connecting to the game world. Please wait.";                                         // 110
-const char *TextWaitForCharacterList = "Please wait for your character list.";                                              // 111
-const char *TextSelectType2 = "Select a type:";                                                                             // 112
-const char *TextEnterShortDescription2 = "Enter a short description:";                                                      // 113
-const char *TextLinkCopyWarning =                                                                                           // 114
+const char *TextReportBugsOnly = "Please use this dialog only to report bugs.\nDo not report rule violations here!"; // 69
+const char *TextSelectType = "Select a type:";                                                                       // 70
+const char *TextEnterCharacterName2 = "Please enter a character name:";                                              // 71
+const char *TextEnterShortDescription = "Enter a short description:";                                                // 72
+const char *TextEnterFilename = "Please enter a filename:";                                                          // 73
+const char *TextClientInfo = "Click here to get\ninfo on the client.";                                               // 77
+const char *TextShowPreviousHints = "Show previous hints";                                                           // 78
+const char *TextAskTutor = "Ask a tutor for help";                                                                   // 79
+const char *TextReportRuleViolations = "Report rule violations";                                                     // 80
+const char *TextReadManual = "Read the manual on\nthe website";                                                      // 81
+const char *TextReadFAQ = "Read the FAQ on\nthe website.";                                                           // 82
+const char *TextAvailableHints = "Available hints:";                                                                 // 83
+const char *TextChangeGeneralOptions = "Change general\ngame options";                                               // 84
+const char *TextChangeGraphicsOptions = "Change graphics and\nperformance settings";                                 // 85
+const char *TextCustomiseConsole = "Customise the console";                                                          // 86
+const char *TextChangeNetworkSettings = "Change network settings";                                                   // 87
+const char *TextEditHotkeys = "Edit your hotkey texts";                                                              // 88
+const char *TextShowMotD = "Show the most recent\nMessage of the Day";                                               // 89
+const char *TextServerAddress = "Server address:";                                                                   // 90
+const char *TextServerPort = "Server port:";                                                                         // 91
+const char *TextAdvancedSettings = "Advanced settings";                                                              // 92
+const char *TextAvailableResolutions = "Available resolutions:";                                                     // 93
+const char *TextSelectEngine = "Select graphics engine:";                                                            // 94
+const char *TextAvailableHotkeys = "Available hotkeys:";                                                             // 95
+const char *TextEditHotkeyText = "Edit hotkey text:";                                                                // 96
+const char *TextClientVersion = "Patella\nVersion 7.72";                                                             // 97
+const char *TextOfficialWebsite = "Official Website";                                                                // 98
+const char *TextCharactersToIgnore = "Characters you wish to ignore:";                                               // 99
+const char *TextGlobalIgnoreSettings = "Global settings for ignoring messages:";                                     // 100
+const char *TextCharactersToAllow = "Characters you allow to message you:";                                          // 101
+const char *TextGlobalAllowSettings = "Global settings for allowing messages:";                                      // 102
+const char *TextEnterOneNamePerLine = "Enter one name per line.";                                                    // 103
+const char *TextItIsEmpty = "It is empty.";                                                                          // 104
+const char *TextItIsCurrentlyEmpty = "It is currently empty.";                                                       // 105
+const char *TextYouReadTheFollowing = "You read the following.";                                                     // 106
+const char *TextYouCanEnterNewText = "You can enter new text.";                                                      // 107
+const char *TextYouReadWrittenBy = "You read the following, written by";                                             // 108
+const char *TextCharacterListLoading = "Your character list is being loaded. Please wait.";                          // 109
+const char *TextConnectingGameWorld = "Connecting to the game world. Please wait.";                                  // 110
+const char *TextWaitForCharacterList = "Please wait for your character list.";                                       // 111
+const char *TextSelectType2 = "Select a type:";                                                                      // 112
+const char *TextEnterShortDescription2 = "Enter a short description:";                                               // 113
+const char *TextLinkCopyWarning =                                                                                    // 114
 	"Warning!\n"
 	"You are about to copy a link. Keep in mind that unofficial\n"
 	"websites may be used to hack your account! Continue?";

@@ -2,7 +2,8 @@
 //
 // Every entry has the type, ID and language of Tibia.exe's .rsrc section and compiles to
 // the same bytes (tools/compare_resources.py; notes/resources.md lists the entries and
-// their users). The pictures (cursors, icon, bitmaps) are not in the repository: run
+// their users), except the version block's strings (issue #166, the owner's choice).
+// The pictures (cursors, icon, bitmaps) are not in the repository: run
 //	python -I tools/extract_resources.py Tibia.exe build/res
 // and compile with build/res on the include path (CMake does both, into build/<preset>/res).
 //
@@ -43,15 +44,11 @@ BEGIN
 	BEGIN
 		BLOCK "000004b0"
 		BEGIN
-			VALUE "Comments", "Tibia is a massively multiplayer online roleplaying game. Enter a medieval fantasy scenery, meet players from all over the world and have adventures together with them."
-			VALUE "CompanyName", "CipSoft GmbH"
-			VALUE "FileDescription", "Tibia Player"
+			VALUE "FileDescription", "Patella"
 			VALUE "FileVersion", "7.72"
-			VALUE "InternalName", "Player"
-			VALUE "LegalCopyright", "Copyright (C) CipSoft GmbH 2001-2006"
-			VALUE "LegalTrademarks", "Tibia is a registered Trademark of CipSoft GmbH."
-			VALUE "OriginalFilename", "Tibia.exe"
-			VALUE "ProductName", "Tibia Player"
+			VALUE "InternalName", "Patella"
+			VALUE "OriginalFilename", "Patella.exe"
+			VALUE "ProductName", "Patella"
 			VALUE "ProductVersion", "7.72"
 		END
 	END
