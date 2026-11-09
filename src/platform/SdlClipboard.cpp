@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <string>
 
@@ -50,12 +51,10 @@ std::optional<std::string> TSdlClipboard::Text()
 {
 	if (!VideoStarted())
 		return std::nullopt;
-	char *const Utf8 = SDL_GetClipboardText();
+	const std::unique_ptr<char, void(SDLCALL *)(void *)> Utf8(SDL_GetClipboardText(), SDL_free);
 	if (Utf8 == nullptr)
 		return std::nullopt;
-	std::string Text = patella::text::Utf8ToCp1252(Utf8);
-	SDL_free(Utf8);
-	return Text;
+	return patella::text::Utf8ToCp1252(Utf8.get());
 }
 
 // TWin32Clipboard::SetText. One difference of SDL's, kept by the owner's choice (notes/decisions.md, "#124"): on Windows

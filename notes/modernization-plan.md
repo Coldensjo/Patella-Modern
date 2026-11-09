@@ -811,6 +811,8 @@ The display modes stay EnumDisplaySettingsA/ChangeDisplaySettingsA on Windows, b
 custom mode Windows does not enumerate and other refresh rates; SDL3's versions (SDL_GetFullscreenDisplayModes,
 SDL_SetWindowFullscreenMode, platform/DisplayModeList.h, unit-tested) are the other systems'. The Win32 calls are left
 only in the Win32 implementation (Win32Platform.cpp, and the MFC path's MainFrm.cpp and WindowSystemWin32.cpp).
+Done in #159 (notes/decisions.md, "#159"): copying an empty text puts an empty text on the clipboard again, as the original did, and
+an out-of-memory error reports "unknown exception occurred" again (the owner's choice after #124 and #127).
 
 Done in #131 (notes/decisions.md, "#131"), the Linux half of the exit: the Linux presets build the client and its test
 build (cmake/LinuxX64.cmake; SDL3 with its X11 and Wayland drivers, the Vulkan engine, the image's Mesa lavapipe), and the
