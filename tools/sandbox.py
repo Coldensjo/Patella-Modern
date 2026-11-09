@@ -11,6 +11,9 @@ themselves again inside Windows Sandbox by default (a clean, disposable Windows 
       runs `python -I -u <tool.py> [arguments]` inside a new Sandbox and returns its exit code, its output streamed
   python -I tools/sandbox.py --self-test
       the parts that need no Sandbox: the configuration, the mappings, the tunnel's protocol on loopback
+  python -I tools/sandbox.py normal-user -- <command> [arguments]
+      runs the command here, no Sandbox, with a normal user's token at medium integrity, and returns its exit code; what
+      GitHub's elevated runner needs for tests_vulkan (issue #163, notes/vulkan.md, "The CPU driver")
   python -I tools/sandbox.py guest <exchange folder>
       the Sandbox's side (its LogonCommand; not for a user)
 
@@ -1154,7 +1157,21 @@ def self_test():
 	return not failures
 
 
+def normal_user(command):
+	"""The command with a normal user's token at medium integrity, its output on this process's (issue #163): GitHub's
+	Windows runner is elevated, where the Vulkan loader ignores VK_DRIVER_FILES, as in the Sandbox's account."""
+	command = command[1:] if command[:1] == ["--"] else command
+	if not command:
+		print("sandbox.py normal-user: no command given", file=sys.stderr)
+		return 2
+	sys.stdout.flush()
+	return call_as_normal_user(command, os.getcwd(), dict(os.environ), sys.stdout,
+		lambda text: print("sandbox.py normal-user: %s" % text, file=sys.stderr, flush=True))
+
+
 def main(argv):
+	if argv and argv[0] == "normal-user":
+		return normal_user(argv[1:])
 	if argv and argv[0] == "guest":
 		guest(argv[1])
 		return 0
