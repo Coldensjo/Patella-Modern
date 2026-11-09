@@ -14,7 +14,9 @@
 # - GCC and Clang: -ffile-prefix-map (the same paths, and those of debug information). Their linkers' build ids are hashes of
 #   the output already.
 # - Clang with AddressSanitizer (linux-x64-clang): cmake/RelativeSource.sh as the compiler launcher, every configuration:
-#   ASan's module name is the source path as given on the command line, which no prefix map reaches.
+#   ASan's module name is the source path as given on the command line, which no prefix map reaches. UBSan's check
+#   locations in a header have the header's absolute path, also out of the prefix map's reach:
+#   -fsanitize-undefined-strip-path-components=-1 keeps the file's name, with its line, in the report.
 #
 # Release only otherwise: Debug keeps absolute paths, which debuggers open without being told where the sources are. The source
 # folder is removed from the paths (MSVC) or replaced by "." (GCC, Clang), so __FILE__ reads "src\Map.cpp" or "./src/Map.cpp"
@@ -48,6 +50,9 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 	foreach(folder IN LISTS patella_repro_folders)
 		patella_repro_compile_option("-ffile-prefix-map=${folder}=.")
 	endforeach()
+	if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND PATELLA_SANITIZE MATCHES "undefined")
+		patella_repro_compile_option(-fsanitize-undefined-strip-path-components=-1)
+	endif()
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND PATELLA_SANITIZE MATCHES "address")
 		set(CMAKE_C_COMPILER_LAUNCHER sh "${PROJECT_SOURCE_DIR}/cmake/RelativeSource.sh")
 		set(CMAKE_CXX_COMPILER_LAUNCHER sh "${PROJECT_SOURCE_DIR}/cmake/RelativeSource.sh")
