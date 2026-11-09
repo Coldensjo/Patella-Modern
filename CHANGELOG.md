@@ -28,7 +28,8 @@ No version has been released yet. This section is the state of the main branch.
   `layout-frozen-final`.
 - The client also builds and runs on Linux, from the same code (#131). So far it has been run in a container with the
   software renderer: replaying every recorded session, logging in to a test server and playing a short scripted session.
-  Graphics cards under Linux and a real Linux desktop have not been tried yet.
+  Graphics cards under Linux and a real Linux desktop have not been tried yet. The Linux window has an icon too: the one of
+  your own `Tibia.exe` in a local build, a plain square in the packages (#162).
 - Graphics are drawn with Vulkan (#19, #20) instead of DirectX and old OpenGL. A computer without a suitable graphics card
   uses a software renderer (Mesa's lavapipe) that comes with the client on Windows and from the system on Linux. The
   graphics options offer "Automatic", "GPU" and "CPU" (#31).

@@ -5,6 +5,7 @@
 #include <doctest/doctest.h>
 
 #include "platform/CursorImage.h"
+#include "platform/WindowIcon.h"
 #include "platform/KeyInput.h"
 
 #include <array>
@@ -14,6 +15,7 @@
 
 namespace {
 
+using patella::platform::DecodeIconImage;
 using patella::platform::DecodeMonochromeCursor;
 using patella::platform::KeyCharacter;
 using patella::platform::KeyFlagAlt;
@@ -286,4 +288,81 @@ TEST_CASE("Cursor: what is not a 1-bit cursor is refused")
 	Colour[4 + 14] = 4; // 4 bits a pixel
 	CHECK_FALSE(DecodeMonochromeCursor(Colour).has_value());
 	CHECK_FALSE(DecodeMonochromeCursor(std::vector<std::uint8_t>(10, 0)).has_value());
+}
+
+namespace {
+
+// A made-up RT_ICON resource of Width x 2 pixels, 4 bits a pixel: Rows[0] is the top row, each character a palette index
+// ('0'-'3') or '.' for transparent. Palette: 0 black, 1 red, 2 green, 3 blue (RGBQUAD: blue, green, red, reserved).
+std::vector<std::uint8_t> IconResource(int Width, const std::array<const char *, 2> &Rows)
+{
+	std::vector<std::uint8_t> Bytes(40, 0);
+	const auto Put32 = [&Bytes](std::size_t Offset, std::uint32_t Value) {
+		for (std::size_t i = 0; i < 4; i++)
+			Bytes[Offset + i] = static_cast<std::uint8_t>(Value >> (8 * i));
+	};
+	Put32(0, 40);
+	Put32(4, static_cast<std::uint32_t>(Width));
+	Put32(8, 4); // twice the height
+	Bytes[12] = 1;
+	Bytes[14] = 4;
+	Put32(32, 4);
+	for (const std::uint32_t Colour : {0x00000000U, 0x00ff0000U, 0x0000ff00U, 0x000000ffU}) {
+		Bytes.push_back(static_cast<std::uint8_t>(Colour));
+		Bytes.push_back(static_cast<std::uint8_t>(Colour >> 8));
+		Bytes.push_back(static_cast<std::uint8_t>(Colour >> 16));
+		Bytes.push_back(0);
+	}
+	const auto Stride = static_cast<std::size_t>((Width * 4 + 31) / 32) * 4;
+	const auto AndStride = static_cast<std::size_t>((Width + 31) / 32) * 4;
+	std::vector<std::uint8_t> Colours(Stride * 2, 0);
+	std::vector<std::uint8_t> Ands(AndStride * 2, 0);
+	for (std::size_t y = 0; y < 2; y++) {
+		const std::size_t Row = 1 - y; // bottom-up
+		for (std::size_t x = 0; x < static_cast<std::size_t>(Width); x++) {
+			const char Pixel = Rows.at(y)[x];
+			if (Pixel == '.')
+				Ands[Row * AndStride + x / 8] |= static_cast<std::uint8_t>(0x80U >> (x % 8));
+			else
+				Colours[Row * Stride + x / 2] |= static_cast<std::uint8_t>((Pixel - '0') << (x % 2 == 0 ? 4 : 0));
+		}
+	}
+	Bytes.insert(Bytes.end(), Colours.begin(), Colours.end());
+	Bytes.insert(Bytes.end(), Ands.begin(), Ands.end());
+	return Bytes;
+}
+
+} // namespace
+
+TEST_CASE("Icon: an RT_ICON resource as ARGB rows, top-down, the AND bitmap's pixels transparent")
+{
+	const auto Icon = DecodeIconImage(IconResource(3, {"01.", ".23"}));
+	REQUIRE(Icon.has_value());
+	CHECK(Icon->Width == 3);
+	CHECK(Icon->Height == 2);
+	REQUIRE(Icon->Pixels.size() == 6);
+	CHECK(Icon->Pixels[0] == 0xff000000U);
+	CHECK(Icon->Pixels[1] == 0xffff0000U);
+	CHECK(Icon->Pixels[2] == 0x00000000U);
+	CHECK(Icon->Pixels[3] == 0x00000000U);
+	CHECK(Icon->Pixels[4] == 0xff00ff00U);
+	CHECK(Icon->Pixels[5] == 0xff0000ffU);
+}
+
+TEST_CASE("Icon: what is not a palette icon is refused")
+{
+	const std::vector<std::uint8_t> Resource = IconResource(3, {"000", "000"});
+	CHECK(DecodeIconImage(Resource).has_value());
+	const std::vector<std::uint8_t> Short(Resource.begin(), Resource.end() - 1);
+	CHECK_FALSE(DecodeIconImage(Short).has_value());
+	std::vector<std::uint8_t> Deep = Resource;
+	Deep[14] = 32;
+	CHECK_FALSE(DecodeIconImage(Deep).has_value());
+	std::vector<std::uint8_t> Compressed = Resource;
+	Compressed[16] = 1;
+	CHECK_FALSE(DecodeIconImage(Compressed).has_value());
+	std::vector<std::uint8_t> OddHeight = Resource;
+	OddHeight[8] = 3;
+	CHECK_FALSE(DecodeIconImage(OddHeight).has_value());
+	CHECK_FALSE(DecodeIconImage(std::vector<std::uint8_t>(10, 0)).has_value());
 }
