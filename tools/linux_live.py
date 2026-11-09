@@ -8,13 +8,15 @@ Usage (on the Windows host, from any shell; the Linux build is the preset's in t
   --windowed    the same under a virtual X display (Xvfb, no desktop): the real X11 window and a Vulkan swapchain on the
                 CPU driver (lavapipe); no display of the user's is touched.
   --product     Patella (the product, no script) under Xvfb for --product-seconds on the CPU driver: it starts, shows its
-                window and renders until it is stopped; a clean run is the process still alive at the end.
+                window and renders until it is stopped; a clean run is the process still alive at the end. It has no script
+                and never logs in, so it needs no server override (the product has none since issue #158).
 
 The test server is a Windows program on this host: the private copy (tools/testserver.py, issue #146) on its own ports,
 bound to 127.0.0.1. The container reaches it through Docker Desktop's host.docker.internal, whose back end dials the host's
 localhost (no firewall rule, no change of the machine); inside the container a forwarder listens on 127.0.0.1 on the same
-ports, so the character list's world address (127.0.0.1, the game port) reaches the server too. The client points at it with
-the environment's PATELLA_LOGIN_SERVER and the server's RSA modulus PATELLA_RSA_MODULUS (no patching of an ELF).
+ports, so the character list's world address (127.0.0.1, the game port) reaches the server too. The test build points at it
+with the environment's PATELLA_LOGIN_SERVER and the server's RSA modulus PATELLA_RSA_MODULUS (no patching of an ELF; both
+are the test build's only, issue #158).
 
 Exit code: 0 the session reached the game, walked and logged out (and with --windowed the frames were written), 1 not, 2
 a run could not be made.
@@ -150,9 +152,11 @@ def inner_main(args):
 	folder = "/live/client"
 	dumps = "/live/dumps"
 	os.makedirs(dumps, exist_ok=True)
-	env = dict(os.environ, TZ="UTC0", PATELLA_VULKAN="cpu", PATELLA_LOGIN_SERVER="127.0.0.1:%d" % args.login_port)
-	with open("/live/modulus.txt", encoding="ascii") as f:
-		env["PATELLA_RSA_MODULUS"] = f.read().strip()
+	env = dict(os.environ, TZ="UTC0", PATELLA_VULKAN="cpu")
+	if not args.product:
+		env["PATELLA_LOGIN_SERVER"] = "127.0.0.1:%d" % args.login_port
+		with open("/live/modulus.txt", encoding="ascii") as f:
+			env["PATELLA_RSA_MODULUS"] = f.read().strip()
 	if os.path.isfile(LAVAPIPE_MANIFEST):
 		env["VK_DRIVER_FILES"] = env["VK_ICD_FILENAMES"] = LAVAPIPE_MANIFEST
 	xvfb = None

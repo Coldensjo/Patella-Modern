@@ -77,7 +77,7 @@ The Linux client (issue #131; notes/testmode.md, "The Linux client"; notes/decis
 reference recordings on Linux (`tools/reference.py compare` in the image, its folders mounted with `PATELLA_DOCKER_MOUNTS`),
 and `python -I tools/linux_live.py [--windowed] [--product]` runs the live login and the scripted walk on a private test
 server from the container (host.docker.internal, no firewall change), or the product under Xvfb. The login server and RSA
-modulus come from the environment there (`PATELLA_LOGIN_SERVER`, `PATELLA_RSA_MODULUS`). Not run yet: Linux hardware
+modulus come from the environment there (`PATELLA_LOGIN_SERVER`, `PATELLA_RSA_MODULUS`; the test build's only since issue #158, `src/TestHooks.h`: the product reads neither, on either system). Not run yet: Linux hardware
 Vulkan drivers, a real X11 or Wayland desktop. MFC is gone (issue #127): no source includes it and Visual Studio's
 MFC component is not needed; the MFC socket declarations the golden corpus's Network calls are named after are test code
 in `tests/golden/mfc` (the original's frame and its golden checks are retired: notes/decisions.md, "The golden MainFrm

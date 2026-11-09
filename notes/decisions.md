@@ -17735,7 +17735,8 @@ testmode_check's. The golden runner never calls InitInstance; its file tests use
   `Xdg` and `XdgFolder`, tested; how the user turns it on (an environment variable, a command-line word, or automatic
   when the data folder cannot be written) is decided with the Linux client.
 - D14's "otherwise asks once" (a folder dialog when no Tibia.dat is found) is not done: the client keeps the original's
-  error. It needs a dialog of its own (SDL3 has a folder dialog) and a decision on where the answer is stored.
+  error. It needs a dialog of its own (SDL3 has a folder dialog) and a decision on where the answer is stored. Settled
+  with #158: no dialog, the original's error stays (plan D14).
 
 ### Checks
 
@@ -18096,7 +18097,7 @@ Wayland dependencies, with the local Tibia.exe's cursors (never its other data, 
   first login server) are MSVC's formula, so a run with the same seed sends the same random bytes as on Windows.
 - **The login servers and the RSA key come from the environment** (PATELLA_LOGIN_SERVER=host:port and PATELLA_RSA_MODULUS,
   decimal, read by Network.cpp and Communication.cpp): tools/patch_client.py patches a PE, not an ELF. Developer
-  environment variables, unset by default; plan D8's Patella.ini key stays open.
+  environment variables, unset by default; plan D8's Patella.ini key stays open. (Since #158 the test build's only, and no key.)
 - **The window frame in scripted runs on Linux.** SDL reports no borders under Xvfb or the dummy driver, so Patella.ini's
   outer window 800x600 would be an 800x600 client area where the recordings' client area is 780x557. Scripted runs on
   Linux use the recordings' frame (33 above, 10 on the other sides) regardless of the window manager (FrameSize,
@@ -18152,7 +18153,7 @@ has the old look step and is refused), compare_network 0 of 51 differ. tidy_ci b
 
 ### Found, not done
 
-- Plan D8's Patella.ini key for the servers and the RSA key (the environment variables stand in).
+- Plan D8's Patella.ini key for the servers and the RSA key (the environment variables stand in). Settled in #158: no key.
 - #134's profile windows are Windows' (the heap hooks patch kernel32's import table); on Linux the control channel answers that they are not implemented (src/testmode/ProfileWin32.cpp).
 - tests_vulkan on Linux; tidy's coverage of the new Linux platform files; the window icon on Linux; AppImage (M9).
 - `XDG_RUNTIME_DIR` not set in the container makes SDL's Wayland probe print one line to stderr ("error: XDG_RUNTIME_DIR is
@@ -18196,3 +18197,33 @@ differences"; compare_rendering `--modes windowed` "all scenes identical" (first
 frame, before any replay; passed on the rerun); compare_network 18 scenarios (login, game entry, cuts, inner lengths), 0 differ, 2
 deliberate. The old `build/recordings/orig-live.jsonl` in compare_network: 10 scenarios, 0 differ, 1 deliberate, before the
 one-frame change, which does not touch that recording's path.
+
+## #158: the login overrides in the test build only (Patella-Modern issue #158, M8)
+
+The owner's choice (November 8, 2026). #131 added PATELLA_LOGIN_SERVER and PATELLA_RSA_MODULUS to both products on both
+systems, so anyone able to set a user's environment could redirect that client's login.
+
+- **How:** two hooks of src/TestHooks.h, implemented in src/testmode/TestModeWin32.cpp (compiled into PatellaTest only, on
+  both systems). PATELLA_TEST_LOGIN_SERVERS(Network) is nothing at all outside the test build and PATELLA_TEST_RSA_MODULUS(Modulus)
+  is Modulus itself, as the other hooks are, so Network.cpp and Communication.cpp are the original's again apart from the hook names.
+  TNetwork::ApplyLoginServerOverride and patella::LoginRsaModulus are gone. The golden runner and patella_core
+  never define PATELLA_TEST_MODE; the corpus is unaffected.
+- **tools/linux_live.py --product stays, without the variables.** It has no script and never logs in: it checks that the
+  product starts, shows its window under Xvfb and renders for 20 s. It set both variables without using them, so nothing
+  needed another route. The login is the test build's check (the default and --windowed runs).
+- **Plan D8: no Patella.ini key.** The product keeps the original servers and key. **Plan D14: no folder dialog**; a missing
+  Tibia.dat keeps the original's error.
+- **Checked in the binaries** (searched for both names, ASCII and UTF-16): absent from Patella and Patella.exe of windows-x64
+  Release and Debug, windows-x64-asan, linux-x64-gcc and linux-x64-clang; present in each PatellaTest (the search's control).
+
+### Checks (logs in build\logs\issue-158)
+
+Golden 15,803,218 + 1,512,822 = 17,316,040, 0 failures, no compiler warnings on windows-x64, windows-x64-debug, windows-x64-asan,
+linux-x64-gcc, linux-x64-clang; windows-x64-gcc 14/14. Reference compare on Windows: every session matches. linux_live: login, game login, 4 walks,
+logout, headless and under Xvfb; the product ran 20 s. testmode_check (headless, live, Windows): no differences. tidy_ci baseline 3,
+0 new; banned_calls and clang-format clean.
+
+**compare_traffic passed on its third run ("no differences": both live sessions and all four replays).** The first two ended in
+the known flake #161, the helper (an unchanged Tibia.exe that logs in as the trade partner) timing out in session_client.login's 10 s wait
+for an established game connection while another agent's builds loaded the machine: run 1 in the orig session, TCP state 1, PatellaTest not
+started; run 2 in the patella session, TCP state 2, PatellaTest not logged in yet. #161 was thought to hit only the second live session.
