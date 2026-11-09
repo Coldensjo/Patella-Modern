@@ -451,6 +451,10 @@ python -I tools/build.py --env linux-x64-gcc python3 -I tools/reference.py compa
 python -I tools/linux_live.py [--windowed] [--product]   (a private test server of its own, headless by default)
 ```
 
+`--product` also reads the window's `_NET_WM_ICON` from the X server and fails without one (issue #162). `--preset package-linux-x64
+--data <folder>` runs the placeholder build, from a checkout without Tibia.exe, and prints the icon's size and pixel counts; for a
+build with Tibia.exe's pictures it says only that the icon is there.
+
 ## Reference recordings (issue #23)
 
 The tier A comparisons (compare_traffic.py, compare_files.py, compare_rendering.py) drive two clients from

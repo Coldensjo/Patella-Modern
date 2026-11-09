@@ -18547,3 +18547,38 @@ The other sources of the Linux client stay out of the job, because they also com
 ### Checks
 
 Gates of a tidy and Linux-source change (logs in build/logs/issue-160, local): tidy_ci.py on the code's commit, exit 0, 3 findings, 0 new, 0 gone, 0 bugprone-*; linux-x64-gcc (29 tests) and linux-x64-clang (28 tests, ASan and UBSan), `--fresh`, exit 0, golden 15,739,165 + 1,576,875 = 17,316,040, 0 failures; tools/linux_live.py headless on a private server, exit 0 (login, game login, 4 walks, logout); banned_calls. No Windows build or Sandbox comparison: no line Windows compiles changed.
+
+## #162: the Linux client's window icon (Patella-Modern issue #162, M9)
+
+Settled by Claude Opus 5.5, November 9, 2026. Found by #131.
+
+### What it does (high)
+
+The Linux client sets a window icon through SDL3, right after SDL_CreateWindow: src/platform/WindowIconLinux.cpp, called from the `#else` branch of SdlFrame.cpp's Create. Windows' icon is still the window class's, resource 128; the only change in a file Windows compiles is that branch and one include, both behind `!defined(_WIN32)`.
+
+- **The picture.** tools/embed_cursors.py, which already built the cursors in, also takes icon_128.ico from the same folder: Tibia.exe's where one is built in (cmake/Resources.cmake), the generated square with PATELLA_PLACEHOLDER_RESOURCES. It is generated into the build folder. Nothing is committed.
+- **One image, the largest and deepest** (Tibia.exe has 32x32 and 16x16, both 4 bits a pixel). SDL 3.4.18's X11 driver writes only the surface it is given, ignoring alternate images, and its Wayland driver ignores images below the base size, so a 16x16 alternate would reach no one.
+- **The decoder** (platform/WindowIcon.h, portable, unit-tested): an RT_ICON DIB of 1, 4 or 8 bits a pixel to ARGB rows, the AND bitmap's pixels transparent. Anything else is refused.
+- **A failure stops nothing.** Not decodable, no surface or SDL_SetWindowIcon false: one line at the developer log's warn level, and the client goes on without an icon.
+- **Headless runs skip it**: SDL's dummy driver has no SetWindowIcon, so it would only add a warning.
+
+### X11 and Wayland, from SDL 3.4.18's source
+
+- **X11** (X11_SetWindowIcon): the `_NET_WM_ICON` property, width, height and the pixels.
+- **Wayland** (Wayland_SetWindowIcon): only through the `xdg_toplevel_icon_v1` protocol. A compositor without it makes SDL_SetWindowIcon fail with "wayland: cannot set icon; required xdg_toplevel_icon_v1 protocol not supported", so such a desktop gets the warn line and no window icon; the packages' desktop entry (packaging/patella.desktop, the .svg) still names one. With the protocol SDL gives the compositor the icon when the toplevel exists (it sets it again when a window created hidden, as this one is, is shown).
+
+### The package check (tools/package_check.py, high)
+
+On an ELF the placeholder icon's bytes (the RT_ICON DIB, exactly as embedded) must be in the program, beside the cursor's; a new self-test case covers a program without them. Embedding the DIB unchanged also lets `--local` find Tibia.exe's own icon images in a package. No file is added to any package, so EXPECTED is unchanged.
+
+### Checks (logs in build/logs/issue-162, local)
+
+- **The icon reaches the window, placeholder build** (icon-placeholder.log; the preset package-linux-x64, in a checkout without Tibia.exe; `python -I tools/linux_live.py --product --preset package-linux-x64 --data <folder>`, Xvfb in the image, the X server's property read through libX11 by ctypes since the image has no xprop): `_NET_WM_ICON` 32 x 32, 1026 values (2 + 1024 pixels), 576 opaque white pixels, 448 transparent: the 24x24 square of placeholder_resources.py.
+- **Real build** (live-product.log): the window has a `_NET_WM_ICON`, and the client's output has no icon warning. The tool reports nothing more for such a build.
+- **The empty-folder start cannot show it**: InitControl reads Tibia.dat before SDL_CreateWindow, so `package_check.py --run` ends before any window exists. That is why the proof is in linux_live.py, with data files.
+- **The marker**: placeholder packages pass (package-linux-check.log, the tarball and the AppImage, exit 0; --run exit 0); the real linux-x64-gcc program fails with the warning text, the cursor and the icon reported (package-check-real-program.log); `--local` on the tarball, 0 matches against the real files, the manifests and Tibia.exe's resources (package-local.log); `--self-test` passes.
+- **Gates**: linux-x64-gcc (29 tests), linux-x64-clang (28, ASan, UBSan), windows-x64 (32): exit 0, golden 15,739,165 + 1,576,875 = 17,316,040, 0 failures, 0 warnings. `reference.py compare`: every session matches (SdlFrame.cpp is compiled on Windows). `linux_live.py` headless: login, game, 4 walks, logout, 3 frames, exit 0. `--product`: exit 0. tidy_ci --worktree: 3 findings, the baseline, 0 new, 0 bugprone-; WindowIconLinux.cpp is in the #160 job (its name matches the target's expression and `--require`). banned_calls and clang-format exit 0.
+
+### Not seen
+
+The icon has not been seen on a real X11 or Wayland desktop. Xvfb has no window manager, so what was proven is the property on the window, not that a desktop draws it. The Wayland path has not run at all.

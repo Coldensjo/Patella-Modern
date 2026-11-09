@@ -21,5 +21,5 @@ You need:
     mesa-vulkan-drivers for "CPU");
   - X11 or Wayland (their client libraries, which any desktop has).
 
-A build from this project's CI has neutral placeholder cursors: the original pictures are CipSoft's.
+A build from this project's CI has neutral placeholder cursors and a neutral window icon: the original pictures are CipSoft's.
 Licences: share/doc/patella (LICENSE, NOTICE, licenses).

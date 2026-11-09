@@ -901,6 +901,8 @@ SDL_SetClipboardText("") empties it; src/platform/SdlClipboard.cpp, tests_sdl_cl
 
 The Linux-only client sources in the hosted clang-tidy job (Patella-Modern issue #160, branch issue-160, November 9, 2026; M9): src/platform/DataLocationLinux.cpp, EntryLinux.cpp, LinuxPlatform.cpp and NetworkLinux.cpp are analysed, `tools/tidy.py --require` fails the job if one leaves the database; the findings are fixed or suppressed with their reasons, and the baseline stays at 3. notes/decisions.md, "#160".
 
+The Linux client's window icon (Patella-Modern issue #162, branch issue-162, November 9, 2026; M9): SDL_SetWindowIcon on Linux only (src/platform/WindowIconLinux.cpp, the portable decoder src/platform/WindowIcon.h), the icon built in by tools/embed_cursors.py from the local Tibia.exe's or the placeholder; tools/package_check.py's Linux marker has the icon too; tools/linux_live.py --product reads `_NET_WM_ICON`. Seen under Xvfb only. notes/decisions.md, "#162".
+
 Reproducible builds, a changelog, a release checklist (Patella-Modern issue #136, branch issue-136, November 9, 2026; M9): two
 Release builds of one commit in different folders give byte-identical Patella.exe and PatellaTest.exe (windows-x64), Patella and
 PatellaTest (linux-x64-gcc, linux-x64-clang): `python -I tools/repro_check.py <preset>`. cmake/Reproducible.cmake, CHANGELOG.md,
