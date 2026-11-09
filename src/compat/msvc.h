@@ -153,7 +153,7 @@ inline int PatellaRand() noexcept
 }
 // The macros below also rename the std::rand in libstdc++'s own headers (bits/stl_algo.h), so these names must exist in std.
 namespace std {
-using ::PatellaRand; // NOLINT(bugprone-std-namespace-modification): the target of the macro rand, below
+using ::PatellaRand;  // NOLINT(bugprone-std-namespace-modification): the target of the macro rand, below
 using ::PatellaSrand; // NOLINT(bugprone-std-namespace-modification): the target of the macro srand, below
 } // namespace std
 #define rand PatellaRand

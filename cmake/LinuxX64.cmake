@@ -111,12 +111,12 @@ function(patella_client target)
 		$<IF:$<TARGET_EXISTS:SDL3::SDL3-static>,SDL3::SDL3-static,SDL3::SDL3> Threads::Threads ${CMAKE_DL_LIBS})
 endfunction()
 
-# The sources only the Linux client compiles (src/platform/*Linux.cpp) in compile_commands.json for tools/tidy.py (issue
+# The sources only the Linux client compiles (src/platform/*Linux*.cpp) in compile_commands.json for tools/tidy.py (issue
 # #160; notes/decisions.md, "#160"), with the client's settings: the database's only commands for them. Never built (not
 # in `all`, nothing depends on it), so the client, its objects and the reproducible builds are as before; hosted.yml's
 # clang-tidy job fails when one of these files is not in the database (tools/tidy.py --require).
 set(patella_tidy_linux_sources ${patella_linux_client_sources})
-list(FILTER patella_tidy_linux_sources INCLUDE REGEX "/src/platform/[^/]*Linux\\.cpp$")
+list(FILTER patella_tidy_linux_sources INCLUDE REGEX "/src/platform/[^/]*Linux[^/]*\\.cpp$")
 add_library(patella_tidy_linux_client OBJECT EXCLUDE_FROM_ALL ${patella_tidy_linux_sources})
 patella_client_compile_settings(patella_tidy_linux_client)
 
