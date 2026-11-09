@@ -70,11 +70,13 @@ using PLONG = LONG *;
 using LPINT = int *;
 using LPBOOL = BOOL *;
 
+// NOLINTBEGIN(bugprone-macro-parentheses): Name is a declared name and a type here, which parentheses cannot enclose.
 #define DECLARE_HANDLE(Name) \
 	struct Name##__ { \
 		int unused; \
 	}; \
 	using Name = Name##__ *
+// NOLINTEND(bugprone-macro-parentheses)
 using HANDLE = void *;
 DECLARE_HANDLE(HWND);
 DECLARE_HANDLE(HINSTANCE);
@@ -113,34 +115,48 @@ using HGDIOBJ = void *;
 #define MAKEINTRESOURCEA(i) (reinterpret_cast<LPSTR>(static_cast<ULONG_PTR>(static_cast<WORD>(i))))
 #define MAKEINTRESOURCE MAKEINTRESOURCEA
 
-typedef struct tagRECT {
+struct tagRECT {
 	LONG left;
 	LONG top;
 	LONG right;
 	LONG bottom;
-} RECT, *PRECT, *LPRECT;
+};
+using RECT = tagRECT;
+using PRECT = RECT *;
+using LPRECT = RECT *;
 using LPCRECT = const RECT *;
-typedef struct tagPOINT {
+struct tagPOINT {
 	LONG x;
 	LONG y;
-} POINT, *PPOINT, *LPPOINT;
-typedef struct tagSIZE {
+};
+using POINT = tagPOINT;
+using PPOINT = POINT *;
+using LPPOINT = POINT *;
+struct tagSIZE {
 	LONG cx;
 	LONG cy;
-} SIZE, *PSIZE, *LPSIZE;
-typedef struct tagMSG {
+};
+using SIZE = tagSIZE;
+using PSIZE = SIZE *;
+using LPSIZE = SIZE *;
+struct tagMSG {
 	HWND hwnd;
 	UINT message;
 	WPARAM wParam;
 	LPARAM lParam;
 	DWORD time;
 	POINT pt;
-} MSG, *PMSG, *LPMSG;
-typedef struct _FILETIME {
+};
+using MSG = tagMSG;
+using PMSG = MSG *;
+using LPMSG = MSG *;
+struct _FILETIME {
 	DWORD dwLowDateTime;
 	DWORD dwHighDateTime;
-} FILETIME, *LPFILETIME;
-typedef struct _SYSTEMTIME {
+};
+using FILETIME = _FILETIME;
+using LPFILETIME = FILETIME *;
+struct _SYSTEMTIME {
 	WORD wYear;
 	WORD wMonth;
 	WORD wDayOfWeek;
@@ -149,11 +165,13 @@ typedef struct _SYSTEMTIME {
 	WORD wMinute;
 	WORD wSecond;
 	WORD wMilliseconds;
-} SYSTEMTIME, *LPSYSTEMTIME;
+};
+using SYSTEMTIME = _SYSTEMTIME;
+using LPSYSTEMTIME = SYSTEMTIME *;
 
 using WNDPROC = LRESULT (*)(HWND, UINT, WPARAM, LPARAM);
 using TIMERPROC = void (*)(HWND, UINT, UINT_PTR, DWORD);
-typedef struct tagWNDCLASSA {
+struct tagWNDCLASSA {
 	UINT style;
 	WNDPROC lpfnWndProc;
 	int cbClsExtra;
@@ -164,8 +182,11 @@ typedef struct tagWNDCLASSA {
 	HBRUSH hbrBackground;
 	LPCSTR lpszMenuName;
 	LPCSTR lpszClassName;
-} WNDCLASSA, WNDCLASS, *LPWNDCLASS;
-typedef struct tagCREATESTRUCTA {
+};
+using WNDCLASSA = tagWNDCLASSA;
+using WNDCLASS = tagWNDCLASSA;
+using LPWNDCLASS = WNDCLASSA *;
+struct tagCREATESTRUCTA {
 	LPVOID lpCreateParams;
 	HINSTANCE hInstance;
 	HMENU hMenu;
@@ -178,22 +199,31 @@ typedef struct tagCREATESTRUCTA {
 	LPCSTR lpszName;
 	LPCSTR lpszClass;
 	DWORD dwExStyle;
-} CREATESTRUCTA, CREATESTRUCT, *LPCREATESTRUCT;
-typedef struct tagWINDOWPLACEMENT {
+};
+using CREATESTRUCTA = tagCREATESTRUCTA;
+using CREATESTRUCT = tagCREATESTRUCTA;
+using LPCREATESTRUCT = CREATESTRUCTA *;
+struct tagWINDOWPLACEMENT {
 	UINT length;
 	UINT flags;
 	UINT showCmd;
 	POINT ptMinPosition;
 	POINT ptMaxPosition;
 	RECT rcNormalPosition;
-} WINDOWPLACEMENT, *PWINDOWPLACEMENT, *LPWINDOWPLACEMENT;
-typedef struct tagMINMAXINFO {
+};
+using WINDOWPLACEMENT = tagWINDOWPLACEMENT;
+using PWINDOWPLACEMENT = WINDOWPLACEMENT *;
+using LPWINDOWPLACEMENT = WINDOWPLACEMENT *;
+struct tagMINMAXINFO {
 	POINT ptReserved;
 	POINT ptMaxSize;
 	POINT ptMaxPosition;
 	POINT ptMinTrackSize;
 	POINT ptMaxTrackSize;
-} MINMAXINFO, *PMINMAXINFO, *LPMINMAXINFO;
+};
+using MINMAXINFO = tagMINMAXINFO;
+using PMINMAXINFO = MINMAXINFO *;
+using LPMINMAXINFO = MINMAXINFO *;
 
 // --- The constants (the Windows SDK's values) ---
 

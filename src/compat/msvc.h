@@ -151,9 +151,10 @@ inline int PatellaRand() noexcept
 	State = State * 214013U + 2531011U;
 	return static_cast<int>((State >> 16U) & 0x7fffU);
 }
+// The macros below also rename the std::rand in libstdc++'s own headers (bits/stl_algo.h), so these names must exist in std.
 namespace std {
-using ::PatellaRand;
-using ::PatellaSrand;
+using ::PatellaRand; // NOLINT(bugprone-std-namespace-modification): the target of the macro rand, below
+using ::PatellaSrand; // NOLINT(bugprone-std-namespace-modification): the target of the macro srand, below
 } // namespace std
 #define rand PatellaRand
 #define srand PatellaSrand

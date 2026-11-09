@@ -273,4 +273,4 @@ jobs:
       - name: tools/tidy.py --baseline
         run: >-
           docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work "$IMAGE" bash -c
-          'clang-tidy --version && PATELLA_PLACEHOLDER_RESOURCES=1 cmake --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --headers --baseline tools/tidy-baseline.tsv --zero bugprone-'
+          'clang-tidy --version && PATELLA_PLACEHOLDER_RESOURCES=1 cmake --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --headers --baseline tools/tidy-baseline.tsv --zero bugprone- --require src/platform/\*Linux.cpp'
