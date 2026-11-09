@@ -399,9 +399,21 @@ the executable. A device's surface is the main window's own there (PresentWindow
 or Wayland).
 
 The engine needs the Vulkan loader (vulkan-1.dll, which every GPU driver with Vulkan installs). A machine
-without any Vulkan driver has no loader; the plan names no loader to ship (Vulkan-Loader is not among its
-dependencies), so such a machine falls back to the original engines today (notes/decisions.md, "Found, not
-done").
+without a loader has no engine: the plan names no loader to ship (Vulkan-Loader is not among its dependencies), and
+the start fails with PROGRAM_ERROR 12 (above).
+
+**A loader and no system driver** (issue #163) is a different machine: GitHub's windows-latest runner has
+`C:\Windows\System32\vulkan-1.dll` (1.3.301), a Hyper-V video adapter and no Vulkan driver in the registry. With no
+driver at all the loader gives no instance: `failed_create_instance` headless, `requested_extensions_not_present` for
+a window, since it then lists no surface extension. That means "no system device", and the automatic choice goes on to
+the CPU driver (Renderer.cpp `Open`, the same as `ListDevices`' empty list). tests_vulkan's "the automatic choice without
+any system driver" makes that state on any machine by pointing VK_DRIVER_FILES at a file that does not exist.
+
+**Elevated processes** (issue #163): the runner's account runs at high integrity, so the loader ignored VK_DRIVER_FILES
+and the CPU driver was never found, which is why hosted CI left tests_vulkan out from #127 on. The hosted job's ctest
+runs through `python -I tools/sandbox.py normal-user -- <command>` (a normal user's token, medium integrity, the helper
+the Sandbox's guest uses, for the same reason). Other than that the runner needs nothing: the pinned lavapipe next to
+the executable, and no download of a loader. The test reads no game data: its pictures are made in the test.
 
 ## Handles the drivers leave (issue #53)
 

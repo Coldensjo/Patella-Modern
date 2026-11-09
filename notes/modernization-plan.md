@@ -868,6 +868,8 @@ x64 and Linux x64 against the reference recordings; the Vulkan engine passes the
   `tools/tidy.py --require`; the findings fixed or suppressed with their reasons, the baseline still 3.
   Done in #162 (notes/decisions.md, "#162"): the Linux client's window icon through SDL3, from the local Tibia.exe or the
   placeholder, and tools/package_check.py's Linux marker extended to it.
+  Done in #163 (notes/decisions.md, "#163"): tests_vulkan on GitHub's Windows runner at medium integrity (the runner is elevated), and
+  the automatic choice going on to the CPU driver on a machine with a loader and no system driver.
 
 ---
 
