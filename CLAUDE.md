@@ -197,7 +197,7 @@ capture-x86's patcap.dll never uses them. Details: `notes/reconstruction.md`, "C
 `-DPATELLA_PLACEHOLDER_RESOURCES=ON`, neutral generated pictures since the runner has no Tibia.exe; the option refuses
 where a Tibia.exe exists; ctest runs what needs no CipSoft data, such as `start_without_data`, without tests_vulkan: the runner's CPU driver does not load), linux-x64-gcc and linux-x64-clang in the image of `docker/linux-x64`, clang-format, the grep gate `python -I tools/banned_calls.py` (no strcpy, strcat, sprintf, vsprintf or gets in src/; the buffers are `TFixedString`/`TStringBuffer` of `src/types/FixedString.h`, issue #57), and
 clang-tidy against the findings baseline `tools/tidy-baseline.tsv` (no new findings; `--all --headers`; `--zero bugprone-`: no
-bugprone-* finding at all, issue #63). Static analysis of patella_core (issue #63, `cmake/Core.cmake`): the windows-x64 builds
+bugprone-* finding at all, issue #63; `--require src/platform/*Linux*.cpp`: the four sources only the Linux client compiles, in the database through the never-built `patella_tidy_linux_client`, and a failure, not a silent skip, if one leaves it, issue #160). Static analysis of patella_core (issue #63, `cmake/Core.cmake`): the windows-x64 builds
 compile it with MSVC `/analyze`, linux-x64-gcc (and windows-x64-gcc) with GCC `-fanalyzer`; a finding fails the build like a
 warning. A finding of any of the three is fixed or suppressed in the code with its reason and a row in notes/decisions.md's
 table ("Static analysis of the core library"). `python -I tools/tidy_ci.py`

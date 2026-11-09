@@ -899,6 +899,8 @@ after #124 and #127): copying an empty text keeps an empty text on the clipboard
 SDL_SetClipboardText("") empties it; src/platform/SdlClipboard.cpp, tests_sdl_clipboard) and an out-of-memory error reports
 "unknown exception occurred" (patella::ThrowTopLevelError, tests_core). notes/decisions.md, "#159".
 
+The Linux-only client sources in the hosted clang-tidy job (Patella-Modern issue #160, branch issue-160, November 9, 2026; M9): src/platform/DataLocationLinux.cpp, EntryLinux.cpp, LinuxPlatform.cpp and NetworkLinux.cpp are analysed, `tools/tidy.py --require` fails the job if one leaves the database; the findings are fixed or suppressed with their reasons, and the baseline stays at 3. notes/decisions.md, "#160".
+
 Reproducible builds, a changelog, a release checklist (Patella-Modern issue #136, branch issue-136, November 9, 2026; M9): two
 Release builds of one commit in different folders give byte-identical Patella.exe and PatellaTest.exe (windows-x64), Patella and
 PatellaTest (linux-x64-gcc, linux-x64-clang): `python -I tools/repro_check.py <preset>`. cmake/Reproducible.cmake, CHANGELOG.md,

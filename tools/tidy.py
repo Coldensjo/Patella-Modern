@@ -36,9 +36,15 @@ sources that include it (HeaderFilterRegex), and on a header alone they would al
 of the build instantiates or includes (Container.h's templates, compat/cxx26.h), which is not the
 include check's business.
 
+Sources that must be analysed (issue #160): --all takes what the compile database lists, so a source that leaves the
+database (a target's EXPORT_COMPILE_COMMANDS OFF) would silently stop being checked. --require <glob> fails, before
+any analysis, when a file of the repository matching the glob is not in the database, or when the glob matches no
+file. CI passes the Linux client's own sources.
+
 Usage:
 	python -I tools/tidy.py [-p <build dir>] [--fix] [--checks <list>] [--extra-arg <arg>]
-		[--baseline <file> | --write-baseline <file>] [--zero <prefix>] (--all | --headers | <file> ...)
+		[--baseline <file> | --write-baseline <file>] [--zero <prefix>] [--require <glob>]
+		(--all | --headers | <file> ...)
 	-p        the directory with compile_commands.json (CMAKE_EXPORT_COMPILE_COMMANDS; default
 	          build/windows-x64, the preset of issue #5)
 	--fix     apply clang-tidy's fixes
@@ -52,6 +58,8 @@ Usage:
 	--write-baseline  write the findings to this list (the form --baseline reads)
 	--zero    fail on any finding of the checks that start with this prefix (repeatable), the baseline's
 	          included
+	--require a glob relative to the repository (repeatable): every file it matches must be in the compile
+	          database, else exit code 2
 clang-tidy: the environment variable CLANG_TIDY, else clang-tidy on PATH, else Visual Studio's
 (VC\\Tools\\Llvm\\x64\\bin). Exit code 0 without findings (with --baseline: without new ones; with --zero:
 and none of those checks), 1 with, 2 when clang-tidy could not compile a file.
@@ -86,6 +94,18 @@ def find_clang_tidy():
 		if out and candidate.exists():
 			return str(candidate)
 	sys.exit('tidy.py: clang-tidy not found (set CLANG_TIDY)')
+
+
+def missing_required(build, patterns):
+	"""The complaints of --require: a glob that matches no file, a matched file that is not in the database."""
+	listed = set(compile_commands_files(build))
+	complaints = []
+	for pattern in patterns:
+		matched = sorted(p.resolve() for p in ROOT.glob(pattern) if p.is_file())
+		if not matched:
+			complaints.append(f'--require {pattern} matches no file')
+		complaints += [f'{relative_name(p)} (--require {pattern}) is not in the compile database' for p in matched if p not in listed]
+	return complaints
 
 
 def compile_commands_files(build):
@@ -223,10 +243,16 @@ def main():
 	baseline.add_argument('--baseline')
 	baseline.add_argument('--write-baseline')
 	parser.add_argument('--zero', action='append', default=[], metavar='PREFIX')
+	parser.add_argument('--require', action='append', default=[], metavar='GLOB')
 	parser.add_argument('files', nargs='*')
 	args = parser.parse_args()
 	if not (Path(args.build) / 'compile_commands.json').exists():
 		sys.exit(f'tidy.py: {Path(args.build) / "compile_commands.json"} is missing (configure with CMAKE_EXPORT_COMPILE_COMMANDS)')
+	complaints = missing_required(args.build, args.require)
+	if complaints:
+		for complaint in complaints:
+			print('tidy.py: ' + complaint)
+		return 2
 	# (database directory, file): the build's own database for the sources, the header checks' for headers.
 	runs = [(args.build, f, False) for f in args.files]
 	if args.all:

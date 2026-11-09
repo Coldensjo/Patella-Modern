@@ -12,7 +12,7 @@
 int main()
 {
 	// A write to a closed socket is an error of the send call (TPortableSocket), not the end of the process.
-	std::signal(SIGPIPE, SIG_IGN);
+	std::signal(SIGPIPE, SIG_IGN); // NOLINT(misc-include-cleaner): <csignal> gives SIGPIPE on POSIX; only glibc's internal <bits/signum-arch.h> names it
 	static std::string CommandLine;
 	for (const std::string &Word : patella::platform::Arguments()) {
 		if (!CommandLine.empty())

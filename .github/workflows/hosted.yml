@@ -265,7 +265,9 @@ jobs:
       - name: CMake and Ninja of the image (issue #141: 4.4.5, 1.13.2)
         run: docker run --rm "$IMAGE" bash -c "cmake --version && ninja --version"
       # The compile commands of linux-x64-clang (configure only): every source of src/ that builds on
-      # Linux (patella_core), and the headers of src/ they include; with --headers, misc-include-cleaner
+      # Linux (patella_core), the sources only the Linux client compiles (issue #160: target
+      # patella_tidy_linux_client; --require fails when one is not in the database), and the headers of src/ they
+      # include; with --headers, misc-include-cleaner
       # on each header of the preset's header checks as its own main file (issue #49). Fails on a finding that is not in
       # tools/tidy-baseline.tsv; checks only, never --fix. --zero bugprone- (issue #63): any bugprone-* finding
       # fails, whatever the baseline says (fixed, or a NOLINT with its reason). tools/tidy_ci.py runs this step
@@ -273,4 +275,4 @@ jobs:
       - name: tools/tidy.py --baseline
         run: >-
           docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work "$IMAGE" bash -c
-          'clang-tidy --version && PATELLA_PLACEHOLDER_RESOURCES=1 cmake --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --headers --baseline tools/tidy-baseline.tsv --zero bugprone-'
+          'clang-tidy --version && PATELLA_PLACEHOLDER_RESOURCES=1 cmake --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --headers --baseline tools/tidy-baseline.tsv --zero bugprone- --require src/platform/\*Linux\*.cpp'
