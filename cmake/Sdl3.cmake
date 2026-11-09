@@ -1,7 +1,7 @@
 # SDL3, the platform layer of plan M8 (decision D3; notes/modernization-plan.md, sections 5 and 7, M8;
 # notes/decisions.md, "#122: the SDL3 window and its event loop"). Included by cmake/WindowsX64.cmake: the x64 client's
 # window and event loop (src/SdlFrame.cpp, issue #122), its input since #123; the clipboard, URLs and message boxes
-# since #124 (src/platform/SdlPlatform.cpp, whose display modes are SDL3's off Windows only; SDL_OpenURL in
+# since #124 (src/platform/SdlPlatform.cpp, the display modes SDL3's since #152; SDL_OpenURL in
 # SdlFrame.cpp); the Vulkan engine's
 # surfaces are SDL_Vulkan_CreateSurface's since #126 (src/vulkan/WindowSystem.h, also in tests_vulkan). patella_core
 # does not use it.

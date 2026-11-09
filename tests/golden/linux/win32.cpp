@@ -333,8 +333,6 @@ BOOL EmptyClipboard() { Unexpected("EmptyClipboard"); }
 HANDLE GetClipboardData(UINT) { Unexpected("GetClipboardData"); }
 HANDLE SetClipboardData(UINT, HANDLE) { Unexpected("SetClipboardData"); }
 BOOL IsClipboardFormatAvailable(UINT) { Unexpected("IsClipboardFormatAvailable"); }
-BOOL EnumDisplaySettingsA(LPCSTR, DWORD, DEVMODEA *) { Unexpected("EnumDisplaySettingsA"); }
-LONG ChangeDisplaySettingsA(DEVMODEA *, DWORD) { Unexpected("ChangeDisplaySettingsA"); }
 SHORT GetKeyState(int) { Unexpected("GetKeyState"); }
 SHORT GetAsyncKeyState(int) { Unexpected("GetAsyncKeyState"); }
 HWND GetForegroundWindow() { Unexpected("GetForegroundWindow"); }
@@ -427,8 +425,6 @@ GOLDEN_FUNCTION(BOOL, EmptyClipboard, (), ())
 GOLDEN_FUNCTION(HANDLE, GetClipboardData, (UINT Format), (Format))
 GOLDEN_FUNCTION(HANDLE, SetClipboardData, (UINT Format, HANDLE Memory), (Format, Memory))
 GOLDEN_FUNCTION(BOOL, IsClipboardFormatAvailable, (UINT Format), (Format))
-GOLDEN_FUNCTION(BOOL, EnumDisplaySettingsA, (LPCSTR Device, DWORD Index, DEVMODEA *Mode), (Device, Index, Mode))
-GOLDEN_FUNCTION(LONG, ChangeDisplaySettingsA, (DEVMODEA * Mode, DWORD Flags), (Mode, Flags))
 GOLDEN_FUNCTION(SHORT, GetKeyState, (int Key), (Key))
 GOLDEN_FUNCTION(SHORT, GetAsyncKeyState, (int Key), (Key))
 GOLDEN_FUNCTION(HWND, GetForegroundWindow, (), ())

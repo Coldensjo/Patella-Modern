@@ -4,7 +4,7 @@
 // the frames (plan D7): the same surfaces and sizes, the same batching of quads (drawn when the
 // texture or the target changes, when 9,600 vertices are queued, and at the end of the frame), the
 // same colour fills, uploads, colour key and light, and the same statistics. Instead of Direct3D 9 it
-// drives the Vulkan back end (Renderer.h); the display modes come from EnumDisplaySettings, in the order
+// drives the Vulkan back end (Renderer.h); the display modes come from the platform's list (SDL3's since issue #152), in the order
 // and with the filter DirectDraw 4 gave surfaceDX9.cpp (issue #20). Windows x64 client only
 // (cmake/Vulkan.cmake).
 //

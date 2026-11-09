@@ -772,6 +772,12 @@ refuses). Shown: compare_traffic or compare_files in the Sandbox and testmode_ch
 servers with game connections at once, both passing; the master's checksums identical after them and after a killed
 run's cleanup. notes/testserver.md, "A private server per run"; notes/decisions.md, "#146".
 
+Display modes through SDL3 on Windows too (Patella-Modern issue #152, branch issue-152, November 9, 2026; M8): TSdlWindow's
+list, desktop mode and mode change are SDL3's on every system, no EnumDisplaySettings or ChangeDisplaySettings left in src/. SDL's
+rate is DXGI's closest match, only compared by the client: the mode set is Windows' own DEVMODE, the way back Windows' saved
+settings. The rate is the closest to the desktop's; SDL's list and order are deliberate differences. A real mode change on the
+240 Hz monitor has not been run (the Sandbox has one mode). notes/decisions.md, "#152".
+
 The login overrides in the test build only (Patella-Modern issue #158, branch issue-158, November 8, 2026; M8):
 PATELLA_LOGIN_SERVER and PATELLA_RSA_MODULUS are hooks of src/TestHooks.h, implemented in src/testmode/TestModeWin32.cpp;
 Patella.exe and the Linux Patella contain neither. Plan D8 settled (no Patella.ini key), D14 corrected (no folder dialog,

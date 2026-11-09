@@ -5,9 +5,8 @@
 // clock). The file system is the portable TDataFileSystem (platform/FileSystem.h; issue #130); the network (MFC's CAsyncSocket
 // and WinSock until issue #125) is NetworkSocket(), below. Since issue #119 also the clipboard (sysinc.cpp's until then),
 // the input (GetCursorPos, SetTimer, KillTimer: MainFrm.cpp's and Player.cpp's) and the desktop's windows and display
-// (MessageBoxA, EnumWindows, EnumDisplaySettingsA: Player.cpp's and the Vulkan engine's; ChangeDisplaySettingsA since
-// issue #124). Since issue #124 the SDL3 window's clipboard and desktop are SDL3's (platform/SdlPlatform.h), and these
-// the golden runner's (the Win32 display modes the SDL3 window's too).
+// (MessageBoxA, EnumWindows: Player.cpp's). Since issue #124 the SDL3 window's clipboard and desktop are SDL3's
+// (platform/SdlPlatform.h), and these the golden runner's; the display's modes are SDL3's alone since issue #152.
 
 #pragma once
 
@@ -48,8 +47,7 @@ public:
 	[[nodiscard]] bool IgnoreDesktopInput() override { return false; }
 };
 
-// MessageBoxA, EnumWindows (GetWindowTextA, GetClassNameA), EnumDisplaySettingsA, ChangeDisplaySettingsA (issue #124:
-// the Vulkan engine's until then).
+// MessageBoxA, EnumWindows (GetWindowTextA, GetClassNameA). No display modes (issue #152): the golden runner asks none.
 class TWin32Window final : public IWindow {
 public:
 	void ShowMessageBox(TWindowHandle Owner, const char *Text, const char *Caption, TMessageBoxIcon Icon) override;

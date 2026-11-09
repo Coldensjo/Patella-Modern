@@ -35,6 +35,7 @@
 #include "platform/KeyInput.h"
 #include "platform/Platform.h"
 #include "platform/Process.h"
+#include "platform/SdlPlatform.h"
 #include "types/Cp1252.h"
 
 #define SDL_MAIN_HANDLED // NOLINT(cppcoreguidelines-macro-usage): SDL_main.h's switch; WinMain (platform/EntryWin32.cpp), main (EntryLinux.cpp) are the entries
@@ -1173,6 +1174,9 @@ void SetDisplayMode(int ViewMode)
 	} else {
 		SetFrameStyle(0, WS_EX_APPWINDOW | WS_EX_CLIENTEDGE);
 		Redraw(false);
+		// Issue #152: the display back in the desktop's mode first, by the one path that makes sure of it (not SDL's own
+		// when the window leaves fullscreen); the Vulkan engine's ExitDisplay finds nothing left to do.
+		platform::SdlSetFullscreenMode(WindowHandle, nullptr);
 		SDL_SetWindowFullscreen(Window, false);
 		SDL_SyncWindow(Window);
 		RestorePlacement();

@@ -1,14 +1,17 @@
-// DisplayModeList.h: the display's modes over SDL3 as the client lists and sets them (Patella-Modern issue #124, plan
-// M8; notes/decisions.md, "#124: display modes, clipboard, URLs and message boxes over SDL3"). Not part of the original
-// source. Portable: no platform header.
+// DisplayModeList.h: the display's modes over SDL3 as the client lists and sets them (Patella-Modern issues #124 and
+// #152, plan M8; notes/decisions.md, "#124: display modes, clipboard, URLs and message boxes over SDL3" and "#152").
+// Not part of the original source. Portable: no platform header.
 //
-// The client reads the display's modes as EnumDisplaySettingsA(nullptr, Index) gave them (IWindow::DisplayMode: the
-// Graphics Options dialog's list, vulkan/SurfaceVulkan.cpp GetFullscreenModes) and sets one with
-// ChangeDisplaySettingsA's width, height and bits per pixel, without a refresh rate (IWindow::SetFullscreenMode).
-// SDL3's list (SDL_GetFullscreenDisplayModes) is the same modes in the other order: largest first (width, then height,
-// then bits per pixel, then refresh rate, each falling), where Windows lists them smallest first; its four-byte formats
-// count 24 bits (SDL_PIXELFORMAT_XRGB8888), where Windows says 32. SDL's TSdlWindow (platform/SdlPlatform.cpp) maps
-// them with these rules, which the unit tests check (tests/unit/core_display_modes_test.cpp).
+// The client reads the display's modes as the original's EnumDisplaySettingsA(nullptr, Index) gave them
+// (IWindow::DisplayMode: the Graphics Options dialog's list, vulkan/SurfaceVulkan.cpp GetFullscreenModes) and sets one
+// by width, height and bits per pixel, without a refresh rate (IWindow::SetFullscreenMode), on every system through
+// SDL3 since issue #152. SDL3's list (SDL_GetFullscreenDisplayModes) has the modes in the other order: largest first
+// (width, then height, then bits per pixel, then refresh rate, each falling), where Windows lists them roughly smallest
+// first; its four-byte formats count 24 bits (SDL_PIXELFORMAT_XRGB8888), where Windows says 32. SDL's TSdlWindow
+// (platform/SdlPlatform.cpp) maps them with these rules, which the unit tests check
+// (tests/unit/core_display_modes_test.cpp). Two deliberate differences from the original (issue #152): the list is
+// SDL's, so it has the desktop's mode also where Windows does not enumerate it (a custom mode: one more line in Graphics
+// Options) and its order is SDL's sorted sizes where Windows' own list is not sorted.
 
 #pragma once
 
@@ -33,8 +36,8 @@ struct TListedMode {
 	return BytesPerPixel == 4 ? 32 : BitsPerPixel;
 }
 
-// The position in SDL's list of Count modes of EnumDisplaySettings' Index-th mode: Windows' order is SDL's backwards
-// (the sizes rising). False past the last mode.
+// The position in SDL's list of Count modes of the client's Index-th mode: SDL's order backwards (the sizes rising, as
+// the original's dialog lists them where Windows' own list is sorted). False past the last mode.
 [[nodiscard]] constexpr bool ListedModeIndex(std::size_t Count, std::size_t Index, std::size_t &SdlIndex)
 {
 	if (Index >= Count)
@@ -43,24 +46,30 @@ struct TListedMode {
 	return true;
 }
 
-// The mode ChangeDisplaySettingsA sets for Wanted (width, height and bits per pixel, no refresh rate) among SDL's
-// modes, in SDL's order: the one with Wanted's size and depth at DesktopRefresh (the display's rate before the change)
-// where there is one, else the first with them (SDL's highest rate). -1: no mode has them (ChangeDisplaySettingsA's
-// DISP_CHANGE_BADMODE).
+// The mode for Wanted (width, height and bits per pixel, no refresh rate) among SDL's modes, in SDL's order. SDL can set
+// only one of its modes, each with a rate, where the original left the rate to Windows. Of the modes with Wanted's size
+// and depth, the one whose rate is closest to DesktopRefresh (the display's rate before the change, in millihertz; the
+// lower at equal distance). The same nominal rate differs by a fraction of a hertz from size to size (59.81, 60.00,
+// 60.32 for "60 Hz"), so a desktop's exact rate is rarely another size's. With DesktopRefresh unknown (0: SDL has none)
+// the first with them (SDL's highest rate). -1: no mode has them (the change fails, DISP_CHANGE_BADMODE on Windows).
 [[nodiscard]] inline int ChooseFullscreenMode(const std::vector<TListedMode> &Modes, const TDisplayMode &Wanted,
 	int DesktopRefresh)
 {
-	int First = -1;
+	int Chosen = -1;
+	int ChosenDistance = 0;
 	for (std::size_t i = 0; i < Modes.size(); i++) {
 		const TDisplayMode &Mode = Modes[i].Mode;
 		if (Mode.Width != Wanted.Width || Mode.Height != Wanted.Height || Mode.Depth != Wanted.Depth)
 			continue;
-		if (Modes[i].Refresh == DesktopRefresh)
+		if (DesktopRefresh <= 0)
 			return static_cast<int>(i);
-		if (First < 0)
-			First = static_cast<int>(i);
+		const int Distance = Modes[i].Refresh > DesktopRefresh ? Modes[i].Refresh - DesktopRefresh : DesktopRefresh - Modes[i].Refresh;
+		if (Chosen < 0 || Distance <= ChosenDistance) {
+			Chosen = static_cast<int>(i);
+			ChosenDistance = Distance;
+		}
 	}
-	return First;
+	return Chosen;
 }
 
 } // namespace patella::platform
