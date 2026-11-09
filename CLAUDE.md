@@ -151,6 +151,8 @@ MSVC's /fsanitize=fuzzer) and `python -I tools/fuzz.py run --platform ... [--tim
 --reference C:/Tibia/Patella-Modern/build/reference` writes local seeds from the reference recordings and the data
 files to build/fuzz-seeds: CipSoft-derived, never committed, pushed, uploaded or given to CI.
 
+The packages (issue #135; notes/decisions.md, "#135"): the presets package-windows-x64 (zip) and package-linux-x64 (tarball, AppImage), CPack, cmake/Package.cmake. Only a build with the generated placeholder pictures can be packaged: refused at configure and on CPack's staged files, and they need a folder without Tibia.exe (the placeholders are refused where one exists). `tools/package_check.py <package>` proves a package has no CipSoft file; hosted CI's package-* jobs run it, start each package, and keep the packages as the run's artifacts, no release.
+
 ## Code style
 
 `.clang-format` describes the style of `src/` (tabs; `src/Extern` and `tools/` excluded by

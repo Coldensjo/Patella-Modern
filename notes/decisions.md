@@ -18378,3 +18378,53 @@ tools/testserver.py's `state_changes` leaves out data\log, taken unchanged from 
 branches merge). No private copy has data\log, and a server running from the master folder (the owner's, here) writes
 data\log\lag.log every few seconds, so compare_traffic could not make its private server. data\map, data\usr and the rest still
 count, so a master caught half way through a save is still refused.
+
+## #135: the packages (Patella-Modern issue #135, M9)
+
+Plan section 7, M9 ("Packages"), D4 (a zip for Windows, an AppImage for Linux), D17 (no CipSoft file in any package). cmake/Package.cmake, cmake/PackagePreBuild.cmake, tools/package_check.py, packaging/, the presets package-windows-x64 and package-linux-x64, the jobs package-windows and package-linux of hosted.yml.
+
+### The rule, and what keeps it (high)
+
+A local build embeds Tibia.exe's cursors and icon in the program (cmake/Resources.cmake): those are CipSoft's, so a package is only ever made from a build of the generated placeholders (#127, tools/placeholder_resources.py). What enforces it:
+
+- **Configure time.** Without `PATELLA_PACKAGE=ON` a build has no install rules, no CPackConfig.cmake and no package target (a `cpack` there fails: no config file). With it, Package.cmake stops unless `PATELLA_PLACEHOLDER_RESOURCES` is on, the pictures come from res-placeholder, and tools/package_check.py --placeholders finds exactly the generated files. The option #127 keeps refusing where a Tibia.exe exists.
+- **Package time.** CPACK_PRE_BUILD_SCRIPTS (PackagePreBuild.cmake) runs package_check.py --staged on CPack's staged files, before the package exists, for every generator. A failure gives no package, whatever the build folder's cache says.
+- **After.** package_check.py on each finished package, in hosted CI.
+
+### The check (tools/package_check.py, high)
+
+Names (Tibia.*, *.dat, *.spr, *.pic, *.cfg, *.map, any case); contents (the loaders' own layouts for .spr, .pic, .dat and Tibia.cfg's option keys, whatever the name; no 32-bit PE: Tibia.exe's format); the exact list of files of each package (EXPECTED: nothing else, the licences required). The positive marker, since CI has nothing real to compare with: the three generated pictures' SHA-256 are pinned in the tool; on Windows every RT_CURSOR and RT_ICON of Patella.exe must be exactly the placeholder's bytes and there must be no RT_BITMAP, on Linux the placeholder cursor's bytes (hot spot, then the DIB, as tools/embed_cursors.py writes them) must be in the program, on both the warning text of a placeholder build (Player.cpp). `--self-test` runs all of it on made-up packages (a small PE and ELF built in the tool), in CI. `--local` is the machine's own check, against the real files; never in CI.
+
+### What ships, and what a user needs
+
+| Package | Files | The user needs |
+|---|---|---|
+| Patella-Modern-dev-windows-x64.zip | Patella.exe, vulkan_lvp.dll and lvp_icd.x86_64.json (Mesa 26.2.6's lavapipe), README.txt, LICENSE, NOTICE, licenses/ (SDL3, volk, VMA, vk-bootstrap, Vulkan-Headers, regexp, Mesa, LLVM, THIRD-PARTY) | Their own Tibia.dat, Tibia.spr, Tibia.pic (Tibia.cfg optional); a Vulkan loader, vulkan-1.dll, which every GPU driver with Vulkan installs (lavapipe needs it as well) |
+| Patella-Modern-dev-linux-x64.tar.gz | bin/Patella, share/ (README, the licences, patella.desktop, an icon) | The same data files; glibc 2.38 or newer (measured: the program's newest symbol version); libvulkan.so.1 and a Vulkan 1.3 driver (the distribution's mesa-vulkan-drivers for the CPU driver); X11 or Wayland |
+| Patella-Modern-dev-linux-x64.AppImage | The same, with AppRun, patella.desktop, patella.svg and .DirIcon at the top | The same; FUSE, or `--appimage-extract-and-run`; bash (the generator's AppRun) |
+
+The test build PatellaTest is not packaged: it reads the login server and the RSA key from the environment (#158). The packages have no version: `PATELLA_PACKAGE_VERSION`, default `dev`, names them (the release checklist, #136, decides what a release's version is).
+
+The Linux program links GCC 16's C++ runtime statically (`-static-libstdc++ -static-libgcc`, Package.cmake, the packaged target only: no distribution has that libstdc++ yet). SDL3 is linked in and loads X11 and Wayland at run time, as in the ordinary Linux build. The Linux CPU driver and both systems' Vulkan loader are the system's. Licences: the GCC Runtime Library Exception covers the static runtime (no notice needed); Mesa's and LLVM's texts are committed in packaging/licenses (the mesa-dist-win archive has none), the rest come from the pinned source archives at configure time.
+
+The client's behaviour is unchanged: nothing of src/ changed. The one difference a package's program has is that link option (Linux) and the placeholder pictures.
+
+### AppImage's tools (medium: the owner's to change)
+
+CPack's own AppImage generator (CMake 4.2+). It needs appimagetool and patchelf, so the build fetches three pinned files, only with PATELLA_PACKAGE=ON (patella_fetch_declare): appimagetool 1.9.1, the type-2 runtime 20251108, patchelf 0.19.3. All are build-time tools; nothing new at run time. Not in the Docker image: nothing else uses them, and a new image tag would rebuild every Linux job's image.
+
+### Checks
+
+- The check's own test: `python -I tools/package_check.py --self-test`, 18 cases, exit 0.
+- Real packages, each passing package_check.py: the zip, the tarball, the AppImage (package-windows-3.log, package-linux-2.log, package-linux-check.log).
+- The refusals: PATELLA_PACKAGE=ON without placeholders stops at Package.cmake's message and leaves no CPackConfig.cmake (refuse-no-placeholder.log; a configure with the owner's Tibia.exe, read in place). Placeholders with a Tibia.exe present stop at #127's refusal (refuse-tibia-exe.log, a dummy file at PATELLA_TIBIA_EXE). CPack with a planted dummy Tibia.dat in its stage (CPACK_INSTALLED_DIRECTORIES) stops at the pre-build script, no package (cpack-refuse.log).
+- Planted file: a dummy Tibia.dat added to a copy of the zip, the tarball and the AppImage: exit 1, "named like a data file" (check-negative.log, check-appimage.log). No marker: a copy of the zip with Patella.exe from a real local build: exit 1, the warning text, RT_CURSOR and RT_ICON all reported (check-negative.log).
+- Local comparison against the real data (`--local`, once; output in build\logs\issue-135, local): the real Tibia.exe, .dat, .spr, .pic, .cfg and the 217 hashes of the golden and reference manifests against all 16 + 14 + 15 package files, and the 22 cursor, icon and bitmap resources of the real Tibia.exe searched for inside every file: 0 matches. The format detectors recognize the four real data files.
+- Starts, no data files: the zip's Patella.exe in Windows Sandbox: the box "Cannot find file "Tibia.dat". (Error Code 1)" read and closed, exit code 1 (package-windows-run.log). The tarball's and the AppImage's Patella in the image under Xvfb: the same line on stderr (package-linux-check.log; stopped on its box: nothing closes an X11 box there, so exit code 1 is not seen on Linux).
+
+### Found, not done
+
+- Patella.exe's version resource still says "CompanyName CipSoft GmbH", "Tibia Player", 7.72 (src/res/Patella.rc). It is text, not a file of theirs, and changing it is a change of the compiled client, so it is not done here. A release may want it changed.
+- The AppImage has not run on a real desktop: Xvfb only, as the Linux client (#131).
+- The tarball and AppImage need glibc 2.38: built on Debian 13's. Older distributions would need an older build image, which GCC 16 in the image rules out for now.
+- Not packaged: the Windows installer the plan calls optional; a Flatpak (D4 chose AppImage).

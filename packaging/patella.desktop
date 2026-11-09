@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Patella-Modern
+Comment=Tibia 7.72 client reconstruction (needs your own data files)
+Exec=Patella
+Icon=patella
+Terminal=false
+Categories=Game;

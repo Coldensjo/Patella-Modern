@@ -133,6 +133,28 @@
 				"PATELLA_IMPORT_STD": "ON",
 				"PATELLA_SANITIZE": "address,undefined"
 			}
+		},
+		{
+			"name": "package-windows-x64",
+			"displayName": "package-windows-x64: the Windows zip (issue #135, cmake/Package.cmake): the client with the placeholder pictures",
+			"description": "A folder without Tibia.exe, as hosted CI: the placeholders are refused where a Tibia.exe exists, and PATELLA_PACKAGE is refused without them.",
+			"inherits": "windows-x64",
+			"cacheVariables": {
+				"PATELLA_PLACEHOLDER_RESOURCES": "ON",
+				"PATELLA_PACKAGE": "ON",
+				"PATELLA_TEST_BUILD": "OFF"
+			}
+		},
+		{
+			"name": "package-linux-x64",
+			"displayName": "package-linux-x64: the Linux tarball and AppImage (issue #135, cmake/Package.cmake): the client with the placeholder pictures",
+			"description": "A folder without Tibia.exe, in the image of docker/linux-x64, as hosted CI: the placeholders are refused where a Tibia.exe exists, and PATELLA_PACKAGE is refused without them.",
+			"inherits": "linux-x64-gcc",
+			"cacheVariables": {
+				"PATELLA_PLACEHOLDER_RESOURCES": "ON",
+				"PATELLA_PACKAGE": "ON",
+				"PATELLA_TEST_BUILD": "OFF"
+			}
 		}
 	],
 	"buildPresets": [
@@ -190,6 +212,18 @@
 			"name": "linux-x64-clang-debug",
 			"configurePreset": "linux-x64-clang",
 			"configuration": "Debug"
+		},
+		{
+			"name": "package-windows-x64",
+			"configurePreset": "package-windows-x64",
+			"configuration": "Release",
+			"targets": ["Patella"]
+		},
+		{
+			"name": "package-linux-x64",
+			"configurePreset": "package-linux-x64",
+			"configuration": "Release",
+			"targets": ["Patella"]
 		}
 	],
 	"testPresets": [
@@ -526,6 +560,54 @@
 					"name": "linux-x64-clang-debug"
 				}
 			]
+		},
+		{
+			"name": "package-windows-x64",
+			"displayName": "package-windows-x64: configure, build Patella.exe, the zip (placeholders only)",
+			"steps": [
+				{
+					"type": "configure",
+					"name": "package-windows-x64"
+				},
+				{
+					"type": "build",
+					"name": "package-windows-x64"
+				},
+				{
+					"type": "package",
+					"name": "package-windows-x64"
+				}
+			]
+		},
+		{
+			"name": "package-linux-x64",
+			"displayName": "package-linux-x64: configure, build Patella, the tarball and the AppImage (placeholders only)",
+			"steps": [
+				{
+					"type": "configure",
+					"name": "package-linux-x64"
+				},
+				{
+					"type": "build",
+					"name": "package-linux-x64"
+				},
+				{
+					"type": "package",
+					"name": "package-linux-x64"
+				}
+			]
+		}
+	],
+	"packagePresets": [
+		{
+			"name": "package-windows-x64",
+			"configurePreset": "package-windows-x64",
+			"configurations": ["Release"]
+		},
+		{
+			"name": "package-linux-x64",
+			"configurePreset": "package-linux-x64",
+			"configurations": ["Release"]
 		}
 	]
 }
