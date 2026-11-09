@@ -44,6 +44,8 @@
 
 #if defined(_WIN32)
 #include <commctrl.h>
+#else
+#include "platform/WindowIcon.h"
 #endif
 
 #include <cmath>
@@ -1034,6 +1036,9 @@ bool Create(bool Gamemaster, const char *Title, const char *ClassName)
 #else
 	// Linux: the client knows the window by the SDL_Window itself (platform/SdlPlatform.cpp SdlWindowOf).
 	WindowHandle = reinterpret_cast<HWND>(Window);
+	// Issue #162: the window icon, which on Windows is the window class's (resource 128). SDL's dummy driver has none.
+	if (!platform::Platform().Window.Headless())
+		platform::ApplyWindowIcon(Window);
 #endif
 	SetFrameStyle(0, WS_EX_CLIENTEDGE); // CFrameWnd::PreCreateWindow's
 	// OnGetMinMaxInfo: the client area at least 550x450.
