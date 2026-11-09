@@ -888,6 +888,11 @@ stopped there with the frames behind it waiting, and a frame that fit only witho
 3,303, 1,167; #142 36, 3,688, 1,037 (before: 307 parts, 39,447 checks, 17,766 differing). bounded_reads has three
 new cases; fuzz_network's stall property holds in full. notes/decisions.md, "#142".
 
+Two differences from the original restored (Patella-Modern issue #159, branch issue-159, November 9, 2026; M8; the owner's choice
+after #124 and #127): copying an empty text keeps an empty text on the clipboard (SDL_SetClipboardData with one NUL byte, since
+SDL_SetClipboardText("") empties it; src/platform/SdlClipboard.cpp, tests_sdl_clipboard) and an out-of-memory error reports
+"unknown exception occurred" (patella::ThrowTopLevelError, tests_core). notes/decisions.md, "#159".
+
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

@@ -77,6 +77,7 @@ set(patella_linux_client_sources
 	"${PROJECT_SOURCE_DIR}/src/log/LogSettings.cpp"
 	"${PROJECT_SOURCE_DIR}/src/platform/LinuxPlatform.cpp"
 	"${PROJECT_SOURCE_DIR}/src/platform/SdlPlatform.cpp"
+	"${PROJECT_SOURCE_DIR}/src/platform/SdlClipboard.cpp"
 	"${PROJECT_SOURCE_DIR}/src/platform/PortableSocket.cpp"
 	"${PROJECT_SOURCE_DIR}/src/platform/NetworkLinux.cpp"
 	"${PROJECT_SOURCE_DIR}/src/platform/DataLocationLinux.cpp"

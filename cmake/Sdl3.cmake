@@ -91,3 +91,18 @@ if(TARGET SDL3-static AND MSVC)
 	target_compile_options(SDL3-static PRIVATE /W0)
 	set_target_properties(SDL3-static PROPERTIES MSVC_DEBUG_INFORMATION_FORMAT ProgramDatabase)
 endif()
+
+# tests_sdl_clipboard (issue #159, tests/unit/sdl_clipboard_test.cpp): TSdlClipboard on SDL3's dummy video driver, which
+# touches no desktop clipboard. Built with the client, with the static CRT as SDL here.
+add_executable(tests_sdl_clipboard "${PROJECT_SOURCE_DIR}/tests/unit/sdl_clipboard_test.cpp"
+	"${PROJECT_SOURCE_DIR}/src/platform/SdlClipboard.cpp")
+target_include_directories(tests_sdl_clipboard PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(tests_sdl_clipboard PRIVATE doctest::doctest
+	$<IF:$<TARGET_EXISTS:SDL3::SDL3-static>,SDL3::SDL3-static,SDL3::SDL3>)
+set_target_properties(tests_sdl_clipboard PROPERTIES
+	MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+	MSVC_DEBUG_INFORMATION_FORMAT ProgramDatabase)
+patella_target_language(tests_sdl_clipboard)
+patella_target_warnings(tests_sdl_clipboard)
+patella_target_hardening(tests_sdl_clipboard)
+add_test(NAME tests_sdl_clipboard COMMAND tests_sdl_clipboard)

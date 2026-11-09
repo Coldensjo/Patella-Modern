@@ -873,8 +873,12 @@ def scan(root, dirs=None):
 
 
 def state_changes(before, after):
-	"""The relative paths that differ between two scans' files (changed, added, removed), sorted."""
-	return sorted(path for path in set(before) | set(after) if before.get(path) != after.get(path))
+	"""The relative paths that differ between two scans' files (changed, added, removed), sorted. Without data\\log, which
+	no copy has (EMPTY) and which a server running from the master writes every few seconds (issue #152)."""
+	def relevant(path):
+		parts = path.lower().split(os.sep)
+		return not (len(parts) > 2 and parts[0] == "data" and parts[1] in EMPTY)
+	return sorted(path for path in set(before) | set(after) if relevant(path) and before.get(path) != after.get(path))
 
 
 def config_value(text, key):
@@ -1550,6 +1554,10 @@ def private_self_test(out=print):
 			"rat.mon"), ("npc", "cipfried.npc"), ("origmap", "1000-1000-07.sec"))))
 		check("copy: data\\map, usr, dat copies (never links)", not any(same(os.path.join("data", d, n)) for d, n in
 			(("map", "1000-1000-07.sec"), ("usr", os.path.join("74", "15146574.usr")), ("dat", "owners.dat"))))
+		check("master changes: data\\log does not count, data\\usr does",
+			state_changes({os.path.join("data", "log", "lag.log"): (1, 1), os.path.join("data", "usr", "a.usr"): (1, 1)},
+				{os.path.join("data", "log", "lag.log"): (2, 2), os.path.join("data", "usr", "a.usr"): (2, 2)})
+			== [os.path.join("data", "usr", "a.usr")])
 		check("copy: data\\log empty, data\\save there", os.listdir(os.path.join(copy, "data", "log")) == []
 			and os.path.isdir(os.path.join(copy, "data", "save")))
 		with open(os.path.join(copy, "data", "map", "1000-1000-07.sec"), "wb") as f:
