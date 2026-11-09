@@ -1,10 +1,9 @@
 // difftest.exe's Player test (moved here from tools/difftest/playertest.cpp, issue #26): Player.cpp's
-// text decoders, Surface.cpp's engine getters and MainFrm.cpp's TranslateKey against the original, as
-// a golden-corpus test (golden.h). The runner's link stubs are tests/golden/client_stubs.cpp.
+// text decoders and Surface.cpp's engine getters against the original, as a golden-corpus test (golden.h). The
+// runner's link stubs are tests/golden/client_stubs.cpp.
 
 #include "golden_test.h"
 
-#include "mfc/MainFrm.h"
 #include "Player.h"
 #include "Surface.h"
 #include "testsurface.h"
@@ -32,24 +31,15 @@ void TestSurface()
 	CHECK(Surface->GetAvailableEngines() == 0 && Available == 0, "GetAvailableEngines");
 }
 
-// MainFrm.cpp's TranslateKey: every virtual key, both extended flags and
-// every modifier state (KeyFlags at +0x200 in the original frame).
-void TestTranslateKey()
+// The original frame's TranslateKey (every modifier state, virtual key and extended flag): retired after issue #127
+// with the MFC frame it compared. The client's key rules are tests/unit/core_key_input_test.cpp's. The frozen recording
+// still holds the original's values, so they are read here and not compared.
+void RetireTranslateKey()
 {
-	alignas(8) static uint8 Ours[sizeof(CMainFrame)];
-	CMainFrame *Frame = (CMainFrame *)Ours;
-	for (int Flags = 0; Flags < 8; Flags++) {
-		int KeyFlags = ((Flags & 1) ? KEY_SHIFT : 0) | ((Flags & 2) ? KEY_CONTROL : 0) | ((Flags & 4) ? KEY_ALT : 0);
-		Frame->KeyFlags = KeyFlags;
-		ORIGINAL(*(int *)(Original + 0x200) = KeyFlags);
-		for (UINT nChar = 0; nChar < 0x120; nChar++) {
-			for (UINT nFlags = 0; nFlags < 0x400; nFlags += 0x80) {
-				int A = Frame->TranslateKey(nChar, 1, nFlags);
-				int B = ORIGINAL_VALUE("TranslateKey", int, At<KeyFn>(0x4a8210)(Original, NULL, nChar, 1, nFlags));
-				CHECK(A == B, "TranslateKey(%u, %u) with %x: %x, original %x", nChar, nFlags, KeyFlags, A, B);
-			}
-		}
-	}
+	const int Values = 8 * 0x120 * 8;
+	for (int i = 0; i < Values; i++)
+		(void)ORIGINAL_VALUE("TranslateKey", int, 0);
+	golden::RetireChecks(Values);
 }
 
 } // namespace
@@ -57,7 +47,7 @@ void TestTranslateKey()
 void TestPlayer()
 {
 	TestSurface();
-	TestTranslateKey();
+	RetireTranslateKey();
 	struct {
 		uint32 Original;
 		void (*Ours)(char *);
