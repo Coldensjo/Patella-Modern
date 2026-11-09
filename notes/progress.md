@@ -1104,7 +1104,7 @@ The CPU driver's rest is higher only because it shows about a tenth of the frame
 
 ### Where the title screen's frame goes (#156, November 9, 2026)
 
-Per-step timers (a temporary patch, never committed; `notes/decisions.md`, "#156") around the x64 client's frame on the title screen, on the GPU, in Windows Sandbox: microseconds per frame, the median of 3 runs of about 11,600 frames each, one of two batches that agree within 0.1 microsecond on each step they share. The total is the frame from the end of one Present to the entry of the next, 57 microseconds, as `tools/profiling.py` reports with or without the timers. **Sandbox numbers.** Tibia.exe's 39 microseconds in the same runs can only be given as a total.
+Per-step timers (a temporary patch, never committed; `notes/decisions.md`, "#156") around the x64 client's frame on the title screen, on the GPU, in Windows Sandbox: microseconds per frame, the median of 3 runs of about 11,600 frames each, the second of two batches, whose shared steps agree within 0.5 microsecond. The total is the frame from the end of one Present to the entry of the next, 57 microseconds, as `tools/profiling.py` reports with or without the timers. **Sandbox numbers.** Tibia.exe's 39 microseconds in the same runs can only be given as a total.
 
 | Step | microseconds |
 | :--- | ---: |
@@ -1121,9 +1121,9 @@ Per-step timers (a temporary patch, never committed; `notes/decisions.md`, "#156
 | - PeekMessage and the test build's input filter | 1.1 |
 | - the test build's control channel (not in Patella.exe) | 0.7 |
 | - the timer's check, the view mode, the mouse and cursor comparisons | 1.1 |
-| - `Socket.Poll`, `ProcessEvents`, returning from Present, `Fit` and the rest | 1.5 |
+| - `Socket.Poll`, `ProcessEvents`, returning from Present, `Fit` and the rest | 1.4 |
 
-**No waste was found; the gap is the engine's and the loop's cost, and #156 should close without a code change.** The two suspects named in the issue are small: the SDL3 loop's pump is 1.4 microseconds and `CheckSurface` 1.6. The largest single part, `ConvertQuad`, is 25 ns per quad in a standalone benchmark on this machine (MSVC, `/O2`) and does the conversion that keeps Direct3D 9's pixels exact; the changes tried there saved 1.2 microseconds of the 17 (one colour computed once for a one-coloured quad) or nothing (a faster `std::round`). What makes a whole difference is that Direct3D 9's per-call cost is hidden in its driver and Vulkan's recording is ours, and a Vulkan render pass costs 4 microseconds to open and close through GPU-PV. The difference at one 2000 fps frame is 17 microseconds; a player cannot see it, and in the game the two clients are equal (0.292 against 0.285 ms standing, in the same runs).
+**No waste was found; the gap is the engine's and the loop's cost, and #156 should close without a code change.** The two suspects named in the issue are small: the SDL3 loop's pump is 1.4 microseconds and `CheckSurface` 1.6. The largest single part, `ConvertQuad`, is 25 ns per quad in a standalone benchmark on this machine (MSVC, `/O2`) and does the conversion that keeps Direct3D 9's pixels exact; the changes tried there saved 1.2 microseconds of the 17 (one colour computed once for a one-coloured quad) or nothing (a faster `std::round`). Tibia.exe's 39 microseconds cannot be split the same way, so the comparison is an inference: both clients do the windows' code and the loop, which leaves the two engines' drawing cost and a couple of microseconds of SDL as the difference. A Vulkan render pass costs about 4 microseconds to open and close here. A gap of 17 microseconds per frame is not something a player can see, and in the game the two clients are equal (0.292 against 0.285 ms standing, in the first batch).
 
 ## Packages (issue #135, November 9, 2026)
 
