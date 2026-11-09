@@ -807,10 +807,13 @@ SDL3.
 Done in #124 (notes/decisions.md, "#124"): the SDL3 window's clipboard (SDL_SetClipboardText/SDL_GetClipboardText, UTF-8
 to and from Windows-1252), message boxes (SDL_ShowSimpleMessageBox; the tools read them from outside as before) and
 URLs (SDL_OpenURL) are SDL3's (src/platform/SdlPlatform.cpp); the fullscreen mode change is IWindow::SetFullscreenMode.
-The display modes stay EnumDisplaySettingsA/ChangeDisplaySettingsA on Windows, behind IWindow: SDL3 lists the desktop's
-custom mode Windows does not enumerate and other refresh rates; SDL3's versions (SDL_GetFullscreenDisplayModes,
-SDL_SetWindowFullscreenMode, platform/DisplayModeList.h, unit-tested) are the other systems'. The Win32 calls are left
+The display modes stayed EnumDisplaySettingsA/ChangeDisplaySettingsA on Windows until #152. The Win32 calls were left
 only in the Win32 implementation (Win32Platform.cpp, and the MFC path's MainFrm.cpp and WindowSystemWin32.cpp).
+
+Done in #152 (notes/decisions.md, "#152"), the owner's choice of November 8: the display modes are SDL3's on Windows too
+(SDL_GetFullscreenDisplayModes, SDL_GetCurrentDisplayMode, SDL_SetWindowFullscreenMode; platform/DisplayModeList.h), no
+EnumDisplaySettings or ChangeDisplaySettings call is left in src/; the list's possible extra line and its order are
+deliberate differences from the original. A real mode change on the owner's 240 Hz monitor has not been run.
 
 Done in #131 (notes/decisions.md, "#131"), the Linux half of the exit: the Linux presets build the client and its test
 build (cmake/LinuxX64.cmake; SDL3 with its X11 and Wayland drivers, the Vulkan engine, the image's Mesa lavapipe), and the

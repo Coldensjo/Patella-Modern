@@ -10,8 +10,8 @@
 //
 // The window system (issue #126; vulkan/WindowSystem.h): the main window's client area, the screen's size and each
 // device's surface come from SDL3 (SDL_Vulkan_CreateSurface). Still Win32: the devices' own windows (PresentWindow.h,
-// issue #52). The fullscreen display mode is the platform's IWindow::SetFullscreenMode since issue #124 (on Windows
-// ChangeDisplaySettingsA; SDL3's SDL_SetWindowFullscreenMode on the other systems).
+// issue #52). The fullscreen display mode is the platform's IWindow::SetFullscreenMode since issue #124 (SDL3's
+// SDL_SetWindowFullscreenMode on every system since issue #152).
 //
 // Headless (issue #145; platform/Window.h IWindow::Headless, the test build's --test-headless): the device gets no
 // surface (TRenderer renders into its images and presents nothing; the frame observer reads the canvas back before
@@ -557,7 +557,7 @@ void TSurfaceVulkan::ExitDisplay()
 	CurrentTarget = -1;
 	CacheSurfaces = 0;
 	if (DisplayModeSet) {
-		// ChangeDisplaySettingsA(nullptr, 0); since issue #124 the platform's IWindow::SetFullscreenMode.
+		// The original's ChangeDisplaySettingsA(nullptr, 0); since issue #124 the platform's IWindow::SetFullscreenMode.
 		patella::platform::Platform().Window.SetFullscreenMode(hWindow, nullptr);
 		DisplayModeSet = false;
 	}
@@ -626,8 +626,8 @@ bool TSurfaceVulkan::Init(patella::platform::TWindowHandle *Window, int VMode, T
 // 640x480 and 16 bits. Frequency is 0: DirectDraw then reports none, and the callback tested the refresh
 // rate's flag in the pixel format's flags, where it is never set. On the machine of issue #20 both lists
 // are the same 24 modes in the same order (notes/vulkan.md). The test build can fix the list
-// (issue #48). Since issue #119 the modes are the platform's IWindow::DisplayMode (platform/Window.h; Win32's:
-// EnumDisplaySettingsA, TWin32Window).
+// (issue #48). Since issue #119 the modes are the platform's IWindow::DisplayMode (platform/Window.h; SDL3's list
+// on every system since issue #152, with the deliberate differences of platform/DisplayModeList.h).
 int TSurfaceVulkan::GetFullscreenModes(TFullscreenMode **Modes)
 {
 	*Modes = nullptr;
@@ -957,7 +957,7 @@ void TSurfaceVulkan::CreateSurfaces()
 {
 	Shared.NumberOfSurfaces = 0;
 	// surfaceDX9.cpp: DirectDraw's GetDisplayMode, the desktop's depth (0 before InitSurfaces). Since issue #138 the
-	// platform's IWindow::DesktopMode (platform/Window.h; Win32's: EnumDisplaySettingsA with ENUM_CURRENT_SETTINGS).
+	// platform's IWindow::DesktopMode (platform/Window.h; SDL3's SDL_GetCurrentDisplayMode since issue #152).
 	patella::platform::TDisplayMode Desktop;
 	if (!Initialized || !patella::platform::Platform().Window.DesktopMode(Desktop))
 		Desktop.Depth = 0;
@@ -966,8 +966,8 @@ void TSurfaceVulkan::CreateSurfaces()
 	if (ViewMode == FULLSCREEN_MODE) {
 		// Direct3D 9's fullscreen device sets the display mode; the window is already a popup over the
 		// whole screen (MainFrm.cpp SetDisplayMode; SdlFrame.cpp's: SDL's fullscreen window). Since issue #124 the
-		// platform's IWindow::SetFullscreenMode (on Windows ChangeDisplaySettingsA(&Mode, CDS_FULLSCREEN) with the
-		// width, height and bits per pixel, as here until then; elsewhere SDL3's SDL_SetWindowFullscreenMode).
+		// platform's IWindow::SetFullscreenMode (the width, height and bits per pixel; SDL3's SDL_SetWindowFullscreenMode
+		// on every system since issue #152).
 		patella::platform::TDisplayMode Mode;
 		Mode.Width = Width;
 		Mode.Height = Height;

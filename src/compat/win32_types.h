@@ -194,52 +194,6 @@ typedef struct tagMINMAXINFO {
 	POINT ptMinTrackSize;
 	POINT ptMaxTrackSize;
 } MINMAXINFO, *PMINMAXINFO, *LPMINMAXINFO;
-// DEVMODEA with the members the client uses at their Windows offsets (220 bytes, dmSize 156 + no driver data).
-typedef struct _devicemodeA {
-	BYTE dmDeviceName[32];
-	WORD dmSpecVersion;
-	WORD dmDriverVersion;
-	WORD dmSize;
-	WORD dmDriverExtra;
-	DWORD dmFields;
-	union {
-		struct {
-			short dmOrientation;
-			short dmPaperSize;
-			short dmPaperLength;
-			short dmPaperWidth;
-			short dmScale;
-			short dmCopies;
-			short dmDefaultSource;
-			short dmPrintQuality;
-		} Printer;
-		struct {
-			POINT dmPosition;
-			DWORD dmDisplayOrientation;
-			DWORD dmDisplayFixedOutput;
-		} Display;
-	} Union1;
-	short dmColor;
-	short dmDuplex;
-	short dmYResolution;
-	short dmTTOption;
-	short dmCollate;
-	BYTE dmFormName[32];
-	WORD dmLogPixels;
-	DWORD dmBitsPerPel;
-	DWORD dmPelsWidth;
-	DWORD dmPelsHeight;
-	DWORD dmDisplayFlags;
-	DWORD dmDisplayFrequency;
-	DWORD dmICMMethod;
-	DWORD dmICMIntent;
-	DWORD dmMediaType;
-	DWORD dmDitherType;
-	DWORD dmReserved1;
-	DWORD dmReserved2;
-	DWORD dmPanningWidth;
-	DWORD dmPanningHeight;
-} DEVMODEA, DEVMODE, *LPDEVMODEA, *LPDEVMODE;
 
 // --- The constants (the Windows SDK's values) ---
 
@@ -408,15 +362,6 @@ typedef struct _devicemodeA {
 #define CS_OWNDC 0x0020
 #define PM_NOREMOVE 0x0000
 #define PM_REMOVE 0x0001
-
-// Display modes.
-#define ENUM_CURRENT_SETTINGS (static_cast<DWORD>(-1))
-#define DM_BITSPERPEL 0x00040000L
-#define DM_PELSWIDTH 0x00080000L
-#define DM_PELSHEIGHT 0x00100000L
-#define DM_DISPLAYFREQUENCY 0x00400000L
-#define CDS_FULLSCREEN 0x00000004
-#define DISP_CHANGE_SUCCESSFUL 0
 
 // Structured exceptions (linux/win32.cpp's RaiseException throws them as TStructuredException).
 #define EXCEPTION_EXECUTE_HANDLER 1

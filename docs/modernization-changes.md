@@ -239,9 +239,17 @@ of the last Windows-only parts between the client and Linux.
 Copying and pasting text, the error message boxes and opening a web page in the browser now go through SDL3 instead of
 Windows-only calls. The boxes show the same title and text, and the test tools still find and close them the same way.
 Text on the clipboard is converted between the game's character set and Unicode as before. The list of screen
-resolutions and the switch to fullscreen stay with Windows' own calls on Windows, because SDL3 lists one resolution
-more on some screens and picks refresh rates differently; the SDL3 version is ready for Linux. *Why it matters:* these
+resolutions and the switch to fullscreen stayed with Windows' own calls for now (see #152 below). *Why it matters:* these
 were among the last places where the game talked to Windows directly, and a Linux client can now use the same code.
+
+**Screen resolutions and fullscreen through SDL3 on Windows too (#152).**
+The list of screen resolutions in the graphics options and the switch to fullscreen now use SDL3 on Windows as well as on
+Linux, so both systems run the same code, and the game no longer calls Windows directly for them. The list can differ
+slightly from the original's: it is sorted by size, and it always shows the desktop's own resolution even where Windows
+would not list it. When a resolution has several refresh rates the game takes the one closest to what the screen is
+already using, and leaving fullscreen hands the screen back to Windows' saved settings. *Why it matters:* one less part
+of the game that exists twice, once per system. The switch has so far only been tried inside the testing sandbox, whose
+screen has a single resolution, and still needs a try on a real monitor.
 
 **The client finds its game files by itself (#130).**
 The client used to open its game files (the graphics, the item data, the settings, the maps it draws as you explore)
