@@ -10,7 +10,7 @@
 #
 # PATELLA_IMPORT_STD is set ON by the presets where it works (CMakePresets.json): windows-x64 and windows-x64-asan
 # (MSVC 14.51), windows-x64-gcc (mingw-w64 GCC 16.2), linux-x64-gcc (GCC 16.2; the image's CMake 4.4.5) and since
-# issue #121 linux-x64-clang (Clang 22 with GCC 16.2's libstdc++, the image's Clang configuration files; Debian's
+# issue #121 linux-x64-clang (Clang 23 with GCC 16.2's libstdc++, the image's Clang configuration files; Debian's
 # libstdc++ 14 until then, which has no std module; notes/decisions.md).
 #
 # The gates below are the ones verified. Since issue #141 every build of the repository takes the 4.4 path: CMake 4.4.5

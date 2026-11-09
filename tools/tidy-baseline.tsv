@@ -1,5 +1,5 @@
 # The clang-tidy findings baseline of tools/tidy.py (issue #11): count, file, check, message; tab-separated.
-# Written in the Docker image of docker/linux-x64 (clang-tidy 22.1.8) after configuring linux-x64-clang:
+# Written in the Docker image of docker/linux-x64 (clang-tidy 23.1) after configuring linux-x64-clang:
 #	python3 -I tools/tidy.py -p build/linux-x64-clang --all --write-baseline tools/tidy-baseline.tsv
 # CI fails on a finding that is not here (notes/reconstruction.md, "Checking"). Write it again when findings
 # are fixed (it only shrinks), or when a new one is accepted on purpose (say why in the commit).

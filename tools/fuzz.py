@@ -14,7 +14,7 @@ seeds       writes local seeds to build/fuzz-seeds/<target> (default --out): the
             the client's Tibia.dat, Tibia.spr and Tibia.pic (--client, default the repository's root). CipSoft-derived:
             build/ is ignored by git; never commit, push or upload them, and never give them to CI.
 build       configures and builds the libFuzzer tree: linux, build/linux-x64-clang-fuzz (the preset linux-x64-clang
-            with PATELLA_FUZZ=ON, Clang 22's libFuzzer, ASan and UBSan; on Windows in the Docker image, as
+            with PATELLA_FUZZ=ON, Clang 23's libFuzzer, ASan and UBSan; on Windows in the Docker image, as
             tools/build.py runs the Linux presets), or windows, build/windows-x64-fuzz (windows-x64-asan with
             PATELLA_FUZZ=ON and PATELLA_CLIENT=OFF: MSVC's /fsanitize=fuzzer). A warning fails it, as in build.py.
 run         runs each target (default all) with libFuzzer for --time seconds (default 600), on the synthetic seeds

@@ -14,7 +14,7 @@ The findings baseline (issue #11; plan 4.1, "no new findings"): --baseline <file
 with a committed list and fails only on new ones; --write-baseline <file> writes that list. A finding is counted by file, check and message, not by line, so code that moves keeps
 its entry; a finding that is gone is reported (rewrite the list to drop it), a new one, or one more of
 a kind, fails. CI (.github/workflows/hosted.yml) checks tools/tidy-baseline.tsv against the compile
-commands of the preset linux-x64-clang in the Docker image of docker/linux-x64 (clang-tidy 22.1.8):
+commands of the preset linux-x64-clang in the Docker image of docker/linux-x64 (clang-tidy 23.1):
 
 	python -I tools/tidy.py -p build/linux-x64-clang --all --baseline tools/tidy-baseline.tsv
 
@@ -183,7 +183,7 @@ def relative_name(path):
 
 BASELINE_HEADER = (
 	'# The clang-tidy findings baseline of tools/tidy.py (issue #11): count, file, check, message; tab-separated.\n'
-	'# Written in the Docker image of docker/linux-x64 (clang-tidy 22.1.8) after configuring linux-x64-clang:\n'
+	'# Written in the Docker image of docker/linux-x64 (clang-tidy 23.1) after configuring linux-x64-clang:\n'
 	'#\tpython3 -I tools/tidy.py -p build/linux-x64-clang --all --write-baseline tools/tidy-baseline.tsv\n'
 	'# CI fails on a finding that is not here (notes/reconstruction.md, "Checking"). Write it again when findings\n'
 	'# are fixed (it only shrinks), or when a new one is accepted on purpose (say why in the commit).\n')
