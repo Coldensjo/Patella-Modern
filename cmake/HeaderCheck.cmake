@@ -51,6 +51,7 @@ set(PATELLA_HEADERS_CORE
 	platform/Platform.h
 	platform/PortableSocket.h
 	platform/Socket.h
+	settings/LinkSettings.h
 	settings/PreferenceKeys.h
 	settings/Settings.h
 	Skins.h

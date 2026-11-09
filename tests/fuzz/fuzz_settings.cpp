@@ -9,13 +9,17 @@
 //   and ReadPreferences reads back the same, with no problem, into a new file and into the file itself
 //   (SavePreferences' update of the file it loaded); a second write changes neither.
 // - The developer log's keys (log::Configure, LogFile removed first: no file is opened).
+// - Where the web links go (settings::TLinks, issue #169): what a button opens is the original's address or one the rule
+//   accepts, and a caption fits TTextButton.
 
 #include "fuzz.h"
 #include "values.h"
 
 #include "log/Log.h"
+#include "Text.h" // IWYU pragma: keep (the addresses of the links)
 #include "log/LogSettings.h"
 #include "platform/FileSystem.h"
+#include "settings/LinkSettings.h"
 #include "settings/PreferenceKeys.h"
 #include "settings/Settings.h"
 
@@ -106,6 +110,19 @@ void Run(std::string_view Text)
 	patella::log::TLog Log(NoConsole);
 	patella::platform::TSystemFileSystem Files; // LogKeys has no LogFile, so nothing is opened (#119: Configure takes the file system)
 	patella::log::Configure(Log, LogKeys, Files);
+
+	patella::settings::TLinks Links;
+	Links.Configure(File, Log);
+	for (const char *const Address : {TextTibiaURL, TextManualURL, TextFAQURL, TextOptionsURL, TextGraphicsOptionsURL,
+			 TextConsoleOptionsURL, TextNetworkOptionsURL, TextAccountURL, TextSignupURL}) {
+		const std::string Opened = Links.Target(Address);
+		if (Opened != Address && !patella::settings::ValidLinkAddress(Opened))
+			patella::fuzz::Fail(Target, "a link opens an address the rule refuses: " + Opened);
+		if (std::string_view(Links.HoverText(Address)).size() > patella::settings::MaxLinkHoverText)
+			patella::fuzz::Fail(Target, "a hover text is too long");
+	}
+	if (Links.WebsiteLabel().size() > patella::settings::MaxLinkCaption)
+		patella::fuzz::Fail(Target, "a caption TTextButton would throw on: " + Links.WebsiteLabel());
 }
 
 } // namespace

@@ -32,6 +32,7 @@
 #include "compat/span.h"
 #include "types/FixedString.h"
 #include "graphics.h"
+#include "settings/LinkSettings.h"
 #include <cstddef>
 #include <memory>
 
@@ -673,7 +674,9 @@ TLink::TLink(const char *_Text, const char *ButtonText, const char *_Destination
 	OpenURL = _OpenURL;
 	Label = new TLabel(Font, _Text);
 	TWindow::InsertChild(Label);
-	Button = new TTextButton(0, 0, ButtonText, 18, 19, TCallback(this, 1), Destination.get());
+	// The button's hover text is the address. Issue #169: the address Patella.ini sets for this link, so that it names the
+	// place the button goes to; Destination stays the original's, and OpenURL translates it (settings/LinkSettings.h).
+	Button = new TTextButton(0, 0, ButtonText, 18, 19, TCallback(this, 1), patella::settings::Links().HoverText(Destination.get()));
 	TWindow::InsertChild(Button);
 }
 

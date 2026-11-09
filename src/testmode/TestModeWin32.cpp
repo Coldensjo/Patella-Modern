@@ -60,6 +60,9 @@
 //   shown: their caption and text go to messages.txt in --test-out (and the log), and the box counts
 //   as answered with OK.
 //
+// Issue #169: a web link, with or without a script, starts no program: the address goes to urls.txt in --test-out (one
+// line each, the UTF-8 that SDL_OpenURL would get) and the log (TestHooks.h).
+//
 // Issue #48: --test-display-modes <file> (src/testmode/DisplayModes.h), with or without a script: the
 // client's EnumDisplaySettings(nullptr, Index) (the Graphics Options dialog's list, vulkan/SurfaceVulkan.cpp
 // GetFullscreenModes) answers from the file instead of the machine, so a reference session lists the
@@ -1083,6 +1086,19 @@ const char *RsaModulus(const char *Original)
 {
 	const char *const Override = std::getenv("PATELLA_RSA_MODULUS"); // NOLINT(concurrency-mt-unsafe): on the client's one thread, at the login
 	return Override != nullptr && Override[0] != '\0' ? Override : Original;
+}
+
+void OpenedUrl(const std::string &Url)
+{
+	TState &Current = State();
+	WriteLog(Current, "testmode: open URL " + Url);
+	if (Current.Out.empty())
+		return;
+	TFile File;
+	if (File.OpenSystemName((Current.Out / L"urls.txt").c_str(), TFile::TAccess::Append)) {
+		File.Write(Url + "\n");
+		File.Close();
+	}
 }
 
 namespace {

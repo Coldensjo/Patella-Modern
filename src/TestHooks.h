@@ -74,6 +74,10 @@
 //	                                   test build Modulus itself): PATELLA_RSA_MODULUS (decimal) in the
 //	                                   environment replaces Modulus
 //
+// Issue #169 (no hook macro; SdlFrame.cpp's OpenURL, PATELLA_TEST_MODE in the place of SDL_OpenURL): the test build never
+// starts a browser or any other program for a link. patella::testmode::OpenedUrl writes the address, in the UTF-8 that
+// SDL_OpenURL would get, to the log and to urls.txt in --test-out.
+//
 // The state dump reads the client's data through the View functions at the end of Creatures.cpp,
 // Inventory.cpp, Map.cpp and Status.cpp (src/testmode/ClientView.h; test build only).
 //
@@ -96,6 +100,8 @@
 #include "compat/msvc.h"
 #include "compat/span.h"
 #include "testmode/ClientView.h" // IWYU pragma: export
+
+#include <string>
 
 namespace patella {
 class TNetwork;
@@ -126,6 +132,8 @@ bool InitFails(int Step);
 // Issue #158: the environment's login overrides (TestModeWin32.cpp).
 void LoginServers(patella::TNetwork &Network);
 [[nodiscard]] const char *RsaModulus(const char *Original);
+// Issue #169: the address SDL_OpenURL would open, recorded instead (TestModeWin32.cpp).
+void OpenedUrl(const std::string &Url);
 } // namespace patella::testmode
 
 #define PATELLA_TEST_RSA_BLOCK(Block) patella::testmode::RsaBlock(Block);

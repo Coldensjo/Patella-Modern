@@ -16,7 +16,9 @@
 //
 // Keys today: Device (auto, gpu, gpuN, cpu; notes/vulkan.md, "Choosing the device"), LogLevel and LogFile
 // (log/LogSettings.h, issue #77), the options of Tibia.cfg (settings/PreferenceKeys.h, issue #45), DataFolder (issue
-// #130, ChooseLocations below). The other D12 keys (servers, scale, vsync) come with their issues.
+// #130, ChooseLocations below), and where the web links go: LinkWebsite, LinkManual, LinkFAQ, LinkOptionsHelp,
+// LinkGraphicsHelp, LinkConsoleHelp, LinkNetworkHelp, LinkAccount, LinkSignup and LinkWebsiteLabel (settings/LinkSettings.h,
+// issue #169). The other D12 keys (scale, vsync) come with their issues; the servers have no key (issue #158).
 //
 // The text (issue #117, plan D4): the file is UTF-8, and a value that is the client's text (a hotkey, a name, LogFile)
 // is converted to the client's Windows-1252 when read (types/Cp1252.h; '?' for a character it does not have). A file

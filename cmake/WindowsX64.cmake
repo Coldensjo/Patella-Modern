@@ -91,6 +91,7 @@ set(patella_vulkan_window_sources "${PROJECT_SOURCE_DIR}/src/vulkan/WindowSystem
 set(patella_vulkan_client_sources "${PROJECT_SOURCE_DIR}/src/vulkan/SurfaceVulkan.cpp" ${patella_vulkan_window_sources}
 	"${PROJECT_SOURCE_DIR}/src/vulkan/DeviceSettings.cpp" "${PROJECT_SOURCE_DIR}/src/settings/Settings.cpp"
 	"${PROJECT_SOURCE_DIR}/src/settings/PreferenceKeys.cpp" "${PROJECT_SOURCE_DIR}/src/log/LogSettings.cpp"
+	"${PROJECT_SOURCE_DIR}/src/settings/LinkSettings.cpp"
 	"${PROJECT_SOURCE_DIR}/src/platform/Win32Platform.cpp"
 	# Issue #124: the SDL3 window's clipboard and desktop (message boxes, display modes).
 	"${PROJECT_SOURCE_DIR}/src/platform/SdlPlatform.cpp" "${PROJECT_SOURCE_DIR}/src/platform/SdlClipboard.cpp"

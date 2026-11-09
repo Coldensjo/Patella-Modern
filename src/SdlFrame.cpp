@@ -36,6 +36,7 @@
 #include "platform/Platform.h"
 #include "platform/Process.h"
 #include "platform/SdlPlatform.h"
+#include "settings/LinkSettings.h"
 #include "types/Cp1252.h"
 
 #define SDL_MAIN_HANDLED // NOLINT(cppcoreguidelines-macro-usage): SDL_main.h's switch; WinMain (platform/EntryWin32.cpp), main (EntryLinux.cpp) are the entries
@@ -45,7 +46,9 @@
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_keycode.h>
+#if !defined(PATELLA_TEST_MODE) // SDL_OpenURL: the test build records a link instead (issue #169)
 #include <SDL3/SDL_misc.h>
+#endif
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_scancode.h>
@@ -1203,13 +1206,20 @@ void SetDisplayMode(int ViewMode)
 
 // MainFrm.cpp's OpenURL: leaves fullscreen mode first. ShellExecuteA(nullptr, nullptr, URL, ..., SW_SHOWNORMAL) until
 // issue #124: SDL_OpenURL (on Windows ShellExecuteW's "open", the default verb, with SW_SHOWNORMAL), the URL (the
-// client's text) in UTF-8. As ShellExecute's, a failure is not reported to the client.
+// client's text) in UTF-8. As ShellExecute's, a failure is not reported to the client. Issue #169: every link ends here,
+// so the address Patella.ini sets for this link replaces URL here (settings/LinkSettings.h); Target is UTF-8 either way.
+// The test build records the address and never starts a program (TestHooks.h).
 void OpenURL(const char *URL)
 {
 	if (GetViewMode() == 2)
 		SetDisplayMode(1);
-	if (!SDL_OpenURL(text::Cp1252ToUtf8(URL).c_str()))
+	const std::string Target = settings::Links().Target(URL);
+#if defined(PATELLA_TEST_MODE)
+	patella::testmode::OpenedUrl(Target);
+#else
+	if (!SDL_OpenURL(Target.c_str()))
 		log::Warn("SDL_OpenURL failed: {}", SDL_GetError());
+#endif
 }
 
 // MainFrm.cpp's UpdateMouseCursor: the cursor for the client's mouse cursor (Status.cpp), or none when the client

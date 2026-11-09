@@ -158,6 +158,7 @@ add_executable(tests_core
 	core_settings_test.cpp
 	core_preferences_test.cpp
 	core_log_settings_test.cpp
+	core_link_settings_test.cpp
 	core_msvc_test.cpp
 	core_errors_test.cpp
 	core_map_point_test.cpp

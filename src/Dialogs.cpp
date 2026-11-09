@@ -52,8 +52,12 @@ const char *TextUseCpuDevice = "CPU (compatibility): draw without the graphics c
 #include "compat/span.h"
 #include "types/FixedString.h"
 #include "graphics.h"
+#include "log/Log.h"
+#include "settings/LinkSettings.h"
+#include "settings/Settings.h"
 #include <cstddef>
 #include <memory>
+#include <string>
 
 // Issue #111 (clang-tidy, the first look at this file in patella_core): cppcoreguidelines-owning-memory,cppcoreguidelines-pro-type-vararg off for the file:
 // the original's raw owners (notes/ownership.md): the window tree owns its children, the message queue its blocks,
@@ -158,6 +162,30 @@ TDialog *CreateLogoutDialog(const char *Caption, const char *Text, TComponent *R
 	return Dialog;
 }
 
+namespace {
+
+// The pixels kept free at each side of a button's caption (the skin's bevel).
+constexpr int WebsiteCaptionMargin = 2;
+
+// Issue #169: LinkWebsiteLabel of Patella.ini on Info's button, in place of "www.tibia.com" (settings/LinkSettings.h);
+// without the key nothing changes. The button is a skin of a fixed width and TTextButton::Draw prints its text centred
+// and unclipped, so a wider caption would run over the label beside it and out of the dialog: it is cut to the button.
+void SetWebsiteCaption(const TLink &Link)
+{
+	const std::string &Label = patella::settings::Links().WebsiteLabel();
+	if (Label.empty())
+		return;
+	const int Fitting = GetFittingTextLength(SkinProperties().Buttons.Data00.FontNumber, Label.c_str(),
+		Link.Button->Width - 2 * WebsiteCaptionMargin);
+	const std::string Caption = Label.substr(0, static_cast<std::size_t>(Fitting));
+	if (Caption.size() != Label.size())
+		patella::log::Warn("{}: {} \"{}\" is wider than the button; shown as \"{}\"", patella::settings::FileName,
+			patella::settings::LinkWebsiteLabelKey, Label, Caption);
+	Link.Button->SetText(Caption.c_str());
+}
+
+} // namespace
+
 // 0x4808b0, line 177. "Info": the client version and a link to the web
 // site, in a frame of skins.
 TDialog *CreateInfoDialog(void (*OpenURL)(const char *URL))
@@ -167,6 +195,7 @@ TDialog *CreateInfoDialog(void (*OpenURL)(const char *URL))
 	TLabel *Label = new TLabel(0, 0, SkinProperties().StyleE68.Data08, TextClientVersion);
 	TLink *Link = new TLink(TextOfficialWebsite, "www.tibia.com", TextTibiaURL, OpenURL,
 		SkinProperties().StyleE68.Data1C);
+	SetWebsiteCaption(*Link);
 	TSeparator *Separator = new TSeparator(true);
 	Window->InsertChild(Label);
 	Window->InsertChild(Separator);

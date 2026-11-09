@@ -10,6 +10,7 @@
 #	Skins.cpp             the rectangles of the GUI graphics in Tibia.pic
 #	settings/Settings.cpp Patella.ini, the fork's settings file (issues #31, #45, plan D12)
 #	settings/PreferenceKeys.cpp  the options of Tibia.cfg as Patella.ini's keys (issue #45)
+#	settings/LinkSettings.cpp    where the web links go, Patella.ini's Link keys (issue #169)
 #	log/LogSettings.cpp   the developer log's keys in Patella.ini (issue #77, plan D16; the log itself,
 #	                      log/Log.h, is header only)
 #	Extern/regexp         Henry Spencer's regexp (C17, issue #129; types/Regexp.h, TRegexp, owns a compiled one)
@@ -55,6 +56,7 @@ set(patella_core_sources
 	src/Skins.cpp
 	src/settings/Settings.cpp
 	src/settings/PreferenceKeys.cpp
+	src/settings/LinkSettings.cpp
 	src/log/LogSettings.cpp
 	src/Extern/regexp/regexp.c)
 # Issue #110 (plan M7): packet parsing and building, and the game state.

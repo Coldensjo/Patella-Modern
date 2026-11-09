@@ -39,6 +39,7 @@
 #include "log/Log.h"
 #include "types/FixedString.h"
 #include "log/LogSettings.h"
+#include "settings/LinkSettings.h"
 #include "platform/Platform.h"
 #include "platform/Process.h"
 #include <array>
@@ -319,6 +320,9 @@ BOOL CPlayerApp::InitInstance()
 	patella::platform::ConfigureDataFiles();
 	// Not in the original (Patella-Modern issue #77, D16): the developer log's level and file from Patella.ini.
 	patella::log::LoadSettings(patella::platform::Platform().FileSystem); // issue #119: through the platform's files
+	// Not in the original (Patella-Modern issue #169): where the web links go, after the log so that its warnings follow
+	// LogLevel.
+	patella::settings::LoadLinks(patella::platform::Platform().FileSystem);
 	patella::platform::LogDataFiles();
 #if defined(PATELLA_PLACEHOLDER_RESOURCES)
 	// Issue #127: the build-without-Tibia.exe's neutral pictures (cmake/WindowsX64.cmake); never a release's.
