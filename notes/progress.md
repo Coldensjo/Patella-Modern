@@ -1076,6 +1076,10 @@ original program). Heap counts are the client's own HeapAlloc/HeapReAlloc/HeapFr
 any allocator with its own arena) are in neither. A bare-metal run was not made (Tibia.exe's runs stay off the owner's
 desktop); run the tool in a second session or on another machine for that.
 
+## Packages (issue #135, November 9, 2026)
+
+`python -I tools/build.py package-windows-x64` (the zip) and `package-linux-x64` (the tarball and AppImage), in a folder without Tibia.exe: only the placeholder pictures (cmake/Package.cmake, notes/decisions.md "#135"). `tools/package_check.py` checks a package; hosted CI's package-windows and package-linux jobs make, check and start them, and keep them as the run's artifacts.
+
 ## Resources (issue #17)
 
 src/res/Patella.rc + resource.h rebuild all 55 entries of Tibia.exe's .rsrc byte for byte (types, IDs,

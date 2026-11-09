@@ -37,6 +37,7 @@ project(Patella
 
 option(PATELLA_CAPTURE "Build only the 32-bit capture DLL patcap.dll for Tibia.exe (preset capture-x86)" OFF)
 option(PATELLA_CLIENT "Build the client (MSVC x64 and the Linux presets; windows-x64-gcc has none); needs Tibia.exe for its resources (PATELLA_PLACEHOLDER_RESOURCES=ON: none, the hosted CI)" ON)
+option(PATELLA_PACKAGE "The install rules and CPack packages (cmake/Package.cmake, issue #135); refused without PATELLA_PLACEHOLDER_RESOURCES=ON: the presets package-windows-x64 and package-linux-x64" OFF)
 
 if(PATELLA_CAPTURE)
 	include(cmake/Capture.cmake)
@@ -58,6 +59,9 @@ if(PATELLA_CLIENT AND MSVC)
 elseif(PATELLA_CLIENT AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	# The Linux client (issue #131, plan M8): SDL3 and the Vulkan engine, the Linux presets' Patella and PatellaTest.
 	include(cmake/LinuxX64.cmake)
+endif()
+if(PATELLA_PACKAGE)
+	include(cmake/Package.cmake)
 endif()
 
 # Each header of src/ compiled on its own, with the settings of the targets above that use it (issue #49).

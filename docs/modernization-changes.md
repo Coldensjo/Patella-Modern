@@ -324,3 +324,9 @@ data, froze waiting forever, or quit. *Why it matters:* a corrupt file or a host
 freeze or corrupt the client; every one of these cases has a unit test and a fuzzing seed. An empty server message,
 which made the original stop reading the messages after it and could freeze the connection, is now simply skipped
 (#142).
+
+**Packages you can download (#135).**
+The project now produces a Windows zip, a Linux tarball and a Linux AppImage. They hold only the program and its open-source
+parts: never any of CipSoft's files, and neutral placeholder pictures instead of the original cursors and icon. You point the
+program at your own game data. *Why it matters:* the client can be handed to someone as one download; a build refuses to be
+packaged with the original pictures, and an automatic check proves every package is clean before it is kept.

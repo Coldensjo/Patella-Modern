@@ -1,0 +1,20 @@
+What this package contains besides the client itself (LICENSE, NOTICE):
+
+Built into the client:
+  SDL 3.4.18 (zlib licence)                         licenses/SDL3.txt
+  volk (MIT)                                        licenses/volk.txt
+  Vulkan-Headers (Apache-2.0 or MIT)                licenses/Vulkan-Headers.txt, licenses/Vulkan-Headers-MIT.txt
+  Vulkan Memory Allocator (MIT)                     licenses/VulkanMemoryAllocator.txt
+  vk-bootstrap (MIT)                                licenses/vk-bootstrap.txt
+  Henry Spencer's regexp (altered)                  licenses/regexp.txt
+
+Windows package only, next to the client:
+  Mesa's lavapipe, the CPU Vulkan driver (MIT)      licenses/Mesa.txt
+  LLVM, linked into lavapipe (Apache-2.0 with LLVM exception)  licenses/LLVM.txt
+
+Linux packages only: the GCC 16 C++ runtime (libstdc++, libgcc) is linked into the client under the GCC Runtime
+Library Exception, which requires no notice. The Linux CPU driver and the Vulkan loader are the system's, not in the
+package.
+
+Not included, and not licensed by any of the above: Tibia, its client and its data files. They belong to CipSoft GmbH,
+and you must supply them yourself. The package holds no CipSoft file.
