@@ -345,6 +345,11 @@ struct TRenderer::TState {
 
 	TBuffer ReadBuffer;
 
+	// TRenderer::Draw's working copies of the quads (issue #155): they keep their capacity, so a draw allocates only when
+	// its batch is the largest so far. Draw empties and refills both before it reads them.
+	std::vector<TVertex> QuadVertices;
+	std::vector<uint32_t> QuadSamplers; // the descriptor set per quad
+
 	TFrame &Frame() { return Frames[FrameIndex]; }
 	VkCommandBuffer Commands() { return Frames[FrameIndex].Commands; }
 
@@ -1174,8 +1179,10 @@ void TRenderer::Draw(int Target, int Texture, TFilter Filter, const TQuad *Quads
 		Source = S.Feedback;
 	}
 	const TImage &Image = S.Images[static_cast<size_t>(Source)];
-	std::vector<TVertex> Vertices;
-	std::vector<uint32_t> Sampler; // the descriptor set per quad
+	std::vector<TVertex> &Vertices = S.QuadVertices;
+	std::vector<uint32_t> &Sampler = S.QuadSamplers;
+	Vertices.clear();
+	Sampler.clear();
 	Vertices.reserve(Count * 6);
 	Sampler.reserve(Count);
 	for (size_t i = 0; i < Count; i++) {

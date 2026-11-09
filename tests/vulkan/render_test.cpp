@@ -543,6 +543,39 @@ TEST_CASE("unscaled copies with alpha 0 texels are exact (BlitRectClipped)")
 	}
 }
 
+// Issue #155: Draw reuses its working copies of the quads. A batch smaller than the one before draws only its own quads.
+TEST_CASE("a small batch after a large one draws only its own quads")
+{
+	for (TDevice &Device : Devices) {
+		CAPTURE(Device.Label);
+		pv::TRenderer Renderer;
+		Renderer.Create(Device.Request);
+		TPicture Sprites = RandomPicture(512, 512, 4, true);
+		TPicture Expected = RandomPicture(640, 480, 5, false);
+		const int Texture = Image(Renderer, Sprites);
+		const int Target = Image(Renderer, Expected);
+		TRandom Random{6};
+		for (const size_t Count : {size_t{400}, size_t{1}, size_t{3}, size_t{0}, size_t{50}, size_t{2}}) {
+			std::vector<pv::TQuad> Quads;
+			for (size_t i = 0; i < Count; i++) {
+				const int Width = 1 + static_cast<int>(Random.Next() % 64);
+				const int Height = 1 + static_cast<int>(Random.Next() % 64);
+				const int FromX = static_cast<int>(Random.Next() % static_cast<uint32_t>(512 - Width));
+				const int FromY = static_cast<int>(Random.Next() % static_cast<uint32_t>(512 - Height));
+				const int x = static_cast<int>(Random.Next() % static_cast<uint32_t>(640 - Width));
+				const int y = static_cast<int>(Random.Next() % static_cast<uint32_t>(480 - Height));
+				Quads.push_back(Blit(x, y, Width, Height, FromX, FromY, Width, Height, Sprites));
+			}
+			Renderer.Draw(Target, Texture, pv::TFilter::Linear, Quads.data(), Quads.size());
+			for (const pv::TQuad &Q : Quads)
+				ModelDraw(Expected, Sprites, pv::TFilter::Linear, Q);
+			TDifference Difference = Compare(Expected, Read(Renderer, Target));
+			Report(Device.Label, "batches of different sizes in turn", Difference);
+			CHECK(Difference.Pixels == 0);
+		}
+	}
+}
+
 TEST_CASE("the automap's whole-texture copy (point sampling, u 0 to 1)")
 {
 	for (TDevice &Device : Devices) {

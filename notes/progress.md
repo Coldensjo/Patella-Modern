@@ -1086,6 +1086,22 @@ original program). Heap counts are the client's own HeapAlloc/HeapReAlloc/HeapFr
 any allocator with its own arena) are in neither. A bare-metal run was not made (Tibia.exe's runs stay off the owner's
 desktop); run the tool in a second session or on another machine for that.
 
+### After #155 (November 9, 2026)
+
+The same tool and windows (`--reps 5 --variants gpu,cpu`, Windows Sandbox), on the merged code with #136's Release flags: "before" with #155's fix reverted, "after" with it. **The heap counts do not depend on the environment, the timings do.** `TRenderer::Draw`'s two vectors and `TPortableSocket::Poll`'s are gone (`notes/decisions.md`, "#155"); what remains comes with a sprite cache miss, or is the test build's only.
+
+| | title screen | in the game, standing | walking |
+| :--- | :--- | :--- | :--- |
+| Heap allocations per frame, Tibia.exe | 0.00 | 0.003 | 0.004 |
+| Heap allocations per frame, x64 client, GPU, before | 8.00 (8.00-8.00) | 71.4 (68.3-85.1) | 67.6 (67.2-78.1) |
+| Heap allocations per frame, x64 client, GPU, after | 0.00 (0.00-0.00) | 0.005 (0.003-0.006) | 0.007 (0.007-0.017) |
+| Heap allocations per frame, x64 client, CPU driver, after | 0.00 | 0.033 (0.017-0.036) | 0.064 (0.046-0.070) |
+| Bytes asked for per frame, x64 client, GPU, before / after | 93,609 / 0 | 277,531 / 31 | 281,431 / 44 |
+| Work before Present, ms, Tibia.exe, before / after | 0.040 / 0.041 | 0.284 / 0.299 | 0.293 / 0.319 |
+| Work before Present, ms, x64 client, GPU, before / after | 0.060 / 0.058 | 0.307 / 0.309 | 0.319 / 0.311 |
+
+The CPU driver's rest is higher only because it shows about a tenth of the frames (the same calls per second). The title screen's work before Present (#156) goes from 0.060 to 0.058 ms against Tibia.exe's 0.041 ms, 1.41 times; #155 took about 0.002 ms of the 0.02 ms gap.
+
 ## Packages (issue #135, November 9, 2026)
 
 `python -I tools/build.py package-windows-x64` (the zip) and `package-linux-x64` (the tarball and AppImage), in a folder without Tibia.exe: only the placeholder pictures (cmake/Package.cmake, notes/decisions.md "#135"). `tools/package_check.py` checks a package; hosted CI's package-windows and package-linux jobs make, check and start them, and keep them as the run's artifacts.
