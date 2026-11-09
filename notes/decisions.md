@@ -18191,7 +18191,7 @@ linux-x64-gcc, linux-x64-clang; windows-x64-gcc 14/14. Reference compare on Wind
 logout, headless and under Xvfb; the product ran 20 s. testmode_check (headless, live, Windows): no differences. tidy_ci baseline 3,
 0 new; banned_calls and clang-format clean.
 
-**compare_traffic failed twice in the Sandbox, not on this change's code.** Both times the helper, an unchanged Tibia.exe that
-logs in as the trade partner, timed out in session_client.login's 10 s wait for an established game connection (TCP states 1 and 2
-reported), first in the orig session (PatellaTest not started) and then in the patella session (PatellaTest started, not logged in);
-in the second the server's log has the helper's JoinGame. Not diagnosed further: the common rules allow one rerun.
+**compare_traffic passed on its third run ("no differences": both live sessions and all four replays).** The first two ended in
+the known flake #161, the helper (an unchanged Tibia.exe that logs in as the trade partner) timing out in session_client.login's 10 s wait
+for an established game connection while another agent's builds loaded the machine: run 1 in the orig session, TCP state 1, PatellaTest not
+started; run 2 in the patella session, TCP state 2, PatellaTest not logged in yet. #161 was thought to hit only the second live session.
