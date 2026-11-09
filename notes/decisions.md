@@ -18704,3 +18704,26 @@ and left it. No CreateDevice hook means no Present hook, so patcap counted no fr
 Ten runs of the whole of compare_traffic did not fit beside #155's Sandbox runs; the trials above stand in for them, as the
 issue's brief allowed. tools' self-tests (sandbox_trial, sandbox, client_start, compare_rendering, compare_files) and
 banned_calls pass.
+
+
+## #156: the title screen's work before Present: measured, no waste (Patella-Modern issue #156, M9)
+
+Settled by Claude Opus 5.5, November 9, 2026 (branch issue-156, from main febff13). **No code change; notes only.** The breakdown is in notes/progress.md, "Where the title screen's frame goes".
+
+### How it was measured (high)
+
+A temporary patch, never committed, added an `__rdtsc`-based mark at each step of the frame (SdlFrame's loop, `CPlayerApp::OnIdle`, `TGUI::Redraw`, `TSurfaceVulkan::FinishFrame`) and scoped counters inside `FlushVertices` and `TRenderer::Draw`, written next to each "time" window of `tools/profiling.py`; `--reps 3 --variants gpu`, in Windows Sandbox, twice (one batch with the steps, one with the steps and the draw's parts). The marks did not change the measured total: the runs report 0.057 ms before Present with them, against 0.058 ms in #155's runs. The patch is gone (`git diff` empty).
+
+### What was found (high for the steps; medium for the comparison with Tibia.exe)
+
+- The steps of the x64 client add up to the same 57 microseconds, and none of them is dead work. The issue's suspects are small: `SDL_PumpEvents` and `SDL_FlushEvents` 1.4 microseconds, `CheckSurface` 1.6 (`UpdateWindowRect` through SDL). The largest parts are the Vulkan draws (29.6 microseconds: `ConvertQuad` 14.7, render passes 8.0) and the windows' own code (about 17).
+- Tibia.exe's 39 microseconds cannot be split the same way (the original program; `patcap.dll` hooks only its imports). The comparison is an inference: both do the windows' code and the loop, so the difference is the two engines' drawing cost, Vulkan's in the client's own recording and Direct3D 9's mostly in its driver, plus a couple of microseconds of SDL.
+- In the game the same frame path gives the two clients equal times (0.292 against 0.285 ms standing, the first batch).
+
+### Why nothing changes (high)
+
+Each candidate saves microseconds a player cannot see. A standalone benchmark of `ConvertQuad` (25 ns per quad): computing one colour for a one-coloured quad saves about 1.2 microseconds per frame, a hand-written `std::round` nothing. Removing one of the two render passes was not tried: the passes follow the frame's own changes of target, whose order the pictures depend on. The issue's rule is not to add complexity for that, and frames are the invariant.
+
+### Not measured
+
+Bare metal (the owner's decision: Sandbox only), Tibia.exe's steps, and the x64 client on the CPU driver step by step (#155: 0.063 ms). The measured client is the test build, whose control channel costs 0.7 microsecond a frame that Patella.exe does not have.

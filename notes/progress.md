@@ -1102,6 +1102,29 @@ The same tool and windows (`--reps 5 --variants gpu,cpu`, Windows Sandbox), on t
 
 The CPU driver's rest is higher only because it shows about a tenth of the frames (the same calls per second). The title screen's work before Present (#156) goes from 0.060 to 0.058 ms against Tibia.exe's 0.041 ms, 1.41 times; #155 took about 0.002 ms of the 0.02 ms gap.
 
+### Where the title screen's frame goes (#156, November 9, 2026)
+
+Per-step timers (a temporary patch, never committed; `notes/decisions.md`, "#156") around the x64 client's frame on the title screen, on the GPU, in Windows Sandbox: microseconds per frame, the median of 3 runs of about 11,600 frames each, the second of two batches, whose shared steps agree within 0.5 microsecond. The total is the frame from the end of one Present to the entry of the next, 57 microseconds, as `tools/profiling.py` reports with or without the timers. **Sandbox numbers.** Tibia.exe's 39 microseconds in the same runs can only be given as a total.
+
+| Step | microseconds |
+| :--- | ---: |
+| **The Vulkan engine's draws, 4 calls, 477 quads** | **29.6** |
+| - converting the quads to Vulkan's (`ConvertQuad`, the vectors) | 14.7 |
+| - beginning the render passes, 2 per frame (the end of the last one and its barrier included) | 8.0 |
+| - binding the pipeline and sets, push constants | 2.7 |
+| - the vertices into the buffer and `vkCmdDraw` | 3.9 |
+| **The windows' own code, with the quads queued** (`MainWindow->Draw`, its flushes taken off) | about 17 |
+| `CheckSurface`, nearly all of it `UpdateWindowRect` through SDL | 1.6 |
+| **The loop, without the frame's drawing** | 7.9 |
+| - GetCursorPos | 2.1 |
+| - `SDL_PumpEvents` and `SDL_FlushEvents` | 1.4 |
+| - PeekMessage and the test build's input filter | 1.1 |
+| - the test build's control channel (not in Patella.exe) | 0.7 |
+| - the timer's check, the view mode, the mouse and cursor comparisons | 1.1 |
+| - `Socket.Poll`, `ProcessEvents`, returning from Present, `Fit` and the rest | 1.4 |
+
+**No waste was found; the gap is the engine's and the loop's cost, and #156 should close without a code change.** The two suspects named in the issue are small: the SDL3 loop's pump is 1.4 microseconds and `CheckSurface` 1.6. The largest single part, `ConvertQuad`, is 25 ns per quad in a standalone benchmark on this machine (MSVC, `/O2`) and does the conversion that keeps Direct3D 9's pixels exact; the changes tried there saved 1.2 microseconds of the 17 (one colour computed once for a one-coloured quad) or nothing (a faster `std::round`). Tibia.exe's 39 microseconds cannot be split the same way, so the comparison is an inference: both clients do the windows' code and the loop, which leaves the two engines' drawing cost and a couple of microseconds of SDL as the difference. A Vulkan render pass costs about 4 microseconds to open and close here. A gap of 17 microseconds per frame is not something a player can see, and in the game the two clients are equal (0.292 against 0.285 ms standing, in the first batch).
+
 ## Packages (issue #135, November 9, 2026)
 
 `python -I tools/build.py package-windows-x64` (the zip) and `package-linux-x64` (the tarball and AppImage), in a folder without Tibia.exe: only the placeholder pictures (cmake/Package.cmake, notes/decisions.md "#135"). `tools/package_check.py` checks a package; hosted CI's package-windows and package-linux jobs make, check and start them, and keep them as the run's artifacts.
