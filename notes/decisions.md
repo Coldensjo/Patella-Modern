@@ -18295,4 +18295,18 @@ Enumeration on the host, read-only. No program of this issue changed the host's 
 display has exactly one mode (1024x768 at "32 Hz"), so compare_rendering's fullscreen runs do go through
 SDL_SetWindowFullscreenMode but ask for the mode the display already has: no resolution or rate really changes there, and
 another size cannot be asked for (a probe found one list entry; build\logs\issue-152\sandbox-mode-change-probe.log).
-**A real mode change and the return from it on the owner's 240 Hz monitor have not been run.**
+**A real mode change and the return from it on the owner's 240 Hz monitor have not been run.** To try it at the PC: Options,
+Graphics, Fullscreen on with another resolution than the desktop's, then Alt-Tab or back out to windowed, and read Windows' Settings,
+Display, Advanced display: it should say 5120x1440 at 240 Hz again.
+
+### A tool fixed on the way
+
+tools/testserver.py refused every private copy while a server ran from the master (data\\log\\lag.log changes every few seconds),
+though no copy has data\\log. state_changes no longer counts that folder.
+
+### Checks (logs in build\\logs\\issue-152)
+
+Golden 15,739,165 + 1,576,875 = 17,316,040, 0 failures, no compiler warnings on windows-x64, windows-x64-debug, windows-x64-asan,
+linux-x64-gcc, linux-x64-clang; windows-x64-gcc 14/14. Reference compare: every session matches, its fixed mode lists included.
+compare_rendering (windowed and fullscreen, Sandbox, GPU and CPU driver): all scenes identical, the display mode 1024x768x32 before
+and after each run. compare_traffic (Sandbox): no differences. tidy_ci baseline 3, 0 new; banned_calls and clang-format clean.
