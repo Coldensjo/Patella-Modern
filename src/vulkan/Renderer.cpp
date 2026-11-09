@@ -118,8 +118,10 @@ public:
 	}
 	~TDriverFiles()
 	{
-		for (int i = 0; i < 2; i++)
-			Set(Names[i], Saved[i] ? Saved[i]->c_str() : nullptr);
+		for (int i = 0; i < 2; i++) {
+			const std::optional<std::string> &Value = Saved[i];
+			Set(Names[i], Value ? Value->c_str() : nullptr);
+		}
 	}
 	TDriverFiles(const TDriverFiles &) = delete;
 	TDriverFiles &operator=(const TDriverFiles &) = delete;
@@ -132,7 +134,7 @@ private:
 		if (MsvcDupenv(&Value, &Length, Name) != 0 || Value == nullptr)
 			return std::nullopt;
 		std::string Result(Value);
-		std::free(Value);
+		std::free(Value); // NOLINT(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory): MsvcDupenv's copy
 		return Result;
 	}
 	static void Set(const char *Name, const char *Value)
@@ -355,7 +357,7 @@ struct TRenderer::TState {
 
 	// --- buffers ---
 
-	TBuffer CreateBuffer(VkDeviceSize Size, VkBufferUsageFlags Usage, bool Readable) const
+	[[nodiscard]] TBuffer CreateBuffer(VkDeviceSize Size, VkBufferUsageFlags Usage, bool Readable) const
 	{
 		TBuffer Buffer;
 		VkBufferCreateInfo Info{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
@@ -642,7 +644,7 @@ struct TRenderer::TState {
 	{
 		if (Width <= 0 || Height <= 0)
 			throw TVulkanError("an image of " + std::to_string(Width) + "x" + std::to_string(Height));
-		VkImageCreateInfo Info{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+		VkImageCreateInfo Info{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO}; // NOLINT(bugprone-invalid-enum-default-initialization): samples is set below
 		Info.imageType = VK_IMAGE_TYPE_2D;
 		Info.format = ImageFormat;
 		Info.extent = {ToUint(Width), ToUint(Height), 1};
@@ -735,7 +737,7 @@ struct TRenderer::TState {
 
 	VkPipeline Pipeline(VkShaderModule Vertex, VkShaderModule Fragment, bool Blend) const
 	{
-		std::array<VkPipelineShaderStageCreateInfo, 2> Stages{};
+		std::array<VkPipelineShaderStageCreateInfo, 2> Stages{}; // NOLINT(bugprone-invalid-enum-default-initialization): each stage is set below
 		Stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		Stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
 		Stages[0].module = Vertex;
@@ -765,7 +767,7 @@ struct TRenderer::TState {
 		Raster.cullMode = VK_CULL_MODE_NONE;
 		Raster.frontFace = VK_FRONT_FACE_CLOCKWISE;
 		Raster.lineWidth = 1.0f;
-		VkPipelineMultisampleStateCreateInfo Multisample{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
+		VkPipelineMultisampleStateCreateInfo Multisample{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO}; // NOLINT(bugprone-invalid-enum-default-initialization): rasterizationSamples is set on the next line
 		Multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 		// surfaceDX9.cpp: D3DRS_SRCBLEND D3DBLEND_SRCALPHA, D3DRS_DESTBLEND D3DBLEND_INVSRCALPHA, for
 		// alpha too (no separate alpha blend).

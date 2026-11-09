@@ -95,7 +95,7 @@ bool IsVulkanInstalled()
 
 TSurface *CreateSurfaceVulkan(patella::platform::TSurfaceShared &Shared)
 {
-	return new TSurfaceVulkan(Shared);
+	return new TSurfaceVulkan(Shared); // NOLINT(cppcoreguidelines-owning-memory): the factory of the engine selection, which owns the surface (Surface.cpp)
 }
 
 // The name of the device the engine runs on (DeviceSettings.h; the advanced options show it).
@@ -572,7 +572,7 @@ void TSurfaceVulkan::ResetDisplay(int VMode, TFullscreenMode *GMode)
 	} catch (const TProgramError &Error) {
 		try {
 			ExitDisplay();
-		} catch (...) {
+		} catch (...) { // NOLINT(bugprone-empty-catch): the clean-up's own failure must not replace the error thrown on below
 		}
 		throw Error;
 	}
@@ -606,6 +606,8 @@ bool TSurfaceVulkan::Init(patella::platform::TWindowHandle *Window, int VMode, T
 			if (hWindow != *Window)
 				hWindow = *Window;
 			UpdateWindowRect();
+			break;
+		default:
 			break;
 		}
 	} else if (VMode == FULLSCREEN_MODE) {
@@ -652,7 +654,7 @@ int TSurfaceVulkan::GetFullscreenModes(TFullscreenMode **Modes)
 	NumberOfModes = (int)Found.size();
 	if (Found.empty())
 		return 0;
-	*Modes = new TFullscreenMode[Found.size()];
+	*Modes = new TFullscreenMode[Found.size()]; // NOLINT(cppcoreguidelines-owning-memory): TSurface's interface: the caller frees the array (delete[])
 	for (size_t i = 0; i < Found.size(); i++)
 		(*Modes)[i] = Found[i];
 	return NumberOfModes;
@@ -939,7 +941,7 @@ void TSurfaceVulkan::InitDisplay(int VMode, TFullscreenMode *GMode)
 			GMode->Depth = Modes[Number - 1].Depth;
 		}
 		if (Modes != nullptr)
-			delete[] Modes;
+			delete[] Modes; // NOLINT(cppcoreguidelines-owning-memory): TSurface's interface, above
 		Width = GMode->Width;
 		Height = GMode->Height;
 		Depth = GMode->Depth;

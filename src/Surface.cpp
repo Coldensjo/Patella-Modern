@@ -72,7 +72,7 @@ TSurface::~TSurface() = default;
 
 // 0x4eabe0. A member (Dialogs.cpp calls it on GetSurface()) that reads only the
 // global (TGraphicsEngine's since issue #116, the engine's shared data since issue #138).
-uint8 TSurface::GetAvailableEngines()
+uint8 TSurface::GetAvailableEngines() // NOLINT(readability-make-member-function-const): the golden corpus's table takes it as a pointer to this non-const member
 {
 	return Shared.AvailableEngines;
 }

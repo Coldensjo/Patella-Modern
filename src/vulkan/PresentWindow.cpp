@@ -5,6 +5,7 @@
 #if defined(_WIN32)
 #include <commctrl.h>
 #else
+#include "compat/win32_types.h"
 #include <SDL3/SDL_video.h>
 #endif
 

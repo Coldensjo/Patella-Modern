@@ -8979,6 +8979,10 @@ they include) report nothing that is not suppressed in the code with its reason,
   | GCC -fanalyzer | -Wanalyzer-use-of-uninitialized-value | platform/FileSystem.h FindNoCase, settings/Settings.cpp HasData to ChooseLocations (since issue #130) | false positive | PATELLA_GCC_DIAGNOSTIC push/ignored/pop around them | the path goes through a std::filesystem::path copy whose string throws length_error, then reads after the throw: the analyzer's exception paths through libstdc++ |
   | clang-tidy | bugprone-std-namespace-modification | compat/msvc.h, PATELLA_MSVC_RAND's `using ::PatellaRand`, `using ::PatellaSrand` in std (the Linux client's only, issue #160) | needed | NOLINT, 2 | the macros rand and srand also rename the std::rand of libstdc++'s own headers (bits/stl_algo.h), which must then find the name in std |
   | clang-tidy | bugprone-macro-parentheses | compat/win32_types.h, DECLARE_HANDLE (Linux only, issue #160) | false positive | NOLINTBEGIN/END | the argument is a declared name and a type (`using Name = Name##__ *`), which parentheses cannot enclose |
+  | clang-tidy | bugprone-throwing-static-initialization | Player.cpp theApp (Linux client's, issue #164) | the original's | NOLINT | the binary's global, constructed before main; as TRSA's above |
+  | clang-tidy | bugprone-empty-catch | Player.cpp FatalError (3), vulkan/SurfaceVulkan.cpp ResetDisplay (issue #164) | needed | NOLINT, 4 | every step of the fatal path is guarded on its own so the box still comes; ResetDisplay's clean-up failure must not replace the error it throws on |
+  | clang-tidy | bugprone-unchecked-string-to-number-conversion | Player.cpp InitInstance, the engine option (issue #164) | the original's | NOLINT | atoi as in the binary; a bad number counts as 0 |
+  | clang-tidy | bugprone-invalid-enum-default-initialization | vulkan/Renderer.cpp, VkImageCreateInfo, the shader stages, VkPipelineMultisampleStateCreateInfo (issue #164) | false positive | NOLINT, 3 | Vulkan's zero-initialised create-info structures; the enum members flagged are assigned on the next lines, before the structure is used |
 
   The GCC pragmas go through compat/msvc.h's new PATELLA_GCC_DIAGNOSTIC (`_Pragma`, GCC only: Clang knows the pragma
   but not the analyzer's warnings); regexp.c is C and includes none of src/'s headers, so it keeps its own
@@ -18580,7 +18584,7 @@ No behaviour changes: the changes are declarations of the same types, a `const`,
 
 ### Not covered, on purpose (medium: the owner's to change)
 
-The other sources of the Linux client stay out of the job, because they also compile on Windows, so fixing their findings is a change of Windows client code, which this issue does not take on: SdlPlatform.cpp, src/vulkan/SurfaceVulkan.cpp, WindowSystemSdl.cpp, DeviceSettings.cpp, and also Renderer.cpp, PresentWindow.cpp, SdlFrame.cpp, Player.cpp, Surface.cpp and the test build's *Win32.cpp. They have Linux branches, which no job analyses. Measured once, with the first three of the src/vulkan files and SdlPlatform.cpp in the database: 21 findings (SdlPlatform.cpp 12; SurfaceVulkan.cpp and .h 6, among them 2 bugprone: bugprone-empty-catch, bugprone-switch-missing-default-case; DeviceSettings.cpp 2; WindowSystemSdl.cpp 1). No src/vulkan source is new in the database; those there (DeviceChoice, FilterMask, Quads, through the unit tests) were there before.
+The other sources of the Linux client stay out of the job, because they also compile on Windows, so fixing their findings is a change of Windows client code, which this issue does not take on: SdlPlatform.cpp, src/vulkan/SurfaceVulkan.cpp, WindowSystemSdl.cpp, DeviceSettings.cpp, and also Renderer.cpp, PresentWindow.cpp, SdlFrame.cpp, Player.cpp, Surface.cpp and the test build's *Win32.cpp. They have Linux branches, which no job analyses. Measured once, with the first three of the src/vulkan files and SdlPlatform.cpp in the database: 21 findings (SdlPlatform.cpp 12; SurfaceVulkan.cpp and .h 6, among them 2 bugprone: bugprone-empty-catch, bugprone-switch-missing-default-case; DeviceSettings.cpp 2; WindowSystemSdl.cpp 1). No src/vulkan source is new in the database; those there (DeviceChoice, FilterMask, Quads, through the unit tests) were there before. Covered since #164 ("#164").
 
 ### Checks
 
@@ -18779,3 +18783,55 @@ Each candidate saves microseconds a player cannot see. A standalone benchmark of
 ### Not measured
 
 Bare metal (the owner's decision: Sandbox only), Tibia.exe's steps, and the x64 client on the CPU driver step by step (#155: 0.063 ms). The measured client is the test build, whose control channel costs 0.7 microsecond a frame that Patella.exe does not have.
+
+## #164: the Linux branches of the sources both systems compile, in the hosted clang-tidy job (Patella-Modern issue #164, M9)
+
+Settled by Claude Opus 5.5, November 9, 2026. Found by #160, which covered the four sources only the Linux client compiles.
+
+### What is covered now (high)
+
+The job's database held every source of the Linux client except these, which reached it only as Windows code: SdlFrame.cpp, Player.cpp, Surface.cpp, platform/SdlPlatform.cpp, vulkan/SurfaceVulkan.cpp, WindowSystemSdl.cpp, DeviceSettings.cpp, Renderer.cpp, PresentWindow.cpp, and the test build's five testmode/*Win32.cpp. All are in now, each with the settings it is compiled with on Linux, through three OBJECT libraries that are EXCLUDE_FROM_ALL and that nothing depends on, so `all`, the client's objects and the reproducible builds do not change:
+
+- `patella_tidy_linux_client` (cmake/LinuxX64.cmake, #160's): the client's settings. Added: the seven client sources.
+- `patella_tidy_linux_test` (new, same file): the client's settings and PATELLA_TEST_MODE. The five *Win32.cpp, and SdlFrame.cpp and LinuxPlatform.cpp again, whose test-mode branches are Linux code.
+- `patella_tidy_linux_render` (new, cmake/Vulkan.cmake): patella_render_vulkan's settings, for Renderer.cpp and PresentWindow.cpp. The job only configures, so the SPIR-V headers the build generates do not exist there; this target includes four stand-ins of the same names, one word each, written at configure into build/.../tidy-shaders. Only clang-tidy reads them. Measured: Renderer.cpp's -D, -I, -isystem, -std and -f flags are the real target's, 21 of 21, except that one include folder. Building glslang in the job instead was the alternative: minutes on every push, for an array's contents the checks do not look at.
+- **The guard.** hosted.yml passes each of those files to `tools/tidy.py --require`, the five as `src/testmode/*Win32.cpp`.
+- **Confirmed analysed** (build/logs/issue-164/canary.log, local; in the image, on a copy): the database lists each file under the target named above, and a line appended to each of the 15 files that returns 0 as a pointer gives one modernize-use-nullptr finding each, plus one more inside `#if defined(PATELLA_TEST_MODE)` for the 7 files of the test target: 22 of 22. The guard's negative cases, a source not in the database (EntryWin32.cpp) and a pattern that matches nothing, each end with exit code 2.
+
+### The findings
+
+Measured with those files in the database: 220 new to the job (223 with the baseline's 3), 14 of them bugprone-*. All are dealt with; **the baseline does not grow** (3 before, 3 after, the same 3), and bugprone-* is at zero.
+
+| Where | Check | Count | Done |
+|---|---|---|---|
+| SdlFrame.cpp, testmode/SdlInputWin32.cpp | misc-include-cleaner (SDL.h's symbols) | 139 + 26 | Fixed: `<SDL3/SDL.h>` is the headers each file uses; SdlInputWin32.cpp also names compat/win32_types.h on Linux |
+| platform/SdlPlatform.cpp, vulkan/WindowSystemSdl.cpp | misc-include-cleaner, SDL_properties.h not used | 2 | Fixed: included under `_WIN32`, the only code that uses it |
+| Player.cpp | misc-include-cleaner | 2 | Fixed: GUI.h for GUI(), in place of MainWindow.h |
+| testmode/ClientStateWin32.cpp | misc-include-cleaner | 4 | MapPoint.h added; `<string_view>` under `_WIN32`, its only user; strnlen NOLINT (POSIX's and the CRT's, in `<string.h>`, which `<cstring>` gives and which is not to be included); MainWindow.h keeps an `// IWYU pragma: keep`: the check calls it unused, but both compilers refuse TMainWindow to TComponent * without the whole class |
+| vulkan/PresentWindow.cpp | misc-include-cleaner, HWND and HDC | 2 | Fixed: compat/win32_types.h in the Linux branch |
+| Player.cpp | bugprone-branch-clone, -switch-missing-default-case | 2 | Fixed: cases 1 and 2 share their branch, `default: break;` (Expected is 0 there) |
+| testmode/SdlInputWin32.cpp | bugprone-branch-clone | 1 | Fixed: on Linux WM_TIMER and WM_CLOSE join the labels of the same branch, under `!defined(_WIN32)` as before |
+| vulkan/SurfaceVulkan.cpp | bugprone-switch-missing-default-case | 1 | Fixed: `default: break;` (ViewMode has only those three values) |
+| vulkan/Renderer.cpp | bugprone-unchecked-optional-access | 1 | Fixed: the optional in a local reference, tested and read through it; the check could not follow `Saved[i]` twice |
+| Player.cpp, testmode/TestModeWin32.cpp | misc-const-correctness | 4 | Fixed: const |
+| Player.cpp | modernize-use-nullptr | 2 | Fixed |
+| vulkan/Renderer.cpp | modernize-use-nodiscard | 1 | Fixed: CreateBuffer |
+| 4 bugprone kinds, 9 findings | see "Static analysis of the core library" | 9 | NOLINT with its reason, a row each in that table |
+| platform/SdlPlatform.cpp | cppcoreguidelines-no-malloc, -owning-memory (SDL_free) | 10 | NOLINT: SDL3 hands out those arrays, as WindowSystemSdl.cpp's was |
+| vulkan/DeviceSettings.cpp, Renderer.cpp | the same two (std::free) | 2 + 2 | NOLINT: MsvcDupenv's copy |
+| platform/SdlPlatform.cpp, ClientStateWin32.cpp, TestModeWin32.cpp | cppcoreguidelines-pro-type-vararg | 1 + 1 + 1 | NOLINT: open(2)'s mode; two snprintf of a number or name into a fixed array |
+| SdlFrame.cpp, TestModeWin32.cpp, vulkan/SurfaceVulkan.cpp | cppcoreguidelines-owning-memory | 1 + 1 + 3 | NOLINT: a block of the message queue; TState is never destroyed; the factory and TSurface's interface (`new` and `delete[]` of the modes, the caller's) |
+| vulkan/SurfaceVulkan.h | cppcoreguidelines-use-enum-class | 1 | NOLINT, an int constant, as platform/Surface.h's |
+| Surface.cpp | readability-make-member-function-const | 1 | NOLINT: tests/golden/dialogs_tests.cpp's table takes `&TSurface::GetAvailableEngines` as a pointer to a non-const member |
+
+No behaviour changes. On Windows the compiled changes are: Player.cpp's merged case and its `default`, one const, SurfaceVulkan.cpp's `default` and Renderer.cpp's local reference and `[[nodiscard]]`, each the same code; the rest is includes and comments, and the Linux-only labels.
+
+### Not covered, on purpose (medium: the owner's to change)
+
+- vulkan/Vma.cpp: the wrapper of a third-party library, compiled in patella_vulkan_deps without warnings; no fork code.
+- The test-mode branches of Creatures.cpp, Inventory.cpp, Map.cpp and Status.cpp are analysed only without PATELLA_TEST_MODE: they are no Linux code, the same on both systems.
+- `header_check_client` and `header_check_test_build` stay out of the database (#131's choice): misc-include-cleaner on the client's headers as main files against the Linux types is not this issue.
+
+### Checks
+
+Logs in build/logs/issue-164 (local). windows-x64 32 of 32 tests, windows-x64-debug 31 of 31, windows-x64-asan 31 of 31, tests_vulkan passing in the three, 0 warnings; windows-x64-gcc 14 of 14; linux-x64-gcc 29 of 29, linux-x64-clang 28 of 28 (ASan and UBSan); golden 15,739,165 + 1,576,875 = 17,316,040, 0 failures, on the five presets that replay it. `tools/reference.py compare` exit 0, every session matches; compare_traffic.py in the Sandbox, no differences; compare_rendering.py in the Sandbox: the first run failed (exit 2) on Tibia.exe's side, tools/client_state.py's walk of the window list reading ReadProcessMemory 0xa at a dialog's scene (no line of this change runs there); run once more, exit 0, all scenes identical, windowed and fullscreen, GPU and CPU driver. tools/linux_live.py exit 0 (login, game login, 4 walks, logout). tidy_ci.py on the code's commit exit 0, 3 findings, 0 new, 0 gone, 0 bugprone-*; banned_calls and clang-format exit 0.

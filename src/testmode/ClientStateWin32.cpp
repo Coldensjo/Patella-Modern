@@ -30,8 +30,9 @@
 #include "Dialogs.h"
 #include "GUI.h"
 #include "Inventory.h"
-#include "MainWindow.h"
+#include "MainWindow.h" // IWYU pragma: keep (TMainWindow to TComponent *: the conversion needs the whole class)
 #include "Map.h"
+#include "MapPoint.h"
 #include "MapWindow.h"
 #include "Objects.h"
 #include "Preferences.h"
@@ -52,7 +53,9 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#if defined(_WIN32)
 #include <string_view>
+#endif
 #include <typeinfo> // IWYU pragma: keep (typeid)
 #include <utility>
 #include <vector>
@@ -75,7 +78,7 @@ constexpr int Siblings = 500;
 // A char[N] or a C string: up to its first NUL within Limit bytes.
 std::string Text(const char *Data, std::size_t Limit)
 {
-	return {Data, strnlen(Data, Limit)};
+	return {Data, strnlen(Data, Limit)}; // NOLINT(misc-include-cleaner): POSIX and the CRT declare it in <string.h>, which <cstring> gives; the C header itself is not to be included
 }
 
 int Byte(const bool &Value)
@@ -120,7 +123,7 @@ TOfferValue Offer(const TOffer &Source)
 [[maybe_unused]] std::string Hex(std::uintptr_t Value)
 {
 	std::array<char, 24> Buffer{};
-	std::snprintf(Buffer.data(), Buffer.size(), "%llx", static_cast<unsigned long long>(Value));
+	std::snprintf(Buffer.data(), Buffer.size(), "%llx", static_cast<unsigned long long>(Value)); // NOLINT(cppcoreguidelines-pro-type-vararg): a number into a fixed buffer
 	return Buffer.data();
 }
 

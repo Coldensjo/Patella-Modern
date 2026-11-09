@@ -25,7 +25,7 @@
 #include "Player.h"
 #include "Control.h"
 #include "Creatures.h"
-#include "MainWindow.h"
+#include "GUI.h"
 #include "graphics.h"
 #include "Network.h"
 #include "Preferences.h"
@@ -126,7 +126,7 @@ void SdlScreenToClient(POINT &Point)
 
 } // namespace
 
-CPlayerApp theApp; // 0x719dc0
+CPlayerApp theApp; // 0x719dc0 // NOLINT(bugprone-throwing-static-initialization): the application object, constructed before main; a failure there ends the program
 
 // 0x4d7cf0
 CPlayerApp::CPlayerApp()
@@ -149,7 +149,7 @@ void CPlayerApp::FatalError(const char *Text, const char *Caption)
 #endif
 	try {
 		ShutdownConnection();
-	} catch (...) {
+	} catch (...) { // NOLINT(bugprone-empty-catch): every step of the fatal path is guarded on its own, and the box still comes
 	}
 	try {
 		// Patella-Modern issue #90: after a failed InitControl (CMainFrame's constructor) there is no main
@@ -159,14 +159,14 @@ void CPlayerApp::FatalError(const char *Text, const char *Caption)
 		// access violation as well) goes on to the box; under /EHsc it does not, so the step is skipped.
 		if (GetViewMode() != 1 && patella::bridge::GUI().MainWindow != nullptr && GetSurface() != nullptr)
 			patella::sdlframe::SetDisplayMode(1); // issue #122: the SDL3 window's
-	} catch (...) {
+	} catch (...) {                               // NOLINT(bugprone-empty-catch): as above
 	}
 	try {
 		// Patella-Modern issue #83: before InitInstance sets m_pMainWnd (a fatal error in its first Redraw: a
 		// failing first present) there is no main window. Tibia.exe calls CWnd::ShowWindow on null there too, and
 		// its catch (...) (MSVC 7.1: an access violation as well) goes on to the box; under /EHsc it does not.
 		patella::sdlframe::Hide(); // issue #122: the SDL3 window's ShowWindow(SW_HIDE)
-	} catch (...) {
+	} catch (...) {                // NOLINT(bugprone-empty-catch): as above
 	}
 	// MessageBoxA with MB_ICONHAND (issue #119: the platform's IWindow).
 	patella::platform::Platform().Window.ShowMessageBox(nullptr, Text, Caption, patella::platform::TMessageBoxIcon::Error);
@@ -179,7 +179,7 @@ void CPlayerApp::FatalError(const char *Text, const char *Caption)
 // 0x4d9140, line 62. Text needs 9 bytes.
 void GetWindowTitle(char *Text)
 {
-	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT(Text != nullptr);
 	for (int i = 0; i < 8; i++)
 		Text[i] = (char)(TitleCode[i] ^ TitleKey[i]);
 	Text[8] = 0;
@@ -188,7 +188,7 @@ void GetWindowTitle(char *Text)
 // 0x4d92b0, line 75. Text needs 12 bytes.
 void GetWindowClassName(char *Text)
 {
-	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT(Text != nullptr);
 	for (int i = 0; i < 11; i++)
 		Text[i] = (char)(ClassNameCode[i] ^ ClassNameKey[i]);
 	Text[11] = 0;
@@ -349,14 +349,14 @@ BOOL CPlayerApp::InitInstance()
 				} else {
 					switch (Expected) {
 					case 1: // host name: not used
-						Expected = 0;
-						break;
 					case 2: // port: not used
 						Expected = 0;
 						break;
 					case 3:
-						patella::bridge::GraphicsEngine().CommandLineEngine = atoi(Token);
+						patella::bridge::GraphicsEngine().CommandLineEngine = atoi(Token); // NOLINT(bugprone-unchecked-string-to-number-conversion): the original's; a bad number counts as 0
 						Expected = 0;
+						break;
+					default:
 						break;
 					}
 				}
@@ -380,7 +380,7 @@ BOOL CPlayerApp::InitInstance()
 // patcher since Patella-Modern issue #75 (decision D9).
 int CPlayerApp::Run()
 {
-	int Result = 0;
+	const int Result = 0;
 	try {
 		try {
 			// Issue #122: the SDL3 window's loop (SdlFrame.cpp), whose end is the end of the program (exit code 0, as

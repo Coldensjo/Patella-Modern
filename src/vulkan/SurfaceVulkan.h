@@ -29,7 +29,7 @@
 #include <cstddef>
 #include <cstdint>
 
-enum : int {
+enum : int { // NOLINT(cppcoreguidelines-use-enum-class): an int constant, as in platform/Surface.h
 	NUMBER_OF_SURFACES_VULKAN = 22
 };
 static_assert(sizeof(decltype(NUMBER_OF_SURFACES_VULKAN)) == 4);

@@ -2237,3 +2237,5 @@ no total. Full build.cmd, November 2, 2026).
   messages must not send a block after a second start (communicationtest.cpp Mutate).
 
 tests_vulkan on GitHub's Windows runner (Patella-Modern issue #163, branch issue-163, November 9, 2026; M9): the runner is elevated, where the Vulkan loader ignores VK_DRIVER_FILES, so the hosted job's ctest runs at medium integrity (`tools/sandbox.py normal-user`) and the `-E` is gone. `Automatic` on a machine with a loader and no system driver now goes on to the CPU driver instead of throwing (Renderer.cpp `Open`, a new tests_vulkan case). notes/decisions.md, "#163".
+
+The Linux branches of the sources both systems compile, in the hosted clang-tidy job (Patella-Modern issue #164, branch issue-164, November 9, 2026; M9): SdlFrame.cpp, Player.cpp, Surface.cpp, SdlPlatform.cpp, SurfaceVulkan.cpp, WindowSystemSdl.cpp, DeviceSettings.cpp, Renderer.cpp, PresentWindow.cpp and the test build's *Win32.cpp are analysed with their Linux settings, and `--require` fails the job if one leaves the database; 220 findings fixed or suppressed with their reasons, the baseline stays at 3, bugprone-* at zero. notes/decisions.md, "#164".

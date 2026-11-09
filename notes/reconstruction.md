@@ -671,8 +671,8 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   file, check and message (not by line, so moved code keeps its entry), for the
   compile commands of linux-x64-clang (the 27 sources of src/ that build on Linux since issue #110: patella_core's, src/testmode's
   and src/vulkan's portable ones, and the headers of src/ they include; since issue #160 also the four sources only the
-  Linux client compiles, src/platform/*Linux*.cpp, whose presence `--require` enforces; the rest of the Linux client's sources
-  are out of the database, notes/decisions.md "#160") with clang-tidy 22.1.8 of the Docker image. `--baseline <file>` fails
+  Linux client compiles, src/platform/*Linux*.cpp, and since issue #164 the sources both systems compile, whose Linux branches
+  nothing else analysed, each with its Linux settings, all of them enforced by `--require`; notes/decisions.md "#160", "#164") with clang-tidy 22.1.8 of the Docker image. `--baseline <file>` fails
   (exit 1) only on a finding that is not in the list, or one more of a kind, and reports the ones that are
   gone; `--write-baseline <file>` writes the list.
   The local check is `tools/tidy_ci.py` (issue #51): it runs the hosted clang-tidy job itself on this machine,

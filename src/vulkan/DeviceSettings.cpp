@@ -42,7 +42,7 @@ std::optional<std::string> Environment(const char *Name)
 	if (MsvcDupenv(&Value, &Length, Name) != 0 || Value == nullptr)
 		return std::nullopt;
 	std::string Result(Value);
-	std::free(Value);
+	std::free(Value); // NOLINT(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory): MsvcDupenv's copy
 	if (Result.empty())
 		return std::nullopt;
 	return Result;
