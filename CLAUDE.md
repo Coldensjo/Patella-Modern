@@ -35,7 +35,7 @@ client, PatellaTest.exe, golden_runner and the unit tests, issue #70; the ASan r
 executable), `windows-x64-gcc` (patella_core and the unit tests with mingw-w64 GCC),
 `linux-x64-gcc` / `linux-x64-clang` (the Linux client `Patella` and its test build `PatellaTest` since issue #131
 (`cmake/LinuxX64.cmake`: SDL3 with its X11 and Wayland drivers, the Vulkan engine, the system's lavapipe; the local Tibia.exe's
-cursors, or neutral ones with `PATELLA_PLACEHOLDER_RESOURCES=1` in the environment where there is no Tibia.exe), patella_core,
+cursors and, since issue #162, its window icon, or neutral ones with `PATELLA_PLACEHOLDER_RESOURCES=1` in the environment where there is no Tibia.exe), patella_core,
 the unit tests and golden_runner with GCC 16 / Clang 22, the latter
 with AddressSanitizer and UBSan; `-debug` for Debug; issue #91: the client's code under test against the Windows
 stand-ins of `tests/golden/linux`), `capture-x86` (only the 32-bit capture DLL `build\capture-x86\Release\patcap.dll`
@@ -76,7 +76,7 @@ The window and event loop (issue #122, M8): SDL 3.4.18, pinned and built by `cma
 The Linux client (issue #131; notes/testmode.md, "The Linux client"; notes/decisions.md, "#131"): the test build replays the
 reference recordings on Linux (`tools/reference.py compare` in the image, its folders mounted with `PATELLA_DOCKER_MOUNTS`),
 and `python -I tools/linux_live.py [--windowed] [--product]` runs the live login and the scripted walk on a private test
-server from the container (host.docker.internal, no firewall change), or the product under Xvfb. The login server and RSA
+server from the container (host.docker.internal, no firewall change), or the product under Xvfb (which also reads the window's `_NET_WM_ICON`, issue #162). The login server and RSA
 modulus come from the environment there (`PATELLA_LOGIN_SERVER`, `PATELLA_RSA_MODULUS`; the test build's only since issue #158, `src/TestHooks.h`: the product reads neither, on either system). Not run yet: Linux hardware
 Vulkan drivers, a real X11 or Wayland desktop. MFC is gone (issue #127): no source includes it and Visual Studio's
 MFC component is not needed; the MFC socket declarations the golden corpus's Network calls are named after are test code

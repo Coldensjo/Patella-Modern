@@ -25,7 +25,7 @@ The checks:
 - the list: exactly the files of EXPECTED, so nothing else can ride along;
 - the placeholders: the client carries the generated pictures (tools/placeholder_resources.py), pinned here by
   SHA-256. Windows: every cursor and icon of the program's resources is the placeholder's, and it has no bitmap.
-  Linux: the placeholder cursor's bytes are in the program. A build with Tibia.exe's pictures fails this, also on
+  Linux: the placeholder cursor's and icon's bytes are in the program. A build with Tibia.exe's pictures fails this, also on
   a machine without Tibia.exe to compare with. Both: the warning text of a placeholder build (src/Player.cpp).
 """
 
@@ -297,6 +297,8 @@ def placeholder_problems(path, data):
 	elif data[:4] == b"\x7fELF":
 		if cursor not in data:
 			found.append("%s: the placeholder cursor's bytes are not in the program" % path)
+		if icon not in data:
+			found.append("%s: the placeholder icon's bytes are not in the program" % path)
 	else:
 		found.append("%s: neither a PE nor an ELF program" % path)
 	return found
@@ -728,8 +730,9 @@ def self_test():
 	wrong_cursor = fake_pe({(RT_CURSOR, 1): b"\x10\0\x10\0real", (RT_CURSOR, 2): cursor, (RT_ICON, 3): icon}, marker=PLACEHOLDER_WARNING)
 	with_bitmap = fake_pe({**good_resources, (RT_BITMAP, 9): b"bitmap"}, marker=PLACEHOLDER_WARNING)
 	no_warning = fake_pe(good_resources)
-	good_elf = fake_elf(cursor + PLACEHOLDER_WARNING)
-	no_cursor_elf = fake_elf(PLACEHOLDER_WARNING)
+	good_elf = fake_elf(cursor + icon + PLACEHOLDER_WARNING)
+	no_cursor_elf = fake_elf(icon + PLACEHOLDER_WARNING)
+	no_icon_elf = fake_elf(cursor + PLACEHOLDER_WARNING)
 	# Files in the data files' formats, made up here (nothing of CipSoft's).
 	spr = struct.pack("<IHIII", 0x12345678, 3, 0, 18, 26) + bytes(30)
 	pic = struct.pack("<IHBBBBB", 0x12345678, 1, 1, 1, 255, 0, 255) + struct.pack("<I", 15) + bytes(10)
@@ -788,6 +791,8 @@ def self_test():
 		expect("a program without the placeholder build's text fails", any("warning text" in p for p in found))
 		found = problems(tar_package(linux_files(exe=no_cursor_elf), "nocursor.tar.gz"))
 		expect("an ELF without the placeholder cursor fails", any("placeholder cursor" in p for p in found))
+		found = problems(tar_package(linux_files(exe=no_icon_elf), "noicon.tar.gz"))
+		expect("an ELF without the placeholder icon fails", any("placeholder icon" in p for p in found))
 		found = problems(zip_package(windows_files(extra={"a.bin": spr}), "spr.zip"))
 		expect("Tibia.spr's format under another name fails", any("format of Tibia.spr" in p for p in found))
 		found = problems(zip_package(windows_files(extra={"b.bin": pic}), "pic.zip"))

@@ -868,6 +868,8 @@ x64 and Linux x64 against the reference recordings; the Vulkan engine passes the
 - The Linux-only client sources in the hosted clang-tidy job.
   Done in #160 (notes/decisions.md, "#160"): src/platform/*Linux*.cpp through the never-built patella_tidy_linux_client, and
   `tools/tidy.py --require`; the findings fixed or suppressed with their reasons, the baseline still 3.
+  Done in #162 (notes/decisions.md, "#162"): the Linux client's window icon through SDL3, from the local Tibia.exe or the
+  placeholder, and tools/package_check.py's Linux marker extended to it.
 
 ---
 

@@ -1,14 +1,14 @@
 # The client of the Linux presets (Patella-Modern issue #131, plan M8; notes/decisions.md, "#131"): the client's sources as
 # on Windows (cmake/WindowsX64.cmake), on the SDL3 window and the Vulkan engine, with the platform layer's Linux files
-# (src/platform/*Linux.cpp) in place of the Win32 ones. No resource compiler: the cursors are built in from the local
-# Tibia.exe's (or the placeholders, tools/embed_cursors.py; the window icon and the MFC-era resources are not used).
+# (src/platform/*Linux.cpp) in place of the Win32 ones. No resource compiler: the cursors and the window icon (issue #162)
+# are built in from the local Tibia.exe's (or the placeholders, tools/embed_cursors.py; the MFC-era resources are not used).
 #
 # The client's code is compiled with PATELLA_CORE (common.h: no Windows headers, as patella_core; the types its platform
 # layer still names come from compat/win32_types.h, PATELLA_WIN32_TYPES), and with MSVC's rand (compat/msvc.h,
 # PATELLA_MSVC_RAND), so the client's random numbers are the ones of a Windows run with the same seed.
 #
 # Tibia.exe (PATELLA_TIBIA_EXE, or the environment's, which tools/build.py sets when it mounts the local copy into the
-# image) is only read for the cursors; without it the configure stops, unless PATELLA_PLACEHOLDER_RESOURCES=ON (the hosted
+# image) is only read for the cursors and the icon; without it the configure stops, unless PATELLA_PLACEHOLDER_RESOURCES=ON (the hosted
 # CI), which refuses where a Tibia.exe is present, as on Windows.
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
@@ -29,7 +29,7 @@ else()
 	set(patella_tibia_exe_default "${PROJECT_SOURCE_DIR}/Tibia.exe")
 endif()
 set(PATELLA_TIBIA_EXE "${patella_tibia_exe_default}" CACHE FILEPATH
-	"The original Tibia.exe: its cursors are built into the Linux client")
+	"The original Tibia.exe: its cursors and icon are built into the Linux client")
 include("${PROJECT_SOURCE_DIR}/cmake/Resources.cmake")
 if(PATELLA_PLACEHOLDER_RESOURCES)
 	foreach(tibia_exe "${PATELLA_TIBIA_EXE}" "${PROJECT_SOURCE_DIR}/Tibia.exe")
@@ -42,7 +42,7 @@ if(PATELLA_PLACEHOLDER_RESOURCES)
 	patella_placeholder_resources("${PATELLA_RES_DIR}")
 else()
 	if(NOT EXISTS "${PATELLA_TIBIA_EXE}")
-		message(FATAL_ERROR "${PATELLA_TIBIA_EXE} is missing: the cursors are taken from it (set PATELLA_TIBIA_EXE, "
+		message(FATAL_ERROR "${PATELLA_TIBIA_EXE} is missing: the cursors and the icon are taken from it (set PATELLA_TIBIA_EXE, "
 			"PATELLA_CLIENT=OFF for only the unit tests, or PATELLA_PLACEHOLDER_RESOURCES=ON on a machine without Tibia.exe)")
 	endif()
 	set(PATELLA_RES_DIR "${PROJECT_BINARY_DIR}/res")
@@ -82,6 +82,7 @@ set(patella_linux_client_sources
 	"${PROJECT_SOURCE_DIR}/src/platform/NetworkLinux.cpp"
 	"${PROJECT_SOURCE_DIR}/src/platform/DataLocationLinux.cpp"
 	"${PROJECT_SOURCE_DIR}/src/platform/EntryLinux.cpp"
+	"${PROJECT_SOURCE_DIR}/src/platform/WindowIconLinux.cpp"
 	"${PROJECT_BINARY_DIR}/EmbeddedCursors.cpp")
 
 # The compile settings of the client's targets and of the header checks (cmake/HeaderCheck.cmake).
