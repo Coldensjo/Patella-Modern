@@ -899,6 +899,12 @@ after #124 and #127): copying an empty text keeps an empty text on the clipboard
 SDL_SetClipboardText("") empties it; src/platform/SdlClipboard.cpp, tests_sdl_clipboard) and an out-of-memory error reports
 "unknown exception occurred" (patella::ThrowTopLevelError, tests_core). notes/decisions.md, "#159".
 
+The Sandbox's two flakes (Patella-Modern issue #161, branch issue-161, November 9, 2026; M9): the helper's login failed on a wrong
+state in the TCP table, the client being in the game after 0.3 s (login now also takes a row to the game port and the player;
+a logout waits for the row to go), and Tibia.exe's "no first frame" was patcap.dll's stale vtable entry (patched again; such a
+start lists a 16-bit mode, so compare_rendering takes one more start at once). A real login failure still fails.
+tools/sandbox_trial.py; notes/decisions.md, "#161".
+
 Reproducible builds, a changelog, a release checklist (Patella-Modern issue #136, branch issue-136, November 9, 2026; M9): two
 Release builds of one commit in different folders give byte-identical Patella.exe and PatellaTest.exe (windows-x64), Patella and
 PatellaTest (linux-x64-gcc, linux-x64-clang): `python -I tools/repro_check.py <preset>`. cmake/Reproducible.cmake, CHANGELOG.md,

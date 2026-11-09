@@ -146,6 +146,7 @@ HRESULTS = {0: "D3D_OK", 1: "not called yet", 0x88760868: "D3DERR_DEVICELOST", 0
 	0x8876086a: "D3DERR_NOTAVAILABLE", 0x8876086c: "D3DERR_INVALIDCALL", 0x8876017c: "D3DERR_OUTOFVIDEOMEMORY",
 	0x88760870: "D3DERR_DEVICEREMOVED", 0x88760874: "D3DERR_DEVICEHUNG", 0x08760873: "S_PRESENT_OCCLUDED",
 	0x80004005: "E_FAIL", 0x8007000e: "E_OUTOFMEMORY"}
+# Issue #161: the start the hook missed (patcap.dll's stale vtable entry, fixed there) was the failure of 4 of 8 first starts.
 # How long Tibia.exe may take from its window to its first frame (patcap.dll's first Present): the device
 # is made at start-up; normally the first frame comes within a second.
 FIRST_FRAME_TIMEOUT = 30
@@ -371,6 +372,21 @@ class TestDriver(sc.Driver):
 	def environment(self):
 		return self.env
 
+	def other_start(self):
+		"""Issue #161: whether this start took the other course patcap.dll logged (the Direct3D 9 object's vtable back at
+		its original slot before the device; seen in Windows Sandbox, at a Sandbox's first start and after a Vulkan run
+		on the GPU, cause unknown). That start works and shows frames, but Tibia.exe then lists a 16-bit display mode that the ordinary
+		start does not (graphics-options: 445 pixels), so the run takes one more start (session_client's retry). A client
+		that always starts that way still fails after START_ATTEMPTS."""
+		if not self.refuse_other_start:
+			return False
+		try:
+			with open(os.path.join(self.run_dir, "patcap.log"), encoding="utf-8", errors="replace") as f:
+				text = f.read()  # the file keeps earlier starts' lines: this process's only
+			return "patching it again" in text[text.rfind("loaded in PID %d" % self.proc.pid):]
+		except OSError:
+			return False
+
 	def advance(self, ms=2000, ticks=20):
 		self.channel.command("advance %d %d" % (ms, ticks), alive=self.alive)
 
@@ -403,6 +419,7 @@ class Driver(sc.Driver):
 	oracle's 32-bit Patella.exe, until issue #94)."""
 
 	manual_clock = True  # patcap's clock: run_session checks a step's condition after its settle (issue #144)
+	refuse_other_start = True  # other_start (issue #161); sandbox_trial.py counts those starts instead
 
 	def __init__(self, *args, env=None, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -458,8 +475,25 @@ class Driver(sc.Driver):
 		facts = self.cap.d3d9()
 		self.log("first frame after %d ms (%s; CreateDevice %s at %d ms)" % (facts["FirstPresentTime"],
 			API_NAMES.get(self.cap.get("Api"), "?"), hresult(facts["DeviceResult"]), facts["DeviceTime"]))
+		if self.other_start():
+			raise sc.SessionError("this start reset the Direct3D 9 object between its engine test and its device (patcap.log: patching it again); such a start lists another set of display modes, the comparison wants the ordinary one")
 		time.sleep(2)
 		self.mem = self.reader()
+
+	def other_start(self):
+		"""Issue #161: whether this start took the other course patcap.dll logged (the Direct3D 9 object's vtable back at
+		its original slot before the device: in Windows Sandbox, the first Direct3D 9 start after the GPU was idle or used
+		by another API). That start works and shows frames, but Tibia.exe then lists a 16-bit display mode that the ordinary
+		start does not (graphics-options: 445 pixels), so the run takes one more start (session_client's retry). A client
+		that always starts that way still fails after START_ATTEMPTS."""
+		if not self.refuse_other_start:
+			return False
+		try:
+			with open(os.path.join(self.run_dir, "patcap.log"), encoding="utf-8", errors="replace") as f:
+				text = f.read()  # the file keeps earlier starts' lines: this process's only
+			return "patching it again" in text[text.rfind("loaded in PID %d" % self.proc.pid):]
+		except OSError:
+			return False
 
 	def advance(self, ms=2000, ticks=20):
 		self.cap.advance(ms, ticks, alive=self.alive)
