@@ -36,7 +36,7 @@ executable), `windows-x64-gcc` (patella_core and the unit tests with mingw-w64 G
 `linux-x64-gcc` / `linux-x64-clang` (the Linux client `Patella` and its test build `PatellaTest` since issue #131
 (`cmake/LinuxX64.cmake`: SDL3 with its X11 and Wayland drivers, the Vulkan engine, the system's lavapipe; the local Tibia.exe's
 cursors and, since issue #162, its window icon, or neutral ones with `PATELLA_PLACEHOLDER_RESOURCES=1` in the environment where there is no Tibia.exe), patella_core,
-the unit tests and golden_runner with GCC 16 / Clang 22, the latter
+the unit tests and golden_runner with GCC 16 / Clang 23, the latter
 with AddressSanitizer and UBSan; `-debug` for Debug; issue #91: the client's code under test against the Windows
 stand-ins of `tests/golden/linux`), `capture-x86` (only the 32-bit capture DLL `build\capture-x86\Release\patcap.dll`
 that the tools load into Tibia.exe, `cmake/Capture.cmake`; no client, no tests; issue #94). There is no 32-bit client
@@ -44,12 +44,12 @@ build: the oracle (the 32-bit Patella.exe, the differential tests, the x86 layou
 Direct3D 9 and OpenGL) left the fork with issue #94, M6; it is in upstream Patella and at the tag `layout-frozen-final`
 (`notes/decisions.md`, issue #94). `import std;` (issue #113, `cmake/ImportStd.cmake`): PATELLA_IMPORT_STD is ON in windows-x64, windows-x64-asan,
 windows-x64-gcc and linux-x64-gcc (CMake's experimental gate, known for CMake 4.1 and 4.4; CMake is 4.4.5 everywhere since issue #141),
-and since issue #121 linux-x64-clang (Clang 22 on GCC 16's libstdc++: the image's Clang configuration files; no
+and since issue #121 linux-x64-clang (Clang 23 on GCC 16's libstdc++: the image's Clang configuration files; no
 fortify for the std module there); its one user is tests_import_std. Every product preset also compiles each header of src/ on its own
 (`cmake/HeaderCheck.cmake`, issue #49: the `header_check_*` object libraries, a generated one-line source per
 header with a target's settings; a new header goes on one of its lists, or the configure fails). On Windows build.py runs the Linux presets in the Docker image
-`patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2-sdl3-mesa25.0.7` (build it once: `docker build -t
-patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2-sdl3-mesa25.0.7 docker/linux-x64`). `python -I tools/build.py --env <preset>
+`patella-modern/linux-x64:gcc16.2-clang23.1-libstdcxx16-cmake4.4.5-ninja1.13.2-sdl3-mesa25.0.7` (build it once: `docker build -t
+patella-modern/linux-x64:gcc16.2-clang23.1-libstdcxx16-cmake4.4.5-ninja1.13.2-sdl3-mesa25.0.7 docker/linux-x64`). `python -I tools/build.py --env <preset>
 <command>` runs another command (`cmake --build --preset ...`, `ctest --preset ...`) in that environment. CMake
 (issue #141): 4.4.5 everywhere; on Windows build.py runs the portable `C:\Servers\Software\cmake` (PATELLA_CMAKE_DIR
 overrides it; `python -I tools/build.py --install-cmake <folder>` installs Kitware's zip, SHA-256 checked), never the
@@ -166,8 +166,8 @@ The packages (issue #135; notes/decisions.md, "#135"): the presets package-windo
 ## Code style
 
 `.clang-format` describes the style of `src/` (tabs; `src/Extern` and `tools/` excluded by
-`.clang-format-ignore`), `.editorconfig` the editor settings. Check with Visual Studio's clang-format
-(`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/types/*.h src/testmode/*.cpp
+`.clang-format-ignore`), `.editorconfig` the editor settings. The clang-format that counts is the image's (the hosted job's; 23.1 since issue #143, notes/decisions.md "#143"): `python -I tools/build.py --env linux-x64-clang bash -c "clang-format --dry-run --Werror <the files below>"`. Visual Studio 18's (22.1.3) agrees with it today; the 2022 Build Tools' (19.1.5) does not, so not that one. The check, with either
+(Visual Studio's is in `VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/types/*.h src/testmode/*.cpp
 src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/settings/*.cpp src/settings/*.h src/log/*.cpp src/log/*.h src/platform/*.cpp src/platform/*.h src/res/resource.h tests/unit/*.cpp tests/vulkan/*.cpp
 tests/golden/*.cpp tests/golden/*.h tests/fuzz/*.cpp tests/fuzz/*.h`.
 The Microsoft CRT's and compiler's own spellings (`_snprintf`, `_stricmp`, `__cdecl`, `#pragma warning`...) go
@@ -207,7 +207,7 @@ compares with a hosted run) and reports exactly what it reports: run it before p
 (issue #51: MSVC's `std::size_t` hides locals from misc-const-correctness). A change that adds a finding
 fixes it or rewrites the baseline in the image: `python -I tools/build.py --env linux-x64-clang bash -c "cmake
 --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --write-baseline
-build/linux-x64-clang/tidy-baseline.tsv --zero bugprone-"`, then copy it to `tools/`. Downloads (issue #153): every pinned download retries a timeout or 5xx with a pause, and stops at once on a 404 or a wrong SHA-256 (tools/build.py's download_verified, docker/linux-x64/fetch.sh, `patella_fetch_declare` of cmake/Download.cmake, which a new pinned archive uses instead of FetchContent_Declare); CMake's zip and tarball fall back to https://cmake.org/files/; `python -I tools/download_selftest.py` shows it against a local server (hosted CI's clang-format job runs it). `.github/workflows/self-hosted.yml` (windows-x64
+build/linux-x64-clang/tidy-baseline.tsv --zero bugprone-"`, then copy it to `tools/`. Downloads (issue #153): every pinned download retries a timeout or 5xx with a pause, and stops at once on a 404 or a wrong SHA-256 (tools/build.py's download_verified, docker/linux-x64/fetch.sh, `patella_fetch_declare` of cmake/Download.cmake, which a new pinned archive uses instead of FetchContent_Declare); CMake's zip and tarball fall back to https://cmake.org/files/; `python -I tools/download_selftest.py` shows it against a local server (hosted CI's clang-format job runs it). The image's LLVM comes from apt.llvm.org (issue #143, docker/linux-x64/llvm-apt.sh: the signing key by SHA-256 and fingerprint, the pattern 1:23.1.*, retried like the downloads): a rolling snapshot of LLVM's release branch, so which snapshot is not fixed (notes/decisions.md, "#143"). `.github/workflows/self-hosted.yml` (windows-x64
 with the frozen golden corpus, capture-x86, the reference compare, the comparisons and testmode_check.py, the Linux
 presets with the corpus; this machine) runs only on push and workflow_dispatch, and only when the repository variable
 `PATELLA_SELF_HOSTED` is `true`. Details: `notes/reconstruction.md`, "Checking".
