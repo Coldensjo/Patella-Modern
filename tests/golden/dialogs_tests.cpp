@@ -2100,6 +2100,45 @@ static void OriginalFrame()
 	ORIGINAL_OR((void)Has, Frame[ORIGINAL] = Has ? (TDialog *)(void *)&OriginalPlaceholder : NULL);
 }
 
+// The Info dialog's text (issue #166, the owner's choice; notes/decisions.md, "#166"): src/Text.h's TextClientVersion
+// is "Patella\nVersion 7.72", two lines where the frozen corpus has the original's five. That is all that may differ,
+// so a check of the Info dialog opens a part of the deliberate difference (golden::BeginDeliberate) only when the text
+// explains its difference, and any other difference in the dialog is still a failure. Three checks can see the text:
+// - the dump: the label's text, full text, count of lines and lines (InfoDumpExplained);
+// - Draw's log: the label's lines, the first two with our words, the last three not printed (InfoLogExplained);
+// - the error round's outcome: a failure injected at one of the original's last fake calls of the creator or of Draw,
+//   which our side, with InfoFewerCalls fewer (two per line), does not reach (InfoOursRanOut, in Both).
+static const char *const InfoIssue = "#166";
+static const int InfoFewerCalls = 6;
+
+static void ReplaceAll(std::string &Text, const std::string &From, const std::string &To)
+{
+	for (size_t Place = Text.find(From); Place != std::string::npos; Place = Text.find(From, Place + To.size()))
+		Text.replace(Place, From.size(), To);
+}
+
+static bool InfoDumpExplained(const std::string &Ours, std::string Original)
+{
+	ReplaceAll(Original, "'Tibia Client' 'Tibia Client\nVersion 7.72 \nCopyright (C) 2002-2006\nCipSoft GmbH\nAll rights reserved.'",
+		"'Patella' 'Patella\nVersion 7.72'");
+	ReplaceAll(Original,
+		" 5 H [0] 'Tibia Client' [13] 'Version 7.72 ' [27] 'Copyright (C) 2002-2006' [51] 'CipSoft GmbH' [64] 'All rights reserved.'",
+		" 2 H [0] 'Patella' [8] 'Version 7.72'");
+	return Original == Ours;
+}
+
+static bool InfoLogExplained(const std::string &Ours, std::string Original)
+{
+	ReplaceAll(Original, ",Tibia Client,", ",Patella,");
+	ReplaceAll(Original, ",Version 7.72 ,", ",Version 7.72,");
+	for (const char *Line : {",Copyright (C) 2002-2006,", ",CipSoft GmbH,", ",All rights reserved.,"})
+		for (size_t Place = Original.find(Line); Place != std::string::npos; Place = Original.find(Line)) {
+			const size_t Start = Original.rfind(';', Place) + 1; // 0 for the log's first entry
+			Original.erase(Start, Original.find(';', Place) - Start + 1);
+		}
+	return Original == Ours;
+}
+
 static void Compare()
 {
 	// The table of blocks does not change between the two dumps.
@@ -2114,10 +2153,16 @@ static void Compare()
 	OutputOriginalLog();
 	if (LogFile != NULL)
 		fprintf(LogFile, "== %s %s\n%s\n%s\n", KindNames[Kind], OperationName, Log[OURS].c_str(), D[OURS].c_str());
+	if (Kind == K_INFO && InfoLogExplained(Log[OURS], Log[ORIGINAL]))
+		golden::BeginDeliberate(InfoIssue);
 	CHECK(Log[OURS] == Log[ORIGINAL], "Dialogs %s (%s): logs differ\n  ours: %s\n  orig: %s", OperationName,
 		KindNames[Kind], Log[OURS].c_str(), Log[ORIGINAL].c_str());
+	golden::EndDeliberate();
+	if (Kind == K_INFO && InfoDumpExplained(D[OURS], D[ORIGINAL]))
+		golden::BeginDeliberate(InfoIssue);
 	CHECK(D[OURS] == D[ORIGINAL], "Dialogs %s (%s): dialogs differ\n  ours: %s\n  orig: %s", OperationName,
 		KindNames[Kind], D[OURS].c_str(), D[ORIGINAL].c_str());
+	golden::EndDeliberate();
 	Log[OURS].clear();
 	Log[ORIGINAL].clear();
 }
@@ -2160,9 +2205,16 @@ template <class Fn> static void Both(Fn Function)
 			Function(ORIGINAL));
 		Ticks = ORIGINAL_VALUE("ticks", int, Ticks); // the original's fake calls (it ran last)
 		OriginalFrame();
+		// What is left of FailAt: the injected failure our side's calls did not reach (issue #166, above).
+		const bool InfoOursRanOut = Kind == K_INFO
+			&& (strcmp(OperationName, "creator") == 0 || strcmp(OperationName, "Draw") == 0) && FailAt >= 1
+			&& FailAt <= InfoFewerCalls && A.Kind == TThrown::NOTHING && B.Kind != TThrown::NOTHING;
 		FailAt = 0;
 		Side = OURS;
+		if (InfoOursRanOut)
+			golden::BeginDeliberate(InfoIssue);
 		DialogsRound->Compare(What, A, B);
+		golden::EndDeliberate();
 		if (A.Kind != TThrown::NOTHING || B.Kind != TThrown::NOTHING) {
 			Threw = true;
 		} else {

@@ -2,7 +2,8 @@
 
 Since issue #127 `src/res/Patella.rc` has only the client's own resources (icon 128, cursors 0x84 and 0x89, the version
 information): MFC's half went with MFC. The tables below describe Tibia.exe's section, which the extractor still reads.
-Without a Tibia.exe (the hosted CI) `-DPATELLA_PLACEHOLDER_RESOURCES=ON` builds with neutral generated pictures
+Since issue #166 (the owner's choice) the version information's strings are the fork's own, so that entry no longer
+matches Tibia.exe's; the numbers are still 7.72. Without a Tibia.exe (the hosted CI) `-DPATELLA_PLACEHOLDER_RESOURCES=ON` builds with neutral generated pictures
 (tools/placeholder_resources.py); that option refuses where a Tibia.exe exists.
 
 Tibia.exe's `.rsrc` section (RVA 0x323000, 0x4520 bytes) holds 55 resource entries in 9 types.

@@ -59,6 +59,8 @@ No version has been released yet. This section is the state of the main branch.
   different letter (#123).
 - The login server and its encryption key can no longer be changed from the program's environment. That exists in the test
   version only (#158).
+- The program's file properties and its Info dialog call it Patella, version 7.72, and no longer name a company or a
+  copyright holder (#166). What the README and NOTICE say about Tibia and its files belonging to CipSoft stays.
 
 ### Safer
 

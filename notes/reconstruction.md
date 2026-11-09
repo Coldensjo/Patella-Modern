@@ -991,8 +991,9 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     "#<issue>")` and `golden::EndDeliberate()`; the runner still runs it and reads its values (its inputs compared as
     everywhere), its checks count, and a difference inside it is the issue's, not a failure. The runner prints each
     issue's checks and differences ("golden: N of the replayed checks in P parts of the deliberate difference #72, D
-    of them differ"). Its one user: network_tests.cpp, from our PrepareNextPacket's throw for a frame bounded by #72
-    to the round's ResetSides (notes/decisions.md, "#72 and #86").
+    of them differ"). Its users: network_tests.cpp, from our PrepareNextPacket's throw for a frame bounded by #72
+    to the round's ResetSides (notes/decisions.md, "#72 and #86"), and since #166 dialogs_tests.cpp, around each check
+    of the Info dialog whose difference its text explains (notes/decisions.md, "#166").
   - Staleness: every file carries the format version (golden::GOLDEN_FORMAT) and the SHA-256 of the Tibia.exe it
     was recorded from, which must be the 7.72 client's; every value carries its name and role, and the
     runner checks each against what the test asks for, each input against the one it generated, and the test's
