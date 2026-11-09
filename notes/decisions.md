@@ -18582,3 +18582,87 @@ On an ELF the placeholder icon's bytes (the RT_ICON DIB, exactly as embedded) mu
 ### Not seen
 
 The icon has not been seen on a real X11 or Wayland desktop. Xvfb has no window manager, so what was proven is the property on the window, not that a desktop draws it. The Wayland path has not run at all.
+
+## #161: the helper's login and Tibia.exe's first frame in Windows Sandbox (Patella-Modern issue #161, M9)
+
+Done by Claude Opus 5.5, November 9, 2026 (branch issue-161, from main 7e03302). Tools only: tools/session_client.py,
+tools/login_client.py, tools/capture/patcap.c, tools/compare_rendering.py, and the new tools/sandbox_trial.py; no change
+in src/. Logs: build\logs\issue-161 (local).
+
+### The helper's login: the TCP table's state, not the login (high)
+
+Measured with `python -I tools/sandbox_trial.py login`: the helper's start, login and game entry in the Sandbox, the TCP
+table read every 20 ms. A login takes 0.30 to 0.36 s from the character's Return (22 logins), against a 10 s limit, so
+neither load nor the limit is the cause. Before the fix 2 of 14 logins failed. In both the helper's game connection had a
+row with the right ports and PID from the first reading, and its state read wrong and stayed wrong for the row's whole
+life: 0 for one, FIN_WAIT1 (6) for 15 s for the other, where tonight's runs had shown CLOSED (1) and LISTEN (2). The
+client meanwhile showed connection state 8 and its player in the game, 5 s later too. The tunnel is not involved: the
+wrong row is the client's own, and the connection worked.
+
+Python's own sockets read correctly in the same Sandbox (500 of 500 ESTABLISHED, both ends), so this is not the reader;
+the wrong state was seen on Tibia.exe's rows in the Sandbox, and has not been seen on the host (#147 on). A listener's row reads 0 on the host and in the Sandbox alike, which is not what this wait reads. Why is not known, and Windows' side of it was not
+looked into. The tunnel's listener's own row flickers between readings too (0, 1, 2, 6).
+
+- **session_client.wait_game_connection** (login's wait, now on its own): the game connection is made when the table says
+  ESTABLISHED, when the proxy has the client's game login (#21), or, new, when the client has a row to the game port (any
+  state) and shows its player in the game. The player exists only after the server's game login answer, so a broken login
+  cannot pass this way. The 10 s stays: the measured time is 30 times shorter.
+- **login_client.wait_connection(present=False)** waits for the row to go, not for "not ESTABLISHED": with a wrong state
+  that read as closed at once, while the connection lived (helper_logout, session_client.logout). `holds_connection` is
+  the new reading.
+
+The proof that a real failure still fails: `sandbox_trial.py login --broken --count 3`, Tibia.exe logging in through a
+proxy that does not listen on its game port (the connection refused): 3 of 3 failed with "no game connection" after 14.5 s
+(the start, the login, the 10 s). `sandbox_trial.py self-test` covers the rest on made-up clients: no row and no player, a
+row without the player (a connection that never got the game answer), the player unreadable, the player without a row (left
+from an earlier session) all fail; a row in a wrong state with the player passes.
+
+### The first frame: a stale hook in patcap.dll (high), and a second kind of start (medium)
+
+In the failing start the client was fine and drawing: its main thread sat in TSurfaceDX9::FinishFrame's wait (Tibia.exe
++0xf05a3, under +0xf0f93), its window answered, frames were being drawn. What was missing was the hook. patcap.log stops
+after the second Direct3DCreate9, without "CreateDevice called (call 2)": the second IDirect3D9 object's vtable, at the
+same address as the first's, had its original CreateDevice slot again, and PatchVtable took the address for already patched
+and left it. No CreateDevice hook means no Present hook, so patcap counted no frame.
+
+- **patcap.c PatchVtable** compares the slot as well: a known vtable whose slot is not the hook is patched again, and the
+  log says so ("is unpatched again"). With it: 12 of 12 first starts showed a frame (3.75 to 4.3 s; before: 3 of 12 failed, 1
+  of this kind), and the re-patch fired in exactly the starts that used to fail.
+- **Why the vtable is back at its original slot** is not known. It is not an unload of d3d9.dll, which was the first
+  explanation (ExitDisplay's FreeLibrary): pinning the module with GET_MODULE_HANDLE_EX_FLAG_PIN changed nothing (still 1 of 12,
+  and both windowed GPU passes), so the pin was taken out. It happened at the first start of every Sandbox, and at the
+  windowed GPU pass's orig-repeat, after a Vulkan run on the GPU; never in the CPU passes or the fullscreen ones.
+- **Such a start is another start** (high). Each one lists "1024x768, 16 Bits" in the graphics options besides the 32-bit
+  mode (2 of 2 in two rendering runs, against 0 of 2 starts without it in the CPU pass), so with the hook fixed
+  compare_rendering failed at graphics-options, 445 pixels. Those starts used to be killed by the 30 s wait and never
+  compared. compare_rendering.Driver.other_start reads this start's own lines of patcap.log and takes the one more start of
+  Driver.start (session_client.START_ATTEMPTS), at once instead of after 30 s; a client that started that way twice still
+  ends the run. No mask was added: Tibia.exe's mode list in the ordinary start stays compared.
+
+### Found, not done
+
+- **A start that is just slow** (medium): in the baseline trial two starts in a row (4 and 5 of 12, about two minutes)
+  showed no TibiaClient window within session_client's 30 s. One made its first Direct3DCreate9 18.3 s after its start, the
+  other had made none by 30 s; the next start took 13 s, and later ones 4.2 to 5.9 s. In login trial 1 two starts in a row
+  failed the same way and ended the run (StartError). Not seen again in later trials. A raised limit was not the fix the issue asks for (normal
+  is 4 to 6 s against 30 s), and the trial's diagnosis of it (added after those failures) has no sample yet: where such a
+  start is stuck is not known. The load of other agents' builds may be the cause (not shown).
+
+### The checks (high)
+
+`python -I tools/sandbox_trial.py ...`, in Windows Sandbox, on the worktree's windows-x64 Release:
+
+| Trial | Result |
+| :--- | :--- |
+| login, before the fix | 2 of 14 failed (wrong state); 1 further stop by the slow start above |
+| login, after | 10 of 10, 2 of them through the new path (states 2 and 1), 0.30-0.36 s |
+| login --broken | 3 of 3 failed as they must, 14.5 s each |
+| frame, before | 3 of 12 failed: start 1 (the hook), 4 and 5 (slow) |
+| frame, re-patch | 12 of 12, 3.75-4.3 s, start 1 re-patched |
+| frame, re-patch and pin | 12 of 12, 4.0-4.8 s, start 1 re-patched (the pin did nothing) |
+| compare_traffic.py, twice | no differences, exit 0, 239 s and 213 s; one login through the new path (state 6) |
+| compare_rendering.py, windowed and fullscreen | all scenes identical, exit 0; two starts retried at once as "another start" |
+
+Ten runs of the whole of compare_traffic did not fit beside #155's Sandbox runs; the trials above stand in for them, as the
+issue's brief allowed. tools' self-tests (sandbox_trial, sandbox, client_start, compare_rendering, compare_files) and
+banned_calls pass.

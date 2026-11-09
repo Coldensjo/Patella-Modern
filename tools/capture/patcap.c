@@ -565,11 +565,20 @@ static void PatchVtable(TPatch *Patches, void *Object, int Index, void *Hook)
 	DWORD Old;
 	int i;
 	for (i = 0; i < MAX_VTABLES; i++)
-		if (Patches[i].Vtable == Vtable)
-			return;
-	for (i = 0; i < MAX_VTABLES; i++)
-		if (Patches[i].Vtable == NULL)
+		if (Patches[i].Vtable == Vtable) {
+			if (Vtable[Index] == Hook)
+				return;
+			/* Issue #161: seen in Windows Sandbox, a start's second Direct3DCreate9 hands out an object whose vtable,
+			   at the same place, has its original slot again (not a reload of d3d9.dll: pinning it changed nothing;
+			   tools/compare_rendering.py takes such a start for another). The entry is stale: the hook goes in again. */
+			Log("the vtable at 0x%lx is unpatched again: patching it again",
+				(unsigned long)(ULONG_PTR)Vtable);
 			break;
+		}
+	if (i == MAX_VTABLES)
+		for (i = 0; i < MAX_VTABLES; i++)
+			if (Patches[i].Vtable == NULL)
+				break;
 	if (i == MAX_VTABLES || Vtable[Index] == Hook)
 		return;
 	Patches[i].Original = Vtable[Index];

@@ -118,11 +118,23 @@ def tcp_connections(pid):
 	return result
 
 
+def holds_connection(pid, port):
+	"""Whether a process has a TCP row to remote port `port`, in any state (issue #161: the state column cannot be
+	relied on; notes/decisions.md, "#161"). The closing side's row leaves the process when it ends (TIME_WAIT rows
+	belong to no process), so a connection that is gone has no row."""
+	return any(remote == port for remote, _ in tcp_connections(pid))
+
+
 def wait_connection(pid, port, present, seconds):
+	"""Until a process's connection to port is established (present) or has no row any more (not present), at most
+	seconds. Issue #161: gone is the row's end, not "not ESTABLISHED": a live connection whose state reads wrong must
+	not count as closed."""
 	deadline = time.time() + seconds
 	while time.time() < deadline:
-		established = (port, 5) in tcp_connections(pid)
-		if established == present:
+		if present:
+			if (port, 5) in tcp_connections(pid):
+				return True
+		elif not holds_connection(pid, port):
 			return True
 		time.sleep(0.2)
 	return False

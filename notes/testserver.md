@@ -324,6 +324,10 @@ started by each of the two ways at once, or from another Windows user's session.
   Sandbox are its own) as on the host, the character list's 127.0.0.1:7172 is right inside too, and the server keeps
   its bind_address 127.0.0.1. No firewall rule on the host (the Sandbox cannot connect to the host: its connections
   to the host's addresses time out); the Sandbox turns its own firewall off for the host's connection.
+- **What a tool may read from the TCP table inside** (issue #161). A row's PID and ports are right, but its state can
+  read wrong for the row's whole life (seen on Tibia.exe's game connection: 0, 1, 2, 6, about one login in seven). So
+  login's wait also takes "a row to the game port and the player in the game", and a logout waits for the row to go.
+  `python -I tools/sandbox_trial.py login|frame` repeats the login and the first start with the table's trace.
 - **The files**: the run's folder (its private server: instance.json and the copy) is mapped read-only at its own
   path (tibia.pem, the map), the copy's data\usr writable (the tools restore the test characters' player files from
   inside); the master is not mapped (issue #146; until then its data\usr was writable). The server's own files are

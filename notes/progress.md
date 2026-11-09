@@ -903,6 +903,12 @@ The Linux-only client sources in the hosted clang-tidy job (Patella-Modern issue
 
 The Linux client's window icon (Patella-Modern issue #162, branch issue-162, November 9, 2026; M9): SDL_SetWindowIcon on Linux only (src/platform/WindowIconLinux.cpp, the portable decoder src/platform/WindowIcon.h), the icon built in by tools/embed_cursors.py from the local Tibia.exe's or the placeholder; tools/package_check.py's Linux marker has the icon too; tools/linux_live.py --product reads `_NET_WM_ICON`. Seen under Xvfb only. notes/decisions.md, "#162".
 
+The Sandbox's two flakes (Patella-Modern issue #161, branch issue-161, November 9, 2026; M9): the helper's login failed on a wrong
+state in the TCP table, the client being in the game after 0.3 s (login now also takes a row to the game port and the player;
+a logout waits for the row to go), and Tibia.exe's "no first frame" was patcap.dll's stale vtable entry (patched again; such a
+start lists a 16-bit mode, so compare_rendering takes one more start at once). A real login failure still fails.
+tools/sandbox_trial.py; notes/decisions.md, "#161".
+
 Reproducible builds, a changelog, a release checklist (Patella-Modern issue #136, branch issue-136, November 9, 2026; M9): two
 Release builds of one commit in different folders give byte-identical Patella.exe and PatellaTest.exe (windows-x64), Patella and
 PatellaTest (linux-x64-gcc, linux-x64-clang): `python -I tools/repro_check.py <preset>`. cmake/Reproducible.cmake, CHANGELOG.md,

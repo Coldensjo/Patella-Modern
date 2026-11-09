@@ -860,6 +860,8 @@ x64 and Linux x64 against the reference recordings; the Vulkan engine passes the
   Done in #135 (notes/decisions.md, "#135"): the presets package-windows-x64 and package-linux-x64 (cmake/Package.cmake),
   only from a build with the placeholder pictures; `tools/package_check.py` proves each package has no CipSoft file, in hosted CI.
 - Reproducible builds, a changelog, a release checklist.
+  Done in #161 (notes/decisions.md, "#161"): the Sandbox's helper login and first-frame failures, found and fixed in the tools;
+  `tools/sandbox_trial.py` repeats them.
   Done in #136 (notes/decisions.md, "#136"): cmake/Reproducible.cmake, `tools/repro_check.py` (two Release builds in different
   folders compared byte for byte: Patella and PatellaTest of windows-x64, linux-x64-gcc and linux-x64-clang are identical; the
   PDBs are not), `CHANGELOG.md`, `notes/release-checklist.md` (with #135's packages step).
