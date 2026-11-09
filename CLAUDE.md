@@ -62,6 +62,7 @@ removed afterwards; the tools never write the master. compare_traffic, compare_f
 start` / `stop` (outside one start refuses; `start --master` is the owner's own); `cleanup` removes a killed run's
 copy (the next run does it too); `checksums --write|--compare FILE` checks the master. Details:
 `notes/reconstruction.md`, "Building", "Test server", "Checking".
+The build-time values (issue #169, `src/BuildConfig.h`, `cmake/BuildConfig.cmake`): the web links, Info's website button, the login servers and port, the RSA modulus, the test server, the site named in texts and the bug report address are `src/BuildConfigDefaults.h`'s, or those of a developer's own copy named by `-DPATELLA_BUILD_CONFIG=<file>`, checked at compile time; a build with its own values shows golden differences, as expected.
 The x64 client's only engine is the Vulkan engine, as engine 2 (issues #19, #20, `notes/vulkan.md`; the original
 engines left with the oracle, #94); its device is the advanced graphics options' choice (issue #31: "Automatic",
 "GPU", "CPU" in the engine buttons' places), stored as `Device` in `Patella.ini` next to Tibia.cfg (the fork's own

@@ -10,6 +10,7 @@
 // part of the source; names.tsv lists it as kind stl.
 
 #include "sysinc.h"
+#include "BuildConfig.h"
 #include "common.h"
 #include "compat/msvc_io.h"
 #include "platform/Platform.h"
@@ -107,6 +108,16 @@ const char *GetErrorText(int Error)
 	}
 }
 
+namespace {
+
+// The last hint names the bug report address (BuildConfig.h, issue #169).
+constexpr const char *BugReportBefore = "Please submit a detailed bugreport including the error code number to ";
+constexpr const char *BugReportAfter = ".";
+constexpr auto BugReportHint = patella::buildconfig::ComposeText<patella::buildconfig::ComposedSize(BugReportBefore,
+	patella::buildconfig::BugReportAddress, BugReportAfter)>(BugReportBefore, patella::buildconfig::BugReportAddress, BugReportAfter);
+
+} // namespace
+
 // 0x4fcc90. What to do about it.
 const char *GetErrorHint(int Error)
 {
@@ -135,7 +146,7 @@ const char *GetErrorHint(int Error)
 	case 18:
 		return "Please choose another video graphics mode.";
 	default:
-		return "Please submit a detailed bugreport including the error code number to cip@tibia.com.";
+		return BugReportHint.data();
 	}
 }
 

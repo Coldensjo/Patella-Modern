@@ -330,3 +330,12 @@ The project now produces a Windows zip, a Linux tarball and a Linux AppImage. Th
 parts: never any of CipSoft's files, and neutral placeholder pictures instead of the original cursors and icon. You point the
 program at your own game data. *Why it matters:* the client can be handed to someone as one download; a build refuses to be
 packaged with the original pictures, and an automatic check proves every package is clean before it is kept.
+
+**One file for everything a server operator changes (#169).**
+The web links, the Info dialog's website button, the login servers, the encryption key, the test server, the site named in
+the texts and the bug report address were spread over seven source files. They are now one header with today's values as
+its defaults. Someone building the client for their own server copies that file, changes the values, and points the build
+at the copy; a value that can't work, such as a web link that would start a program, stops the compile with a message. The
+values are fixed when the program is built, so no setting can change them, and a build that doesn't touch them behaves
+exactly as before. *Why it matters:* a community with its own server has one short file to edit, and updates to the project
+never collide with it.

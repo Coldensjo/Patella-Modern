@@ -158,6 +158,7 @@ add_executable(tests_core
 	core_settings_test.cpp
 	core_preferences_test.cpp
 	core_log_settings_test.cpp
+	core_build_config_test.cpp
 	core_msvc_test.cpp
 	core_errors_test.cpp
 	core_map_point_test.cpp
@@ -175,6 +176,16 @@ patella_target_language(tests_core)
 patella_target_warnings(tests_core)
 patella_target_hardening(tests_core)
 add_test(NAME tests_core COMMAND tests_core)
+
+# Issue #169: tests_build_config_own, a developer's own src/BuildConfigDefaults.h reaching the values the client reads. It
+# compiles BuildConfig.h and Text.h with tests/unit/build_config/own_values.h and links nothing of the client.
+add_executable(tests_build_config_own build_config_own_test.cpp)
+target_include_directories(tests_build_config_own PRIVATE "${PROJECT_SOURCE_DIR}/src" "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(tests_build_config_own PRIVATE doctest::doctest)
+patella_target_language(tests_build_config_own)
+patella_target_warnings(tests_build_config_own)
+patella_target_hardening(tests_build_config_own)
+add_test(NAME tests_build_config_own COMMAND tests_build_config_own)
 
 # Issue #125 (plan M8): tests_platform, the platform layer's portable part (patella_platform, cmake/Core.cmake):
 # TPortableSocket on the loopback interface (platform_socket_test.cpp).

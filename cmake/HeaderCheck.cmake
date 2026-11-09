@@ -30,6 +30,8 @@ include_guard(GLOBAL)
 
 # The portable code (patella_core, cmake/Core.cmake) and what it includes.
 set(PATELLA_HEADERS_CORE
+	BuildConfig.h
+	BuildConfigDefaults.h
 	common.h
 	compat/assertion.h
 	compat/crt71.h

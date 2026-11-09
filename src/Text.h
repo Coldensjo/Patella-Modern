@@ -29,10 +29,13 @@
 // An entry of a copy is at the copy's address plus four times its number.
 // The pointers are not const (the copies are in .data and the code reads
 // them from memory). The texts are the image's, except 97 (the fork's own, the
-// owner's choice, Patella-Modern issue #166) and 116 (below); the header's file
+// owner's choice, Patella-Modern issue #166), 116 (below) and the links 135-144, which are BuildConfig.h's (issue #169;
+// by default the image's); the header's file
 // name and every entry name are ours. Include this header only in .cpp files.
 
 #pragma once
+
+#include "BuildConfig.h" // the web links (issue #169)
 
 // GCC and Clang (the golden runner on Linux, issue #91) warn about every text of the table that a file does not read
 // (-Wunused-variable: internal linkage); each file reads some, as the original's objects do.
@@ -182,30 +185,30 @@ const char *TextHelpChannelWelcome =                                            
 	"you to the best of their knowledge. Keep in mind that this is not a chat channel for "
 	"general conversations. Therefore please limit your statements to relevant questions and "
 	"answers.";
-const char *TextNoPrivateChannelWithYourself = "You cannot set up a private message channel with yourself.";         // 123
-const char *TextNoBugReportRight = "You are not authorised to send bug reports.";                                    // 124
-const char *TextSelectPlayerToTrade = "Select a player to trade with.";                                              // 125
-const char *TextRequestClosed = "Your request has been closed.";                                                     // 126
-const char *TextChannelClosed = "The channel has been closed. You need to re-join the channel if you get invited.";  // 127
-const char *TextNoPlayerName = "No playername given.";                                                               // 128
-const char *TextNoReason = "No reason has been selected.";                                                           // 129
-const char *TextNoAction = "No action has been selected.";                                                           // 130
-const char *TextNoComment = "You must enter a comment.";                                                             // 131
-const char *TextNoStatement = "No statement has been selected.";                                                     // 132
-const char *TextCannotReportStatement = "You cannot report this statement.";                                         // 133
-const char *TextPermanentlyIgnoring = "You are permanently ignoring players.";                                       // 134
-const char *TextTibiaURL = "http://www.tibia.com/";                                                                  // 135
-const char *TextManualURL = "http://www.tibia.com/guide/?subtopic=manual";                                           // 136
-const char *TextFAQURL = "http://www.tibia.com/guide/?subtopic=faq";                                                 // 137
-const char *TextOptionsURL = "http://www.tibia.com/guide/?subtopic=manual&section=options";                          // 138
-const char *TextGraphicsOptionsURL = "http://www.tibia.com/guide/?subtopic=manual&section=options#graphicsoptions";  // 139
-const char *TextAdvancedGraphicsURL = "http://www.tibia.com/guide/?subtopic=manual&section=options#graphicsoptions"; // 140
-const char *TextConsoleOptionsURL = "http://www.tibia.com/guide/?subtopic=manual&section=options#consoleoptions";    // 141
-const char *TextNetworkOptionsURL = "http://www.tibia.com/guide/?subtopic=manual&section=options#networkoptions";    // 142
-const char *TextAccountURL = "http://www.tibia.com/home/?subtopic=account";                                          // 143
-const char *TextSignupURL = "http://www.tibia.com/home/?subtopic=signup";                                            // 144
-const char *TextRuleViolations = "Rule Violations";                                                                  // 145
-const char *TextReportRuleViolation = "Report Rule Violation";                                                       // 146
+const char *TextNoPrivateChannelWithYourself = "You cannot set up a private message channel with yourself.";        // 123
+const char *TextNoBugReportRight = "You are not authorised to send bug reports.";                                   // 124
+const char *TextSelectPlayerToTrade = "Select a player to trade with.";                                             // 125
+const char *TextRequestClosed = "Your request has been closed.";                                                    // 126
+const char *TextChannelClosed = "The channel has been closed. You need to re-join the channel if you get invited."; // 127
+const char *TextNoPlayerName = "No playername given.";                                                              // 128
+const char *TextNoReason = "No reason has been selected.";                                                          // 129
+const char *TextNoAction = "No action has been selected.";                                                          // 130
+const char *TextNoComment = "You must enter a comment.";                                                            // 131
+const char *TextNoStatement = "No statement has been selected.";                                                    // 132
+const char *TextCannotReportStatement = "You cannot report this statement.";                                        // 133
+const char *TextPermanentlyIgnoring = "You are permanently ignoring players.";                                      // 134
+const char *TextTibiaURL = patella::buildconfig::LinkWebsite;                                                       // 135
+const char *TextManualURL = patella::buildconfig::LinkManual;                                                       // 136
+const char *TextFAQURL = patella::buildconfig::LinkFAQ;                                                             // 137
+const char *TextOptionsURL = patella::buildconfig::LinkOptionsHelp;                                                 // 138
+const char *TextGraphicsOptionsURL = patella::buildconfig::LinkGraphicsHelp;                                        // 139
+const char *TextAdvancedGraphicsURL = patella::buildconfig::LinkGraphicsHelp;                                       // 140
+const char *TextConsoleOptionsURL = patella::buildconfig::LinkConsoleHelp;                                          // 141
+const char *TextNetworkOptionsURL = patella::buildconfig::LinkNetworkHelp;                                          // 142
+const char *TextAccountURL = patella::buildconfig::LinkAccount;                                                     // 143
+const char *TextSignupURL = patella::buildconfig::LinkSignup;                                                       // 144
+const char *TextRuleViolations = "Rule Violations";                                                                 // 145
+const char *TextReportRuleViolation = "Report Rule Violation";                                                      // 146
 
 } // namespace
 

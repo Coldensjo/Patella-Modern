@@ -74,6 +74,34 @@ file. The checks that need the CipSoft files (the golden corpus, the reference r
 against the test server) are in `.github/workflows/self-hosted.yml`, for the maintainer's own machine; they never run for
 pull requests. Details: "Checking" in [notes/reconstruction.md](notes/reconstruction.md).
 
+## Building for your own server
+
+If you build the client for your own server, you fix these values when you compile: the web links, the caption of Info's
+website button, the four login servers and their port, the RSA modulus, the test server, the site named in the connection
+errors and the first hint, and the bug report address. They are in one header, `src/BuildConfigDefaults.h`, with today's
+values as its defaults.
+
+1. Copy `src/BuildConfigDefaults.h` somewhere outside the repository, and change the values in your copy. Pulling updates
+   then never conflicts with them.
+2. Configure a build folder with your copy, and build it:
+
+```
+python -I tools/build.py --env windows-x64 cmake --preset windows-x64 -B build/own -DPATELLA_BUILD_CONFIG=C:/your/BuildConfig.h
+python -I tools/build.py --env windows-x64 cmake --build build/own --config Release
+```
+
+A bad value stops the compile with a message that says what is wrong. Links must start with `http://` or `https://`, have
+something after that, and hold no space or control character, because opening a link hands it to the operating system,
+which would otherwise start a program named there. Host names are at most 99 characters, ports 1 to 65535, the modulus 306
+to 309 decimal digits, the caption at most 49 characters (the button is 86 pixels wide, so keep it to about 17), and every
+value is ASCII. There are always four login servers: if you have fewer, repeat one.
+
+The values are fixed in the program: `Patella.ini` and the environment do not change them. They are plain text in the
+program, so someone with a hex editor could still change them; only your server can enforce anything.
+
+If you have the golden corpus, your own values show as golden differences. That is expected: the corpus checks that a build
+with today's values matches the 2006 client.
+
 ## Documents
 
 - [notes/modernization-plan.md](notes/modernization-plan.md): the plan. It covers milestones M0 to M9, the
