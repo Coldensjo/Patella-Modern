@@ -27,7 +27,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <string>
 
 // The data is TNetwork's (Network.h, issue #105), in the original's order with its addresses. The socket is the
 // platform's (issue #109: ISocket, platform/Socket.h; the original's CAsyncSocket class of this file is Win32's
@@ -36,27 +35,6 @@
 patella::TNetwork::TNetwork(TPreferences &PreferencesRef, TNetworkSession &SessionRef, platform::ISocket &SocketsRef)
 	: Preferences(PreferencesRef), Session(SessionRef), Sockets(SocketsRef)
 {
-}
-
-// Not in the original (Patella-Modern issue #131; tools/patch_client.py's job for an ELF the tools cannot patch): the
-// environment's PATELLA_LOGIN_SERVER=<host>[:<port>] replaces every login server (the Linux test build's replays and
-// live runs; plan D8's Patella.ini key is not done yet). Unset: the original list, as before.
-void patella::TNetwork::ApplyLoginServerOverride()
-{
-	const char *const Override = std::getenv("PATELLA_LOGIN_SERVER");
-	if (Override == nullptr || Override[0] == '\0')
-		return;
-	std::string Host(Override);
-	int Port = 7171;
-	const std::string::size_type Colon = Host.rfind(':');
-	if (Colon != std::string::npos) {
-		Port = static_cast<int>(std::strtol(Host.c_str() + Colon + 1, nullptr, 10));
-		Host.resize(Colon);
-	}
-	for (int i = 0; i < NUMBEROFSERVER; i++) {
-		Servers[i].Address.Assign(Host.c_str());
-		Servers[i].Port = Port;
-	}
 }
 
 // 0x4ca0e0
@@ -74,7 +52,7 @@ void patella::TNetwork::InitServerList()
 		Servers[i].Port = 7171;
 		Servers[i].Available = true;
 	}
-	ApplyLoginServerOverride();
+	PATELLA_TEST_LOGIN_SERVERS(*this)
 	CurrentServer = rand() % NUMBEROFSERVER;
 }
 

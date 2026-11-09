@@ -772,6 +772,11 @@ refuses). Shown: compare_traffic or compare_files in the Sandbox and testmode_ch
 servers with game connections at once, both passing; the master's checksums identical after them and after a killed
 run's cleanup. notes/testserver.md, "A private server per run"; notes/decisions.md, "#146".
 
+The login overrides in the test build only (Patella-Modern issue #158, branch issue-158, November 8, 2026; M8):
+PATELLA_LOGIN_SERVER and PATELLA_RSA_MODULUS are hooks of src/TestHooks.h, implemented in src/testmode/TestModeWin32.cpp;
+Patella.exe and the Linux Patella contain neither. Plan D8 settled (no Patella.ini key), D14 corrected (no folder dialog,
+the original's error stays). notes/decisions.md, "#158".
+
 A recording replays wherever it was made (Patella-Modern issue #157, branch issue-157, November 8, 2026; M7): a replay
 (tools/proxy.py, every tool's) names its own game port in a character list, so a compare_traffic recording from a private
 server plays in compare_rendering and compare_network without a hand-edited copy, and 7272 recordings byte for byte.

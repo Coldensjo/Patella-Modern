@@ -115,6 +115,7 @@
 #include "common.h"
 #include "compat/span.h"
 
+#include "Network.h"
 #include "SdlFrame.h"
 #include "testmode/ClientStateWin32.h"
 #include "testmode/Clock.h"
@@ -1056,6 +1057,33 @@ bool InitFails(int Step)
 		return Error == std::errc{} && End == Text.data() + Text.size() ? Parsed : 0;              // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic): the end of the text
 	}();
 	return FailingStep != 0 && Step == FailingStep;
+}
+
+// Issue #131, the test build's only since issue #158 (TestHooks.h): the login server and the RSA key of a run against a
+// private server, where tools/patch_client.py, which patches a PE, cannot reach (the Linux test build's replays and live
+// runs). Unset: the original's.
+void LoginServers(patella::TNetwork &Network)
+{
+	const char *const Override = std::getenv("PATELLA_LOGIN_SERVER"); // NOLINT(concurrency-mt-unsafe): on the client's one thread, at start-up
+	if (Override == nullptr || Override[0] == '\0')
+		return;
+	std::string Host(Override);
+	int Port = 7171;
+	const std::string::size_type Colon = Host.rfind(':');
+	if (Colon != std::string::npos) {
+		Port = static_cast<int>(std::strtol(Host.c_str() + Colon + 1, nullptr, 10));
+		Host.resize(Colon);
+	}
+	for (auto &Server : Network.Servers) {
+		Server.Address.Assign(Host.c_str());
+		Server.Port = Port;
+	}
+}
+
+const char *RsaModulus(const char *Original)
+{
+	const char *const Override = std::getenv("PATELLA_RSA_MODULUS"); // NOLINT(concurrency-mt-unsafe): on the client's one thread, at the login
+	return Override != nullptr && Override[0] != '\0' ? Override : Original;
 }
 
 namespace {
