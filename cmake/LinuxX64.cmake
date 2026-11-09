@@ -103,12 +103,22 @@ endfunction()
 function(patella_client target)
 	add_executable(${target} ${patella_cpp_sources} ${patella_c_sources} ${patella_linux_client_sources} ${ARGN})
 	patella_client_compile_settings(${target})
-	# The client's sources are not in compile_commands.json (tools/tidy.py --all checks every src/ file of the database:
-	# these compile the client's code that the Windows presets' runs check, with the Windows headers).
+	# The client's shared sources are not in compile_commands.json through these two targets (tools/tidy.py --all checks every
+	# src/ file of the database: they compile the client's code that the Windows presets' runs check, with the Windows
+	# headers); the sources only it compiles are, through patella_tidy_linux_client below (issue #160).
 	set_property(TARGET ${target} PROPERTY EXPORT_COMPILE_COMMANDS OFF)
 	target_link_libraries(${target} PRIVATE
 		$<IF:$<TARGET_EXISTS:SDL3::SDL3-static>,SDL3::SDL3-static,SDL3::SDL3> Threads::Threads ${CMAKE_DL_LIBS})
 endfunction()
+
+# The sources only the Linux client compiles (src/platform/*Linux*.cpp) in compile_commands.json for tools/tidy.py (issue
+# #160; notes/decisions.md, "#160"), with the client's settings: the database's only commands for them. Never built (not
+# in `all`, nothing depends on it), so the client, its objects and the reproducible builds are as before; hosted.yml's
+# clang-tidy job fails when one of these files is not in the database (tools/tidy.py --require).
+set(patella_tidy_linux_sources ${patella_linux_client_sources})
+list(FILTER patella_tidy_linux_sources INCLUDE REGEX "/src/platform/[^/]*Linux[^/]*\\.cpp$")
+add_library(patella_tidy_linux_client OBJECT EXCLUDE_FROM_ALL ${patella_tidy_linux_sources})
+patella_client_compile_settings(patella_tidy_linux_client)
 
 get_target_property(patella_testmode_sources patella_testmode SOURCES)
 set(patella_test_build_sources

@@ -20,7 +20,6 @@
 #include <iterator>
 #include <string>
 #include <thread>
-#include <utility>
 #include <vector>
 
 namespace patella::platform {
@@ -50,7 +49,7 @@ std::vector<std::string> &ArgumentList()
 	static std::vector<std::string> &List = *[] {
 		auto *Words = new std::vector<std::string>; // NOLINT(cppcoreguidelines-owning-memory): never destroyed
 		std::ifstream File("/proc/self/cmdline", std::ios::binary);
-		std::string Text((std::istreambuf_iterator<char>(File)), std::istreambuf_iterator<char>());
+		const std::string Text((std::istreambuf_iterator<char>(File)), std::istreambuf_iterator<char>());
 		std::size_t Start = 0;
 		bool First = true;
 		while (Start < Text.size()) {

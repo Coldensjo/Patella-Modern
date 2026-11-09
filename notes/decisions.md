@@ -8977,6 +8977,8 @@ they include) report nothing that is not suppressed in the code with its reason,
   | MSVC /analyze | C6011 (dereferencing NULL 'Player') | Creatures.cpp, TCreatures::CheckMonsterHint (since issue #110) | false positive | PATELLA_MSVC_WARNING(suppress : 6011) on the line | the else branch reads Player only after IsOpponent returned true, which asserts the player creature |
   | MSVC /analyze | C28020 (`_Param_(1)<10`) | Map.cpp, TMap::GetAutomapBlock (since issue #110) | false positive | PATELLA_MSVC_WARNING(suppress : 28020) on the return | the cache list links all AUTOMAP_BLOCKS entries (InitMap), so Position is one of them; the analysis takes LeastRecentBlock as any int |
   | GCC -fanalyzer | -Wanalyzer-use-of-uninitialized-value | platform/FileSystem.h FindNoCase, settings/Settings.cpp HasData to ChooseLocations (since issue #130) | false positive | PATELLA_GCC_DIAGNOSTIC push/ignored/pop around them | the path goes through a std::filesystem::path copy whose string throws length_error, then reads after the throw: the analyzer's exception paths through libstdc++ |
+  | clang-tidy | bugprone-std-namespace-modification | compat/msvc.h, PATELLA_MSVC_RAND's `using ::PatellaRand`, `using ::PatellaSrand` in std (the Linux client's only, issue #160) | needed | NOLINT, 2 | the macros rand and srand also rename the std::rand of libstdc++'s own headers (bits/stl_algo.h), which must then find the name in std |
+  | clang-tidy | bugprone-macro-parentheses | compat/win32_types.h, DECLARE_HANDLE (Linux only, issue #160) | false positive | NOLINTBEGIN/END | the argument is a declared name and a type (`using Name = Name##__ *`), which parentheses cannot enclose |
 
   The GCC pragmas go through compat/msvc.h's new PATELLA_GCC_DIAGNOSTIC (`_Pragma`, GCC only: Clang knows the pragma
   but not the analyzer's warnings); regexp.c is C and includes none of src/'s headers, so it keeps its own
@@ -18546,3 +18548,40 @@ On the CPU driver the rest is 0.05 to 0.06 per frame, higher only because that d
 
 The title screen's work before Present, median of 5 runs (Sandbox numbers), the same runs as the counts: before the change the x64 client 0.062 ms on the GPU (0.062-0.068) and 0.063 ms on the CPU driver (0.054-0.066), Tibia.exe 0.041 ms (0.040-0.053); after it 0.058 ms on the GPU (0.058-0.059) and 0.060 ms on the CPU driver (0.056-0.084), Tibia.exe 0.041 ms (0.041-0.042). So the eight allocations were worth about 0.004 ms; about 0.017 ms of the 0.02 ms stays, 1.41 times Tibia.exe's, the spreads apart. #156 is not touched here.
 
+
+## #160: the Linux-only client sources in the hosted clang-tidy job (Patella-Modern issue #160, M9)
+
+Settled by Claude Opus 5.5, November 9, 2026.
+
+### What is covered now
+
+Exactly the four sources that only the Linux client compiles: src/platform/DataLocationLinux.cpp, EntryLinux.cpp, LinuxPlatform.cpp, NetworkLinux.cpp. Every other source of the list `patella_linux_client_sources` also compiles on Windows.
+
+- **How** (high). They were absent because cmake/LinuxX64.cmake sets EXPORT_COMPILE_COMMANDS OFF on the two client targets. `patella_tidy_linux_client`, an OBJECT library, EXCLUDE_FROM_ALL, takes those four out of that list by a regular expression, with `patella_client_compile_settings` (the client's definitions, PATELLA_WIN32_TYPES among them). Nothing depends on it, so `all` never builds it: the client, its objects and the reproducible builds do not change.
+- **The guard** (high). `tools/tidy.py --require <glob>`: exit code 2, before any analysis, when a file the glob matches is not in the compile database, or the glob matches no file. The job passes `src/platform/*Linux*.cpp`.
+- **Confirmed analysed, each of the four.** In the image on a fresh copy of the commit (build/logs/issue-160/canary.log, local): the database lists each of them under patella_tidy_linux_client, and a line appended to each file that returns 0 as a pointer gives one modernize-use-nullptr finding in each, 4 in all. So each file is really parsed, to its end. The first version of this change used the pattern `*Linux.cpp`, which does not match LinuxPlatform.cpp; that same canary run showed it, with only 3 findings, and both the target's expression and the guard were corrected.
+- **The guard, its negative cases** (same log): a source that is not in the database (SdlPlatform.cpp) and a pattern that matches nothing each end with exit code 2.
+
+### The findings
+
+Measured with the four files in the database: 35 findings new to the job, in those files and the Linux-only parts of two headers they reach. All are dealt with; **the baseline does not grow** (3 before, 3 after, the same 3).
+
+| Where | Check | Count | Done |
+|---|---|---|---|
+| compat/win32_types.h | modernize-use-using | 28 | Fixed: the 10 `typedef struct` declarations are now a struct and `using` aliases. The header refuses _WIN32, so Windows does not compile it |
+| compat/win32_types.h | bugprone-macro-parentheses | 1 | NOLINT, false positive (table in "Static analysis of the core library") |
+| compat/msvc.h | bugprone-std-namespace-modification | 2 | NOLINT, needed (same table). The block is `#if defined(PATELLA_MSVC_RAND) && !defined(_WIN32)` |
+| platform/DataLocationLinux.cpp | misc-include-cleaner, `<vector>` not used | 1 | Fixed: removed |
+| platform/LinuxPlatform.cpp | misc-include-cleaner, `<utility>` not used | 1 | Fixed: removed |
+| platform/LinuxPlatform.cpp | misc-const-correctness, `Text` | 1 | Fixed: const |
+| platform/EntryLinux.cpp | misc-include-cleaner, SIGPIPE | 1 | NOLINT: `<csignal>` provides it on POSIX, and only glibc's internal `<bits/signum-arch.h>` names it, which is not to be included |
+
+No behaviour changes: the changes are declarations of the same types, a `const`, unused includes and comments. Windows compiles none of the changed lines (msvc.h's are inside the `!defined(_WIN32)` block).
+
+### Not covered, on purpose (medium: the owner's to change)
+
+The other sources of the Linux client stay out of the job, because they also compile on Windows, so fixing their findings is a change of Windows client code, which this issue does not take on: SdlPlatform.cpp, src/vulkan/SurfaceVulkan.cpp, WindowSystemSdl.cpp, DeviceSettings.cpp, and also Renderer.cpp, PresentWindow.cpp, SdlFrame.cpp, Player.cpp, Surface.cpp and the test build's *Win32.cpp. They have Linux branches, which no job analyses. Measured once, with the first three of the src/vulkan files and SdlPlatform.cpp in the database: 21 findings (SdlPlatform.cpp 12; SurfaceVulkan.cpp and .h 6, among them 2 bugprone: bugprone-empty-catch, bugprone-switch-missing-default-case; DeviceSettings.cpp 2; WindowSystemSdl.cpp 1). No src/vulkan source is new in the database; those there (DeviceChoice, FilterMask, Quads, through the unit tests) were there before.
+
+### Checks
+
+Gates of a tidy and Linux-source change (logs in build/logs/issue-160, local): tidy_ci.py on the code's commit, exit 0, 3 findings, 0 new, 0 gone, 0 bugprone-*; linux-x64-gcc (29 tests) and linux-x64-clang (28 tests, ASan and UBSan), `--fresh`, exit 0, golden 15,739,165 + 1,576,875 = 17,316,040, 0 failures; tools/linux_live.py headless on a private server, exit 0 (login, game login, 4 walks, logout); banned_calls. No Windows build or Sandbox comparison: no line Windows compiles changed.
