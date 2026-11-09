@@ -18535,18 +18535,18 @@ So the lead in the issue (`TSurfaceVulkan::WriteImage`'s vector) was not it: `Wr
 
 ### What remains (high)
 
-After the change the heap calls of the x64 client are at Tibia.exe's level: on the GPU 0.00 on the title screen, 0.004 standing, 0.007 walking; Tibia.exe's 0.00, 0.002, 0.004. None of the rest happens every frame, and none is removable without changing what it does (the same recording on the fixed build, each under 0.004 per frame):
+After the change the heap calls of the x64 client are at Tibia.exe's level: on the GPU 0.00 on the title screen, 0.005 standing, 0.007 walking; Tibia.exe's 0.00, 0.003, 0.004 (notes/progress.md, on the merged code). None of the rest happens every frame, and none is removable without changing what it does (the same recording on the fixed build, each under 0.004 per frame):
 
 - A sprite cache miss: `WriteImage` and `WriteMaskedImage`, and `TGraphics::LoadSprite`'s file opening and reading (`TReadBinaryFile`, `Cp1252ToWide` for the file name). They come with new sprites on the screen.
 - The test build only, not in Patella.exe: the packet log (PacketLog.cpp), the control channel (TestModeWin32.cpp) and its dumps.
 - One-off growth: the first frames, and a batch larger than any before it (`QuadVertices`, `QuadSamplers`); then none.
 - Not counted by this measurement, in either client: what the Vulkan driver, Direct3D 9, SDL's own allocator and the system's DLLs allocate.
 
-On the CPU driver the rest is 0.05 to 0.06 per frame, higher only because that device has about a tenth of the frames: the same calls per second.
+On the CPU driver the rest is 0.03 to 0.06 per frame, higher only because that device has about a tenth of the frames: the same calls per second.
 
 ### #156's figure (for the owner's decision)
 
-The title screen's work before Present, median of 5 runs (Sandbox numbers), the same runs as the counts: before the change the x64 client 0.062 ms on the GPU (0.062-0.068) and 0.063 ms on the CPU driver (0.054-0.066), Tibia.exe 0.041 ms (0.040-0.053); after it 0.058 ms on the GPU (0.058-0.059) and 0.060 ms on the CPU driver (0.056-0.084), Tibia.exe 0.041 ms (0.041-0.042). So the eight allocations were worth about 0.004 ms; about 0.017 ms of the 0.02 ms stays, 1.41 times Tibia.exe's, the spreads apart. #156 is not touched here.
+The title screen's work before Present, median of 5 runs (Sandbox numbers), the same runs as the counts, on the merged code with #136's Release flags, "before" with the fix reverted: before the change the x64 client 0.060 ms on the GPU (0.059-0.064) and 0.067 ms on the CPU driver (0.066-0.076), Tibia.exe 0.040 ms (0.039-0.040); after it 0.058 ms on the GPU (0.057-0.083) and 0.063 ms on the CPU driver (0.058-0.066), Tibia.exe 0.041 ms (0.040-0.070). The eight allocations were worth about 0.002 ms; the rest of the gap, 0.017 ms, stays (1.41 times Tibia.exe's). The spreads overlap only because of one slow Tibia.exe run (0.070 ms): its other four are at most 0.041 ms, and the x64 client's lowest is 0.057 ms. #156 is not touched here.
 
 
 ## #160: the Linux-only client sources in the hosted clang-tidy job (Patella-Modern issue #160, M9)
